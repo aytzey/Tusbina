@@ -87,9 +87,9 @@ class Settings(BaseSettings):
     piper_speed_multiplier: float = 1.15
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
-    piper_voice_pitch_semitones_elif: float = 1.4
-    piper_voice_pitch_semitones_ahmet: float = -4.8
-    piper_voice_pitch_semitones_zeynep: float = 5.2
+    piper_voice_pitch_semitones_elif: float = 0.8
+    piper_voice_pitch_semitones_ahmet: float = -3.2
+    piper_voice_pitch_semitones_zeynep: float = 3.5
     piper_synthesize_timeout_sec: int = 180
     piper_synthesize_retries: int = 2
     piper_synthesize_retry_backoff_sec: float = 0.6
@@ -97,18 +97,30 @@ class Settings(BaseSettings):
     piper_prewarm_voices: str = "Elif,Ahmet,Zeynep"
     piper_model_path_elif: str = ""
     piper_model_config_path_elif: str = ""
-    piper_model_url_elif: str = ""
-    piper_model_config_url_elif: str = ""
+    piper_model_url_elif: str = (
+        "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/dfki/tr_TR-dfki-medium.onnx"
+    )
+    piper_model_config_url_elif: str = (
+        "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/dfki/tr_TR-dfki-medium.onnx.json"
+    )
     piper_speaker_id_elif: int = -1
     piper_model_path_ahmet: str = ""
     piper_model_config_path_ahmet: str = ""
-    piper_model_url_ahmet: str = ""
-    piper_model_config_url_ahmet: str = ""
+    piper_model_url_ahmet: str = (
+        "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/fahrettin/tr_TR-fahrettin-medium.onnx"
+    )
+    piper_model_config_url_ahmet: str = (
+        "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/fahrettin/tr_TR-fahrettin-medium.onnx.json"
+    )
     piper_speaker_id_ahmet: int = -1
     piper_model_path_zeynep: str = ""
     piper_model_config_path_zeynep: str = ""
-    piper_model_url_zeynep: str = ""
-    piper_model_config_url_zeynep: str = ""
+    piper_model_url_zeynep: str = (
+        "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/fettah/tr_TR-fettah-medium.onnx"
+    )
+    piper_model_config_url_zeynep: str = (
+        "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/fettah/tr_TR-fettah-medium.onnx.json"
+    )
     piper_speaker_id_zeynep: int = -1
     worker_poll_interval_sec: int = 5
     worker_reap_interval_sec: int = 30
