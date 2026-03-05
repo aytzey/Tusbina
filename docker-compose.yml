@@ -21,6 +21,8 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+      args:
+        APP_GIT_SHA: ${APP_GIT_SHA:-unknown}
     container_name: tusbina-api
     env_file:
       - .env
@@ -38,6 +40,7 @@ services:
       PIPER_SYNTHESIZE_TIMEOUT_SEC: ${PIPER_SYNTHESIZE_TIMEOUT_SEC:-180}
       WORKER_REAP_INTERVAL_SEC: ${WORKER_REAP_INTERVAL_SEC:-30}
       WORKER_STALE_JOB_MAX_AGE_MINUTES: ${WORKER_STALE_JOB_MAX_AGE_MINUTES:-30}
+      APP_GIT_SHA: ${APP_GIT_SHA:-unknown}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -51,6 +54,8 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+      args:
+        APP_GIT_SHA: ${APP_GIT_SHA:-unknown}
     container_name: tusbina-worker
     command: ["python", "-m", "app.worker"]
     env_file:
@@ -69,6 +74,7 @@ services:
       PIPER_SYNTHESIZE_TIMEOUT_SEC: ${PIPER_SYNTHESIZE_TIMEOUT_SEC:-180}
       WORKER_REAP_INTERVAL_SEC: ${WORKER_REAP_INTERVAL_SEC:-30}
       WORKER_STALE_JOB_MAX_AGE_MINUTES: ${WORKER_STALE_JOB_MAX_AGE_MINUTES:-30}
+      APP_GIT_SHA: ${APP_GIT_SHA:-unknown}
     depends_on:
       - postgres
       - redis

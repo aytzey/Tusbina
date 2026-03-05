@@ -11,5 +11,7 @@ def test_health_check() -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["service"] == "tusbina-api"
+    assert isinstance(payload["commit_sha"], str)
+    assert len(payload["commit_sha"]) >= 7
     assert "db_schema_mode" in payload
     assert payload["db_status"] in {"up", "down"}

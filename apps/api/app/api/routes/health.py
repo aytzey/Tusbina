@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from sqlalchemy import text
 
+from app.core.build_info import get_commit_sha
 from app.core.config import settings
 from app.core.database import engine
 
@@ -30,6 +31,7 @@ def health() -> dict[str, str | bool]:
         "status": "ok",
         "service": "tusbina-api",
         "version": "0.2.0",
+        "commit_sha": get_commit_sha(),
         "db_schema_mode": settings.db_schema_mode,
         "db_status": db_status,
         "db_revision": db_revision,
