@@ -28,3 +28,13 @@ def test_piper_synthesize_raises_on_timeout(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="timeout"):
         service.synthesize("TUSBINA timeout testi")
+
+
+def test_voice_profiles_differ_for_mobile_voice_options() -> None:
+    base = PiperTTSService._resolve_voice_profile_static("Elif")
+    ahmet = PiperTTSService._resolve_voice_profile_static("Ahmet")
+    zeynep = PiperTTSService._resolve_voice_profile_static("Zeynep")
+
+    assert ahmet.sentence_silence >= base.sentence_silence
+    assert zeynep.sentence_silence <= base.sentence_silence
+    assert zeynep.length_scale <= base.length_scale

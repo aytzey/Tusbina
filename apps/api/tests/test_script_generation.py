@@ -187,3 +187,34 @@ def test_build_part_script_uses_explicit_asset_part_mapping(monkeypatch) -> None
     assert "nefroloji" in lowered
     assert "glomeruler" in lowered
     assert "miyokard" not in lowered
+
+
+def test_build_part_script_dialogue_mode_emits_speaker_lines(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    monkeypatch.setattr(settings, "script_target_max_chars_qa", 500)
+    monkeypatch.setattr(settings, "tts_max_chars_per_part_qa", 500)
+
+    asset = _make_asset(
+        filename="diyalog.txt",
+        content_type="text/plain",
+        content=(
+            b"Hiponatremi degerlendirmesinde serum osmolalite, idrar sodyumu ve volu"
+            b"m durumu birlikte yorumlanir. SIADH ve hipovolemik nedenler ayirici ta"
+            b"nida kritik oneme sahiptir."
+        ),
+        user_id="script-user-dialogue",
+    )
+
+    script = build_part_script(
+        part_title="Hiponatremi Yaklasimi",
+        format_name="qa",
+        voice_name="Diyalog",
+        index=1,
+        total=1,
+        assets=[asset],
+        storage=LocalStorageClient(),
+        dialogue_mode=True,
+    )
+
+    assert "Elif:" in script
+    assert "Ahmet:" in script

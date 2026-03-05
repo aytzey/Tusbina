@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+import re
 import time as _time
 import wave
 from dataclasses import dataclass
@@ -22,7 +23,7 @@ from app.services.script_generation import (
     build_part_script,
 )
 from app.services.storage import StorageClient
-from app.services.tts import TTSService, get_tts_service
+from app.services.tts import TTSResult, TTSService, get_tts_service
 
 logger = logging.getLogger("tusbina-generation")
 
@@ -31,6 +32,16 @@ FORMAT_PART_DURATION_SEC = {
     "summary": 300,
     "qa": 360,
 }
+
+_PLACEHOLDER_SECTION_TITLE_RE = re.compile(
+    r"^(yeni bolum \d+|bolum \d+|bölüm \d+)$",
+    flags=re.IGNORECASE,
+)
+
+_HEADING_KEYWORD_RE = re.compile(
+    r"\b(bolum|bölüm|unit[eé]|unite|konu|baslik|başlık|chapter|section|adim|adım|olgu)\b",
+    flags=re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -152,14 +163,27 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             len(assets),
             {a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets},
         )
+        format_name = str(payload.get("format", "narrative"))
+        selected_voice = str(payload.get("voice", "Elif"))
+        dialogue_mode = _is_dialogue_mode(format_name=format_name, voice_name=selected_voice)
+
         sections = payload.get("sections", [])
         enabled_sections = [section for section in sections if section.get("enabled", True)]
         if sections and not enabled_sections:
             raise ValueError("All sections are disabled")
         section_titles = [section.get("title", "").strip() for section in enabled_sections if section.get("title")]
+        use_auto_plan = not section_titles
+        if section_titles and _sections_look_like_defaults(section_titles=section_titles, assets=assets):
+            use_auto_plan = True
+            _trace_generation(
+                job.id,
+                "part_plan_override_defaults",
+                reason="sections_match_file_defaults",
+                section_count=len(section_titles),
+            )
 
         auto_part_plan: list[_AutoPartPlan] | None = None
-        if section_titles:
+        if not use_auto_plan:
             # If client explicitly sends sections, always honor that exact plan.
             part_titles = section_titles
             _trace_generation(job.id, "part_plan_manual_sections", part_count=len(part_titles))
@@ -167,7 +191,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             auto_part_plan = _build_auto_part_plan(
                 assets=assets,
                 asset_text_cache=asset_text_cache,
-                format_name=str(payload.get("format", "narrative")),
+                format_name=format_name,
             )
             part_titles = [entry.title for entry in auto_part_plan]
             _trace_generation(
@@ -181,7 +205,6 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 f"Part limiti asildi: {len(part_titles)} > {settings.generation_max_parts}"
             )
 
-        format_name = str(payload.get("format", "narrative"))
         default_duration_sec = FORMAT_PART_DURATION_SEC.get(format_name, 420)
         podcast_id = f"pod-{uuid4().hex[:12]}"
         podcast = PodcastModel(
@@ -189,7 +212,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             user_id=job.user_id,
             title=payload.get("title", "Yeni Podcast"),
             source_type="ai",
-            voice=payload.get("voice", "Dr. Arda"),
+            voice=selected_voice,
             format=payload.get("format", "narrative"),
             total_duration_sec=0,
         )
@@ -219,6 +242,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             script = build_part_script(
                 part_title=part_title,
                 format_name=format_name,
+                voice_name=selected_voice,
                 index=index,
                 total=total_parts,
                 assets=assets,
@@ -228,6 +252,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 preferred_asset_id=plan_entry.asset_id if plan_entry else None,
                 source_slice_index=plan_entry.asset_part_index if plan_entry else None,
                 source_slice_total=plan_entry.asset_part_total if plan_entry else None,
+                dialogue_mode=dialogue_mode,
             )
             t_script = _time.monotonic() - t0
             _trace_generation(
@@ -236,6 +261,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 part=index,
                 elapsed_sec=round(t_script, 2),
                 script_chars=len(script),
+                dialogue_mode=dialogue_mode,
             )
             logger.info(
                 "Job %s part %d/%d: script done (%.1fs, %d chars)",
@@ -249,7 +275,12 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             current_stage = f"part_{index}_tts"
             _heartbeat_processing_job(job.id, primary_db=db)
             t1 = _time.monotonic()
-            tts_audio = tts_service.synthesize(script, voice=payload.get("voice"))
+            tts_audio = _synthesize_part_audio(
+                tts_service=tts_service,
+                script=script,
+                selected_voice=selected_voice,
+                dialogue_mode=dialogue_mode,
+            )
             t_tts = _time.monotonic() - t1
             _trace_generation(
                 job.id,
@@ -258,6 +289,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 elapsed_sec=round(t_tts, 2),
                 audio_bytes=len(tts_audio.content),
                 extension=tts_audio.extension,
+                dialogue_mode=dialogue_mode,
             )
             logger.info(
                 "Job %s part %d/%d: TTS done (%.1fs, %d bytes)",
@@ -355,16 +387,22 @@ def _build_auto_part_plan(
         if remaining <= 0:
             break
 
-        text_len = len(asset_text_cache.get(asset.id, ""))
+        source_text = asset_text_cache.get(asset.id, "")
+        text_len = len(source_text)
         chars_per_part = _resolve_auto_chars_per_part(format_name=format_name, text_len=text_len)
         estimated_parts = max(1, (text_len + chars_per_part - 1) // chars_per_part)
-        part_count = min(estimated_parts, remaining)
         base_title = _asset_base_title(asset.filename)
+        heading_titles = _extract_heading_titles(source_text, max_count=min(remaining, max(estimated_parts * 2, 1)))
+        if heading_titles:
+            part_count = min(len(heading_titles), remaining)
+        else:
+            part_count = min(estimated_parts, remaining)
 
         if part_count == 1:
+            title = heading_titles[0] if heading_titles else base_title
             plans.append(
                 _AutoPartPlan(
-                    title=base_title,
+                    title=title,
                     asset_id=asset.id,
                     asset_part_index=1,
                     asset_part_total=1,
@@ -372,9 +410,13 @@ def _build_auto_part_plan(
             )
         else:
             for part_index in range(1, part_count + 1):
+                if part_index <= len(heading_titles):
+                    part_title = heading_titles[part_index - 1]
+                else:
+                    part_title = f"{base_title} - Bolum {part_index}"
                 plans.append(
                     _AutoPartPlan(
-                        title=f"{base_title} - Bolum {part_index}",
+                        title=part_title,
                         asset_id=asset.id,
                         asset_part_index=part_index,
                         asset_part_total=part_count,
@@ -400,6 +442,198 @@ def _build_auto_part_plan(
 def _asset_base_title(filename: str) -> str:
     stem = Path(filename or "").stem.strip()
     return stem or "Yeni Bolum"
+
+
+def _sections_look_like_defaults(*, section_titles: list[str], assets: list[UploadAssetModel]) -> bool:
+    if len(section_titles) != len(assets) or not section_titles:
+        return False
+
+    default_titles = [_normalize_title_for_compare(_asset_base_title(asset.filename)) for asset in assets]
+    normalized_sections = [_normalize_title_for_compare(title) for title in section_titles]
+    all_match_file_names = normalized_sections == default_titles
+    all_placeholder = all(_PLACEHOLDER_SECTION_TITLE_RE.fullmatch(title or "") for title in normalized_sections)
+    return all_match_file_names or all_placeholder
+
+
+def _normalize_title_for_compare(value: str) -> str:
+    value = (value or "").strip().lower()
+    value = re.sub(r"[._-]+", " ", value)
+    value = re.sub(r"\s+", " ", value)
+    return value
+
+
+def _extract_heading_titles(text: str, *, max_count: int) -> list[str]:
+    if not text.strip() or max_count <= 0:
+        return []
+
+    candidates: list[tuple[int, str]] = []
+    for raw_line in text.splitlines():
+        cleaned = _clean_heading_title(raw_line)
+        if not cleaned:
+            continue
+        score = _score_heading_candidate(cleaned)
+        if score <= 0:
+            continue
+        candidates.append((score, cleaned))
+
+    if not candidates:
+        return []
+
+    # Prefer the strongest candidates but keep the source order for listening flow.
+    scored = sorted(enumerate(candidates), key=lambda item: (-item[1][0], item[0]))
+    selected_indexes = sorted(index for index, _ in scored[: max_count * 3])
+
+    selected: list[str] = []
+    seen: set[str] = set()
+    for idx in selected_indexes:
+        title = candidates[idx][1]
+        key = _normalize_title_for_compare(title)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        selected.append(title)
+        if len(selected) >= max_count:
+            break
+
+    return selected
+
+
+def _clean_heading_title(raw_line: str) -> str:
+    value = (raw_line or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r"\s+", " ", value)
+    value = re.sub(r"^[\-•·\s]+", "", value)
+    value = re.sub(r"[\s\-:;,]+$", "", value)
+    return value.strip()
+
+
+def _score_heading_candidate(line: str) -> int:
+    length = len(line)
+    word_count = len(line.split())
+    starts_with_index = bool(re.match(r"^(\d+(\.\d+){0,2}|[IVXLCM]{1,6}|[A-Z])[\)\.\-:\s]+", line))
+    has_keyword = bool(_HEADING_KEYWORD_RE.search(line))
+    if length < 4 or length > 120:
+        return 0
+    if word_count > 16 and not starts_with_index:
+        return 0
+    if line.endswith(".") and word_count > 6 and not starts_with_index:
+        return 0
+    if sum(ch.isdigit() for ch in line) > max(8, length // 3):
+        return 0
+    if line.count(".") >= 3 and line.count(" ") > 8:
+        return 0
+
+    score = 0
+    if has_keyword:
+        score += 5
+    if starts_with_index:
+        score += 4
+    if re.match(r"^[A-ZÇĞİÖŞÜ0-9\s\-:]{4,120}$", line):
+        score += 2
+    if line.endswith(":"):
+        score += 1
+    if 12 <= length <= 72:
+        score += 1
+    if not starts_with_index and not has_keyword and any(ch in line for ch in ".?!"):
+        score -= 2
+    return score
+
+
+def _is_dialogue_mode(*, format_name: str, voice_name: str) -> bool:
+    normalized_voice = (voice_name or "").strip().lower()
+    return "diyalog" in normalized_voice or format_name == "qa"
+
+
+def _synthesize_part_audio(
+    *,
+    tts_service: TTSService,
+    script: str,
+    selected_voice: str,
+    dialogue_mode: bool,
+) -> TTSResult:
+    if not dialogue_mode:
+        return tts_service.synthesize(script, voice=selected_voice)
+
+    turns = _split_dialogue_turns(script)
+    if not turns:
+        return tts_service.synthesize(script, voice=selected_voice)
+
+    audio_turns: list[bytes] = []
+    try:
+        for speaker, text in turns:
+            voice_for_turn = _resolve_dialogue_voice(speaker=speaker, selected_voice=selected_voice)
+            result = tts_service.synthesize(text, voice=voice_for_turn)
+            audio_turns.append(result.content)
+
+        merged = _concat_wav_segments(audio_turns, gap_ms=130)
+        return TTSResult(content=merged, extension="wav", content_type="audio/wav")
+    except Exception as exc:
+        logger.warning("Dialog TTS birlestirme fallback tek sese dondu: %s", exc)
+        return tts_service.synthesize(script, voice=selected_voice)
+
+
+def _split_dialogue_turns(script: str) -> list[tuple[str, str]]:
+    turns: list[tuple[str, str]] = []
+    for raw_line in script.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.match(r"^(Elif|Ahmet|Zeynep|Anlatici|Anlatıcı|Narrator)\s*[:\-]\s*(.+)$", line, flags=re.IGNORECASE)
+        if match:
+            speaker = match.group(1).strip().capitalize()
+            text = match.group(2).strip()
+            if text:
+                turns.append((speaker, text))
+        else:
+            turns.append(("Elif", line))
+    return turns
+
+
+def _resolve_dialogue_voice(*, speaker: str, selected_voice: str) -> str:
+    normalized = speaker.strip().lower()
+    if "ahmet" in normalized:
+        return "Ahmet"
+    if "zeynep" in normalized:
+        return "Zeynep"
+    if "narrator" in normalized or "anlat" in normalized:
+        return "Elif"
+    # Fallback to the selected voice when script has unknown speaker labels.
+    return selected_voice if selected_voice and selected_voice.lower() != "diyalog" else "Elif"
+
+
+def _concat_wav_segments(segments: list[bytes], *, gap_ms: int) -> bytes:
+    if not segments:
+        return b""
+    if len(segments) == 1:
+        return segments[0]
+
+    stream = BytesIO()
+    with wave.open(BytesIO(segments[0]), "rb") as first_reader:
+        params = first_reader.getparams()
+        first_frames = first_reader.readframes(first_reader.getnframes())
+
+    silence_frames = b""
+    if gap_ms > 0:
+        gap_frames = int((params.framerate * gap_ms) / 1000)
+        silence_frames = b"\x00" * gap_frames * params.nchannels * params.sampwidth
+
+    with wave.open(stream, "wb") as writer:
+        writer.setparams(params)
+        writer.writeframes(first_frames)
+        for segment in segments[1:]:
+            with wave.open(BytesIO(segment), "rb") as reader:
+                if (
+                    reader.getnchannels() != params.nchannels
+                    or reader.getsampwidth() != params.sampwidth
+                    or reader.getframerate() != params.framerate
+                ):
+                    raise RuntimeError("Dialog TTS birlestirme hatasi: uyumsuz WAV parametreleri")
+                if silence_frames:
+                    writer.writeframes(silence_frames)
+                writer.writeframes(reader.readframes(reader.getnframes()))
+
+    return stream.getvalue()
 
 
 def _resolve_auto_chars_per_part(*, format_name: str, text_len: int | None = None) -> int:

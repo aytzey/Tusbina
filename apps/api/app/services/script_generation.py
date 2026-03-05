@@ -20,6 +20,7 @@ def build_part_script(
     *,
     part_title: str,
     format_name: str,
+    voice_name: str | None = None,
     index: int,
     total: int,
     assets: list[UploadAssetModel],
@@ -29,6 +30,7 @@ def build_part_script(
     preferred_asset_id: str | None = None,
     source_slice_index: int | None = None,
     source_slice_total: int | None = None,
+    dialogue_mode: bool = False,
 ) -> str:
     source_text = _load_source_text(
         index=index,
@@ -47,9 +49,11 @@ def build_part_script(
         source_text=source_text,
         part_title=part_title,
         format_name=format_name,
+        voice_name=voice_name,
         index=index,
         total=total,
         target_limit=target_limit,
+        dialogue_mode=dialogue_mode,
     )
     if llm_script:
         return llm_script[:target_limit].strip()
@@ -58,9 +62,11 @@ def build_part_script(
         source_text=source_text,
         part_title=part_title,
         format_name=format_name,
+        voice_name=voice_name,
         index=index,
         total=total,
         target_limit=target_limit,
+        dialogue_mode=dialogue_mode,
     )
 
 
@@ -235,8 +241,14 @@ def _extract_text_from_pdf(raw: bytes) -> str:
 
 
 def _normalize_text(text: str) -> str:
-    compact = re.sub(r"\s+", " ", text).strip()
-    return compact
+    if not text:
+        return ""
+    normalized_lines: list[str] = []
+    for raw_line in text.replace("\r", "\n").split("\n"):
+        compact_line = re.sub(r"\s+", " ", raw_line).strip()
+        if compact_line:
+            normalized_lines.append(compact_line)
+    return "\n".join(normalized_lines)
 
 
 def _slice_text_for_part(text: str, *, index: int, total: int, max_chars: int) -> str:
@@ -261,9 +273,11 @@ def _generate_with_openrouter(
     source_text: str,
     part_title: str,
     format_name: str,
+    voice_name: str | None,
     index: int,
     total: int,
     target_limit: int,
+    dialogue_mode: bool,
 ) -> str | None:
     if not settings.openrouter_api_key:
         return None
@@ -271,7 +285,17 @@ def _generate_with_openrouter(
     excerpt = source_text[: settings.script_source_max_chars] or (
         "Kaynak metin cikartilamadi. Baslik ve format bilgisinden tutarli bir bolum metni olustur."
     )
-    style_hint = _format_style_hint(format_name)
+    style_hint = _format_style_hint(
+        format_name=format_name,
+        voice_name=voice_name,
+        dialogue_mode=dialogue_mode,
+    )
+    mode_instructions = (
+        "Yalnizca diyalog satirlari uret. Her satir 'Elif:' veya 'Ahmet:' ile baslasin. "
+        "Maksimum 18-24 satir kullan. Sahne notu, madde imi veya markdown kullanma."
+        if dialogue_mode
+        else "Tek parca, akici bir anlatim metni uret."
+    )
 
     payload = {
         "model": settings.openrouter_model,
@@ -282,7 +306,8 @@ def _generate_with_openrouter(
                 "role": "system",
                 "content": (
                     "You are writing Turkish educational audio scripts for medical students. "
-                    "Output plain text only, no markdown, no lists, no emojis."
+                    "Output plain text only, no markdown, no lists, no emojis. "
+                    "Keep medical accuracy tied to provided source."
                 ),
             },
             {
@@ -291,8 +316,10 @@ def _generate_with_openrouter(
                     f"Bolum: {index}/{total}\n"
                     f"Baslik: {part_title}\n"
                     f"Format: {format_name}\n"
+                    f"Ses Profili: {voice_name or 'varsayilan'}\n"
                     f"Stil: {style_hint}\n"
                     f"Hedef: en fazla {target_limit} karakter.\n"
+                    f"Mod: {mode_instructions}\n"
                     "Kaynak metne sadik kal, halusinasyon yapma, TUS odakli acik ve akici bir metin yaz.\n\n"
                     f"Kaynak:\n{excerpt}"
                 ),
@@ -341,10 +368,21 @@ def _generate_fallback_script(
     source_text: str,
     part_title: str,
     format_name: str,
+    voice_name: str | None,
     index: int,
     total: int,
     target_limit: int,
+    dialogue_mode: bool,
 ) -> str:
+    if dialogue_mode:
+        return _generate_dialogue_fallback_script(
+            source_text=source_text,
+            part_title=part_title,
+            index=index,
+            total=total,
+            target_limit=target_limit,
+        )
+
     intro = f"Bolum {index}. {part_title}. "
     if format_name == "summary":
         bridge = "Hizli tekrar icin kritik noktalar: "
@@ -352,6 +390,9 @@ def _generate_fallback_script(
         bridge = "Soru cevap odaginda temel klinik mantik: "
     else:
         bridge = "Bu bolumde temel kavramlari sistematik sekilde ele aliyoruz: "
+    voice_hint = _voice_fallback_hint(voice_name)
+    if voice_hint:
+        bridge = f"{voice_hint} {bridge}"
 
     outro = f" Bu icerik {total} bolumluk serinin {index}. bolumudur."
     static_len = len(intro) + len(bridge) + len(outro)
@@ -362,6 +403,33 @@ def _generate_fallback_script(
         snippet = "Kaynak metin sinirli oldugu icin bu bolum baslik odakli bir ozet olarak hazirlandi."
 
     text = f"{intro}{bridge}{snippet}{outro}"
+    return text[:target_limit].strip()
+
+
+def _generate_dialogue_fallback_script(
+    *,
+    source_text: str,
+    part_title: str,
+    index: int,
+    total: int,
+    target_limit: int,
+) -> str:
+    summary = _extractive_summary(source_text, max_chars=max(420, target_limit - 220))
+    sentences = [line.strip() for line in re.split(r"(?<=[.!?])\s+", summary) if line.strip()]
+    if not sentences:
+        sentences = [
+            "Bu bolumde temel klinik kavramlari soru-cevap akisiyla netlestiriyoruz.",
+            "Odak noktamiz ayirici tani ve sinavda cikabilecek kritik ipuclari olacak.",
+            "Her adimi once pratik bir soruyla acip sonra kisa bir aciklama ile baglayacagiz.",
+        ]
+
+    turns = [f"Elif: Bolum {index}/{total} - {part_title} icin hizli tekrar basliyor."]
+    for turn_index, sentence in enumerate(sentences[:14], start=1):
+        speaker = "Ahmet" if turn_index % 2 == 0 else "Elif"
+        turns.append(f"{speaker}: {sentence}")
+    turns.append("Ahmet: Bu bolumun sonunda kilit noktalarin tekrarini tamamladik.")
+
+    text = "\n".join(turns)
     return text[:target_limit].strip()
 
 
@@ -395,12 +463,35 @@ def _extractive_summary(text: str, *, max_chars: int) -> str:
     return compact[:max_chars]
 
 
-def _format_style_hint(format_name: str) -> str:
+def _format_style_hint(*, format_name: str, voice_name: str | None, dialogue_mode: bool) -> str:
+    voice_hint = _voice_fallback_hint(voice_name)
+    if dialogue_mode:
+        return (
+            "Iki kisi arasinda dogal soru-cevap akisi kur. Kisa satirlar, net mantik zinciri ve "
+            "sinavda sorulabilecek puf noktalara odaklan."
+        )
     if format_name == "summary":
-        return "Kisa, sinav odakli, tekrari kolay. Gereksiz detay verme."
+        return f"{voice_hint} Kisa, sinav odakli, tekrari kolay. Gereksiz detay verme.".strip()
     if format_name == "qa":
-        return "Soru sorup yanitlayan aciklayici akista, net klinik gerekcelerle ilerle."
-    return "Anlatimsel, akici, temel kavramdan klinik yoruma dogru ilerleyen dogal bir ton kullan."
+        return (
+            f"{voice_hint} Soru sorup yanitlayan aciklayici akista, net klinik gerekcelerle ilerle."
+        ).strip()
+    return (
+        f"{voice_hint} Anlatimsel, akici, temel kavramdan klinik yoruma dogru ilerleyen dogal bir ton kullan."
+    ).strip()
+
+
+def _voice_fallback_hint(voice_name: str | None) -> str:
+    normalized = (voice_name or "").strip().lower()
+    if "zeynep" in normalized:
+        return "Enerjik ama anlasilir bir tempoda ilerle."
+    if "ahmet" in normalized or "arda" in normalized:
+        return "Net, sakin ve akademik bir tonda konus."
+    if "elif" in normalized or "selin" in normalized:
+        return "Samimi ve ogretici bir anlatim kullan."
+    if "diyalog" in normalized:
+        return "Iki kisilik anlatim ritmiyle ilerle."
+    return ""
 
 
 def _resolve_target_limit(*, format_name: str) -> int:

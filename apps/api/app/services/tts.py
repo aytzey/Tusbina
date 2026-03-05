@@ -26,19 +26,29 @@ class TTSResult:
     content_type: str
 
 
+@dataclass
+class _VoiceProfile:
+    length_scale: float
+    noise_scale: float
+    noise_w_scale: float
+    sentence_silence: float
+    volume: float
+    sine_frequency: int = 440
+
+
 class DummyTTSService:
     def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
         payload = text if text.strip() else "Ses icin metin bulunamadi."
         base_duration_sec = min(max(len(payload) // 45, 2), 12)
-        speed_multiplier = max(0.5, settings.piper_speed_multiplier)
-        adjusted_duration = max(1, int(round(base_duration_sec / speed_multiplier)))
+        profile = PiperTTSService._resolve_voice_profile_static(voice)
+        adjusted_duration = max(1, int(round(base_duration_sec * profile.length_scale)))
         logger.warning(
             "TTS_DUMMY_USED voice=%s chars=%d duration_sec=%d",
             voice or "default",
             len(payload),
             adjusted_duration,
         )
-        audio = _build_sine_wav(duration_sec=adjusted_duration)
+        audio = _build_sine_wav(duration_sec=adjusted_duration, frequency=profile.sine_frequency)
         return TTSResult(content=audio, extension="wav", content_type="audio/wav")
 
 
@@ -52,6 +62,7 @@ class PiperTTSService:
         piper_binary = self.ensure_ready()
         safe_text = text.strip() or "Ses uretilmesi icin metin bulunamadi."
         timeout_sec = max(5, int(settings.piper_synthesize_timeout_sec))
+        voice_profile = self._resolve_voice_profile(voice)
         logger.info(
             "TTS_PIPER_SYNTH_START voice=%s chars=%d timeout_sec=%d",
             voice or "default",
@@ -67,26 +78,22 @@ class PiperTTSService:
                 "--output_file",
                 tmp.name,
                 "--length_scale",
-                f"{self._resolve_length_scale(voice):.3f}",
+                f"{voice_profile.length_scale:.3f}",
                 "--noise_scale",
-                f"{self._clamp(settings.piper_noise_scale, min_value=0.0, max_value=2.0):.3f}",
+                f"{voice_profile.noise_scale:.3f}",
                 "--noise_w_scale",
-                f"{self._clamp(settings.piper_noise_w_scale, min_value=0.0, max_value=2.0):.3f}",
+                f"{voice_profile.noise_w_scale:.3f}",
             ]
             if self.config_path.exists():
                 base_cmd.extend(["--config", str(self.config_path)])
-            sentence_silence = self._clamp(
-                settings.piper_sentence_silence,
-                min_value=0.0,
-                max_value=2.0,
-            )
+            sentence_silence = voice_profile.sentence_silence
             if sentence_silence > 0:
                 base_cmd.extend(["--sentence_silence", f"{sentence_silence:.3f}"])
 
             if settings.piper_no_normalize:
                 base_cmd.append("--no-normalize")
 
-            volume = self._clamp(settings.piper_volume, min_value=0.1, max_value=3.0)
+            volume = voice_profile.volume
             if abs(volume - 1.0) > 1e-6:
                 base_cmd.extend(["--volume", f"{volume:.3f}"])
 
@@ -180,18 +187,67 @@ class PiperTTSService:
         return max(min_value, min(max_value, value))
 
     def _resolve_length_scale(self, voice: str | None) -> float:
-        speed_multiplier = self._clamp(settings.piper_speed_multiplier, min_value=0.5, max_value=2.5)
-        voice_name = (voice or "").lower()
-        if "selin" in voice_name:
-            base_scale = self._clamp(settings.piper_voice_selin_length_scale, min_value=0.6, max_value=2.0)
-        elif "arda" in voice_name:
-            base_scale = self._clamp(settings.piper_voice_arda_length_scale, min_value=0.6, max_value=2.0)
-        else:
-            base_scale = self._clamp(settings.piper_length_scale, min_value=0.6, max_value=2.0)
+        base_scale = self._base_length_scale_for_voice(voice)
+        return self._accelerate_length_scale(base_scale)
 
+    def _resolve_voice_profile(self, voice: str | None) -> _VoiceProfile:
+        return self._resolve_voice_profile_static(voice)
+
+    @staticmethod
+    def _resolve_voice_profile_static(voice: str | None) -> _VoiceProfile:
+        base_length = PiperTTSService._base_length_scale_for_voice(voice)
+        length_scale = PiperTTSService._accelerate_length_scale(base_length)
+        noise_scale = PiperTTSService._clamp(settings.piper_noise_scale, min_value=0.0, max_value=2.0)
+        noise_w_scale = PiperTTSService._clamp(settings.piper_noise_w_scale, min_value=0.0, max_value=2.0)
+        sentence_silence = PiperTTSService._clamp(settings.piper_sentence_silence, min_value=0.0, max_value=2.0)
+        volume = PiperTTSService._clamp(settings.piper_volume, min_value=0.1, max_value=3.0)
+        sine_frequency = 440
+
+        voice_name = (voice or "").strip().lower()
+        if "ahmet" in voice_name or "arda" in voice_name:
+            noise_scale = PiperTTSService._clamp(noise_scale * 0.88, min_value=0.0, max_value=2.0)
+            sentence_silence = PiperTTSService._clamp(sentence_silence + 0.04, min_value=0.0, max_value=2.0)
+            sine_frequency = 360
+        elif "zeynep" in voice_name:
+            noise_scale = PiperTTSService._clamp(noise_scale * 1.08, min_value=0.0, max_value=2.0)
+            noise_w_scale = PiperTTSService._clamp(noise_w_scale * 0.95, min_value=0.0, max_value=2.0)
+            sentence_silence = PiperTTSService._clamp(sentence_silence * 0.72, min_value=0.0, max_value=2.0)
+            volume = PiperTTSService._clamp(volume * 1.05, min_value=0.1, max_value=3.0)
+            sine_frequency = 520
+        elif "diyalog" in voice_name:
+            sentence_silence = PiperTTSService._clamp(sentence_silence + 0.05, min_value=0.0, max_value=2.0)
+            sine_frequency = 480
+        elif "elif" in voice_name or "selin" in voice_name:
+            noise_w_scale = PiperTTSService._clamp(noise_w_scale * 1.03, min_value=0.0, max_value=2.0)
+            sine_frequency = 460
+
+        return _VoiceProfile(
+            length_scale=length_scale,
+            noise_scale=noise_scale,
+            noise_w_scale=noise_w_scale,
+            sentence_silence=sentence_silence,
+            volume=volume,
+            sine_frequency=sine_frequency,
+        )
+
+    @staticmethod
+    def _base_length_scale_for_voice(voice: str | None) -> float:
+        voice_name = (voice or "").lower()
+        if "selin" in voice_name or "elif" in voice_name:
+            return PiperTTSService._clamp(settings.piper_voice_selin_length_scale, min_value=0.6, max_value=2.0)
+        if "arda" in voice_name or "ahmet" in voice_name:
+            return PiperTTSService._clamp(settings.piper_voice_arda_length_scale, min_value=0.6, max_value=2.0)
+        if "zeynep" in voice_name:
+            default_scale = PiperTTSService._clamp(settings.piper_length_scale, min_value=0.6, max_value=2.0)
+            return PiperTTSService._clamp(default_scale * 0.92, min_value=0.6, max_value=2.0)
+        return PiperTTSService._clamp(settings.piper_length_scale, min_value=0.6, max_value=2.0)
+
+    @staticmethod
+    def _accelerate_length_scale(base_scale: float) -> float:
+        speed_multiplier = PiperTTSService._clamp(settings.piper_speed_multiplier, min_value=0.5, max_value=2.5)
         # Piper length_scale grows speech duration; divide to increase playback speed.
         accelerated = base_scale / speed_multiplier
-        return self._clamp(accelerated, min_value=0.6, max_value=2.0)
+        return PiperTTSService._clamp(accelerated, min_value=0.6, max_value=2.0)
 
 
 def get_tts_service() -> TTSService:
@@ -218,9 +274,8 @@ def get_tts_service() -> TTSService:
     return DummyTTSService()
 
 
-def _build_sine_wav(duration_sec: int = 2, sample_rate: int = 22050) -> bytes:
+def _build_sine_wav(duration_sec: int = 2, sample_rate: int = 22050, frequency: int = 440) -> bytes:
     total_samples = duration_sec * sample_rate
-    frequency = 440
     amplitude = 16000
 
     stream = BytesIO()

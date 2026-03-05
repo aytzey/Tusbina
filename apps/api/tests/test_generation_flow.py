@@ -7,7 +7,14 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.db.models import UploadAssetModel
 from app.main import app
-from app.services.generation import _build_auto_part_plan, _resolve_auto_chars_per_part, process_next_generation_job
+from app.services.generation import (
+    _build_auto_part_plan,
+    _extract_heading_titles,
+    _is_dialogue_mode,
+    _resolve_auto_chars_per_part,
+    _sections_look_like_defaults,
+    process_next_generation_job,
+)
 from app.services.storage import get_storage_client
 
 client = TestClient(app)
@@ -372,3 +379,52 @@ def test_build_auto_part_plan_keeps_asset_mapping_for_multi_file(monkeypatch) ->
     assert [entry.asset_part_index for entry in second_asset_parts] == list(
         range(1, second_asset_parts[0].asset_part_total + 1)
     )
+
+
+def test_sections_look_like_defaults_detects_filename_seeded_sections() -> None:
+    assets = [
+        UploadAssetModel(
+            id="asset-a",
+            user_id="u-defaults",
+            filename="Kardiyoloji Giriş.pdf",
+            content_type="application/pdf",
+            size_bytes=1,
+            storage_key="asset-a.pdf",
+            public_url="/a.pdf",
+        ),
+        UploadAssetModel(
+            id="asset-b",
+            user_id="u-defaults",
+            filename="Nefroloji Notları.pdf",
+            content_type="application/pdf",
+            size_bytes=1,
+            storage_key="asset-b.pdf",
+            public_url="/b.pdf",
+        ),
+    ]
+    section_titles = ["Kardiyoloji Giriş", "Nefroloji Notları"]
+    assert _sections_look_like_defaults(section_titles=section_titles, assets=assets) is True
+
+
+def test_extract_heading_titles_prefers_structured_lines() -> None:
+    source_text = "\n".join(
+        [
+            "Giriş metni uzun bir açıklama olarak geçer ve başlık değildir.",
+            "1. KARDIYOVASKULER FIZYOLOJI",
+            "Kan basıncı regülasyonu bu satırda detaylıca anlatılır.",
+            "2. HEMODINAMIK PARAMETRELER",
+            "3. VAKA ODAKLI YORUM",
+        ]
+    )
+    headings = _extract_heading_titles(source_text, max_count=3)
+    assert headings == [
+        "1. KARDIYOVASKULER FIZYOLOJI",
+        "2. HEMODINAMIK PARAMETRELER",
+        "3. VAKA ODAKLI YORUM",
+    ]
+
+
+def test_is_dialogue_mode_by_voice_or_format() -> None:
+    assert _is_dialogue_mode(format_name="narrative", voice_name="Diyalog") is True
+    assert _is_dialogue_mode(format_name="qa", voice_name="Elif") is True
+    assert _is_dialogue_mode(format_name="summary", voice_name="Elif") is False
