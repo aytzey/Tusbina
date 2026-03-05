@@ -19,5 +19,11 @@
     "api:lint": "cd apps/api && ruff check .",
     "api:format": "cd apps/api && ruff format .",
     "check": "npm run mobile:typecheck && npm run api:test"
+  },
+  "dependencies": {
+    "expo-apple-authentication": "~8.0.8",
+    "expo-auth-session": "~7.0.10",
+    "expo-crypto": "~15.0.8",
+    "expo-web-browser": "~15.0.10"
   }
 }

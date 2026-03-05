@@ -35,7 +35,8 @@
     "plugins": [
       "expo-audio",
       "expo-asset",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-web-browser"
     ]
   }
 }
