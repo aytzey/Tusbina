@@ -95,6 +95,13 @@ export interface ApiGenerateStatus {
   error?: string | null;
 }
 
+export interface ApiDeletePodcastResponse {
+  ok: boolean;
+  podcast_id: string;
+  deleted_parts: number;
+  deleted_files: number;
+}
+
 export interface ApiQuizQuestion {
   id: string;
   podcast_id: string;

@@ -2,6 +2,7 @@ import { Podcast, UploadFileItem } from "@/domain/models";
 import { apiRequest } from "./httpClient";
 import { mapApiPodcast } from "./mappers";
 import {
+  ApiDeletePodcastResponse,
   ApiGenerateRequest,
   ApiGenerateResponse,
   ApiGenerateStatus,
@@ -65,4 +66,10 @@ export async function requestPodcastGeneration(payload: ApiGenerateRequest): Pro
 
 export async function fetchGenerationStatus(jobId: string): Promise<ApiGenerateStatus> {
   return apiRequest<ApiGenerateStatus>(`/generatePodcast/${jobId}/status`, { method: "GET" });
+}
+
+export async function deletePodcastById(podcastId: string): Promise<ApiDeletePodcastResponse> {
+  return apiRequest<ApiDeletePodcastResponse>(`/podcasts/${podcastId}`, {
+    method: "DELETE"
+  });
 }

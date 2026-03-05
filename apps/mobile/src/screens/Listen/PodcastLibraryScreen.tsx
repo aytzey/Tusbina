@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ScreenContainer } from "@/components";
@@ -26,9 +26,11 @@ export function PodcastLibraryScreen() {
   const podcasts = usePodcastsStore((state) => state.podcasts);
   const patchPodcastLocalState = usePodcastsStore((state) => state.patchPodcastLocalState);
   const replacePodcast = usePodcastsStore((state) => state.replacePodcast);
+  const deletePodcast = usePodcastsStore((state) => state.deletePodcast);
   const setQueue = usePlayerStore((state) => state.setQueue);
 
   const [filter, setFilter] = useState<ListenFilter>("all");
+  const [deletingPodcastId, setDeletingPodcastId] = useState<string | null>(null);
 
   const filteredPodcasts = useMemo(() => {
     if (filter === "all") {
@@ -60,6 +62,50 @@ export function PodcastLibraryScreen() {
         isFavorite: podcast.isFavorite,
         isDownloaded: podcast.isDownloaded
       });
+    }
+  };
+
+  const confirmDelete = async (podcast: Podcast): Promise<boolean> => {
+    const message = `"${podcast.title}" podcastini silmek istediğine emin misin? Bu işlem geri alınamaz.`;
+
+    if (Platform.OS === "web") {
+      const webConfirm = (globalThis as { confirm?: (value?: string) => boolean }).confirm;
+      if (typeof webConfirm === "function") {
+        return webConfirm(message);
+      }
+    }
+
+    return new Promise((resolve) => {
+      Alert.alert("Podcast silinsin mi?", message, [
+        {
+          text: "Vazgeç",
+          style: "cancel",
+          onPress: () => resolve(false)
+        },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: () => resolve(true)
+        }
+      ]);
+    });
+  };
+
+  const handleDeletePodcast = async (podcast: Podcast) => {
+    if (deletingPodcastId) {
+      return;
+    }
+    const approved = await confirmDelete(podcast);
+    if (!approved) {
+      return;
+    }
+
+    setDeletingPodcastId(podcast.id);
+    const ok = await deletePodcast(podcast.id);
+    setDeletingPodcastId(null);
+
+    if (!ok) {
+      Alert.alert("Silme başarısız", "Podcast silinemedi. Lütfen tekrar dene.");
     }
   };
 
@@ -176,6 +222,14 @@ export function PodcastLibraryScreen() {
                   >
                     <Text style={styles.cardAction}>{item.isDownloaded ? "İndirildi" : "İndir"}</Text>
                   </Pressable>
+                  <Pressable
+                    onPress={() => void handleDeletePodcast(item)}
+                    disabled={deletingPodcastId === item.id}
+                  >
+                    <Text style={styles.deleteAction}>
+                      {deletingPodcastId === item.id ? "Siliniyor..." : "Sil"}
+                    </Text>
+                  </Pressable>
                 </View>
               </Pressable>
             );
@@ -280,6 +334,11 @@ const styles = StyleSheet.create({
   cardAction: {
     ...typography.caption,
     color: colors.motivationOrange,
+    fontWeight: "700"
+  },
+  deleteAction: {
+    ...typography.caption,
+    color: "#DF4A4A",
     fontWeight: "700"
   }
 });

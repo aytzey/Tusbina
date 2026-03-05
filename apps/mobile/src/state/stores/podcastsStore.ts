@@ -7,6 +7,7 @@ interface PodcastsState {
   loading: boolean;
   error: string | null;
   loadPodcasts: () => Promise<void>;
+  deletePodcast: (podcastId: string) => Promise<boolean>;
   addPodcast: (podcast: Podcast) => void;
   replacePodcast: (podcast: Podcast) => void;
   patchPodcastLocalState: (
@@ -15,7 +16,7 @@ interface PodcastsState {
   ) => void;
 }
 
-export const usePodcastsStore = create<PodcastsState>((set) => ({
+export const usePodcastsStore = create<PodcastsState>((set, get) => ({
   podcasts: [],
   loading: false,
   error: null,
@@ -26,6 +27,21 @@ export const usePodcastsStore = create<PodcastsState>((set) => ({
       set({ podcasts, loading: false });
     } catch {
       set({ error: "Podcastlar yüklenemedi.", loading: false });
+    }
+  },
+  deletePodcast: async (podcastId) => {
+    const snapshot = get().podcasts;
+    set((state) => ({
+      podcasts: state.podcasts.filter((item) => item.id !== podcastId),
+      error: null
+    }));
+
+    try {
+      await podcastsRepository.deletePodcastById(podcastId);
+      return true;
+    } catch {
+      set({ podcasts: snapshot, error: "Podcast silinemedi." });
+      return false;
     }
   },
   addPodcast: (podcast) =>
