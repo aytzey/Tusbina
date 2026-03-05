@@ -342,12 +342,30 @@ def _generate_with_openrouter(
         method="POST",
     )
 
-    try:
-        with urlopen(req, timeout=settings.openrouter_timeout_sec) as response:
-            raw = response.read().decode("utf-8", errors="ignore")
-            body = json.loads(raw)
-    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as exc:
-        logger.warning("OpenRouter script üretimi basarisiz, fallback kullaniliyor: %s", exc)
+    max_attempts = max(1, int(settings.script_openrouter_retries))
+    body: dict | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with urlopen(req, timeout=settings.openrouter_timeout_sec) as response:
+                raw = response.read().decode("utf-8", errors="ignore")
+                body = json.loads(raw)
+            break
+        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as exc:
+            if attempt >= max_attempts:
+                logger.warning("OpenRouter script üretimi basarisiz, fallback kullaniliyor: %s", exc)
+                return None
+            backoff = max(0.0, float(settings.script_openrouter_retry_backoff_sec)) * attempt
+            logger.warning(
+                "OpenRouter script retry denemesi (%d/%d) %.1fs sonra: %s",
+                attempt,
+                max_attempts,
+                backoff,
+                exc,
+            )
+            if backoff > 0:
+                _time.sleep(backoff)
+
+    if body is None:
         return None
 
     choices = body.get("choices") or []

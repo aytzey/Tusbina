@@ -13,9 +13,11 @@ from app.services.generation import (
     _is_dialogue_mode,
     _resolve_auto_chars_per_part,
     _sections_look_like_defaults,
+    _synthesize_with_retry,
     process_next_generation_job,
 )
 from app.services.storage import get_storage_client
+from app.services.tts import TTSResult
 
 client = TestClient(app)
 DUMMY_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
@@ -428,3 +430,24 @@ def test_is_dialogue_mode_by_voice_or_format() -> None:
     assert _is_dialogue_mode(format_name="narrative", voice_name="Diyalog") is True
     assert _is_dialogue_mode(format_name="qa", voice_name="Elif") is True
     assert _is_dialogue_mode(format_name="summary", voice_name="Elif") is False
+
+
+def test_synthesize_with_retry_recovers_after_transient_failure(monkeypatch) -> None:
+    class _FlakyTTS:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("gecici hata")
+            return TTSResult(content=b"wav-data", extension="wav", content_type="audio/wav")
+
+    monkeypatch.setattr(settings, "piper_synthesize_retries", 2)
+    monkeypatch.setattr(settings, "piper_synthesize_retry_backoff_sec", 0.0)
+    flaky = _FlakyTTS()
+
+    result = _synthesize_with_retry(tts_service=flaky, text="deneme", voice="Elif")
+
+    assert result.content == b"wav-data"
+    assert flaky.calls == 2

@@ -554,11 +554,11 @@ def _synthesize_part_audio(
     dialogue_mode: bool,
 ) -> TTSResult:
     if not dialogue_mode:
-        return tts_service.synthesize(script, voice=selected_voice)
+        return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
 
     turns = _split_dialogue_turns(script)
     if not turns:
-        return tts_service.synthesize(script, voice=selected_voice)
+        return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
 
     audio_turns: list[bytes] = []
     try:
@@ -566,7 +566,7 @@ def _synthesize_part_audio(
         if worker_count == 1 or len(turns) <= 1:
             for speaker, text in turns:
                 voice_for_turn = _resolve_dialogue_voice(speaker=speaker, selected_voice=selected_voice)
-                result = tts_service.synthesize(text, voice=voice_for_turn)
+                result = _synthesize_with_retry(tts_service=tts_service, text=text, voice=voice_for_turn)
                 audio_turns.append(result.content)
         else:
             with ThreadPoolExecutor(max_workers=min(worker_count, len(turns))) as executor:
@@ -591,7 +591,7 @@ def _synthesize_part_audio(
         return TTSResult(content=merged, extension="wav", content_type="audio/wav")
     except Exception as exc:
         logger.warning("Dialog TTS birlestirme fallback tek sese dondu: %s", exc)
-        return tts_service.synthesize(script, voice=selected_voice)
+        return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
 
 
 def _synthesize_dialogue_turn(
@@ -603,8 +603,34 @@ def _synthesize_dialogue_turn(
     selected_voice: str,
 ) -> tuple[int, bytes]:
     voice_for_turn = _resolve_dialogue_voice(speaker=speaker, selected_voice=selected_voice)
-    result = tts_service.synthesize(text, voice=voice_for_turn)
+    result = _synthesize_with_retry(tts_service=tts_service, text=text, voice=voice_for_turn)
     return index, result.content
+
+
+def _synthesize_with_retry(*, tts_service: TTSService, text: str, voice: str) -> TTSResult:
+    max_attempts = max(1, int(settings.piper_synthesize_retries))
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return tts_service.synthesize(text, voice=voice)
+        except Exception as exc:  # pragma: no cover - covered by generation flow tests via retries
+            last_error = exc
+            if attempt >= max_attempts:
+                break
+            backoff = max(0.0, float(settings.piper_synthesize_retry_backoff_sec)) * attempt
+            logger.warning(
+                "TTS retry denemesi (%d/%d) %.1fs sonra (voice=%s): %s",
+                attempt,
+                max_attempts,
+                backoff,
+                voice,
+                exc,
+            )
+            if backoff > 0:
+                _time.sleep(backoff)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("TTS sentez beklenmedik sekilde tamamlanamadi")
 
 
 def _split_dialogue_turns(script: str) -> list[tuple[str, str]]:

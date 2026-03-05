@@ -180,6 +180,13 @@ class PiperTTSService:
 
         return piper_binary
 
+    def warmup_voices(self, voices: list[str]) -> None:
+        """Preload configured models for listed voices to reduce first-request latency."""
+        self.ensure_ready()
+        for voice in voices:
+            spec = self._resolve_model_spec(voice)
+            self._ensure_model_files_for_spec(spec)
+
     def _resolve_default_model_paths(self) -> tuple[Path, Path]:
         if settings.piper_model_path:
             model_path = Path(settings.piper_model_path)

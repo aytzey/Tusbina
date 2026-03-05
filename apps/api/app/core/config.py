@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "google/gemini-3-flash-preview"
     openrouter_timeout_sec: int = 45
+    script_openrouter_retries: int = 2
+    script_openrouter_retry_backoff_sec: float = 1.2
     script_source_max_chars: int = 12000
     script_pdf_max_pages: int = 1200
     script_pdf_max_chars_per_asset: int = 1_800_000
@@ -86,7 +88,10 @@ class Settings(BaseSettings):
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
     piper_synthesize_timeout_sec: int = 180
+    piper_synthesize_retries: int = 2
+    piper_synthesize_retry_backoff_sec: float = 0.6
     piper_dialogue_parallel_workers: int = 2
+    piper_prewarm_voices: str = "Elif,Ahmet,Zeynep"
     piper_model_path_elif: str = ""
     piper_model_config_path_elif: str = ""
     piper_model_url_elif: str = ""

@@ -45,6 +45,13 @@ def run_worker() -> None:
     logger.info("Generation worker started (poll=%ss)", settings.worker_poll_interval_sec)
     storage = get_storage_client()
     tts = get_tts_service()
+    prewarm_voices = [voice.strip() for voice in settings.piper_prewarm_voices.split(",") if voice.strip()]
+    if prewarm_voices and hasattr(tts, "warmup_voices"):
+        try:
+            tts.warmup_voices(prewarm_voices)  # type: ignore[attr-defined]
+            logger.info("TTS voice prewarm tamamlandi: %s", prewarm_voices)
+        except Exception:
+            logger.exception("TTS voice prewarm basarisiz")
     logger.info(
         "Worker runtime services: storage=%s tts=%s configured_tts_provider=%s fallback_to_dummy=%s",
         storage.__class__.__name__,
