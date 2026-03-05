@@ -1,0 +1,23 @@
+{
+  "name": "tusbina",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "packages/shared"
+  ],
+  "scripts": {
+    "mobile:start": "npm run start --workspace @tusbina/mobile --",
+    "mobile:android": "npm run android --workspace @tusbina/mobile",
+    "mobile:ios": "npm run ios --workspace @tusbina/mobile",
+    "mobile:web": "npm run web --workspace @tusbina/mobile",
+    "mobile:typecheck": "npm run typecheck --workspace @tusbina/mobile",
+    "mobile:lint": "npm run lint --workspace @tusbina/mobile",
+    "api:dev": "cd apps/api && uvicorn app.main:app --reload",
+    "api:worker": "cd apps/api && python -m app.worker",
+    "api:test": "cd apps/api && pytest -q",
+    "api:lint": "cd apps/api && ruff check .",
+    "api:format": "cd apps/api && ruff format .",
+    "check": "npm run mobile:typecheck && npm run api:test"
+  }
+}

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TUSBINA - Podcast Kütüphanesi</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c15f3e", // Motivation Orange
+                        "navy-dark": "#0D1123", // Brand Navy
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#0D1123",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0D1123;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+<!-- Header -->
+<header class="sticky top-0 z-30 bg-navy-dark/95 backdrop-blur-md border-b border-slate-800 px-4 py-4">
+<div class="flex items-center justify-between max-w-2xl mx-auto">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-2xl">library_music</span>
+<h1 class="text-xl font-bold tracking-tight">Kitaplığım</h1>
+</div>
+<button class="p-2 hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-400">search</span>
+</button>
+</div>
+</header>
+<!-- Content Area -->
+<main class="flex-1 max-w-2xl mx-auto w-full pb-24">
+<!-- Category Chips -->
+<div class="flex gap-2 p-4 overflow-x-auto custom-scrollbar">
+<button class="whitespace-nowrap px-5 py-2 rounded-full bg-primary text-white text-sm font-semibold">Tümü</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">AI Üretilenler</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">Favoriler</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">İndirilenler</button>
+</div>
+<!-- Podcast List -->
+<div class="px-4 space-y-4">
+<!-- Podcast Card 1 (Active/Playing) -->
+<div class="bg-slate-900/50 border border-primary/30 rounded-xl p-4 transition-all hover:bg-slate-900">
+<div class="flex gap-4">
+<div class="relative w-20 h-20 shrink-0 bg-slate-800 rounded-lg overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/40 to-navy-dark opacity-60"></div>
+<img class="w-full h-full object-cover" data-alt="Medical interior with stethoscope and blue background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4spL387j2xDH35sqHvH2u4nUMml5x463aQ-T-PHPTFYX6MBc5_LeaRydKel4YTrZgwJZxhuBbQe5xjqo8s547ZQcfWTeCj0ToXapsbrRBwe821x4PT3WahYTu1Htn76-K7ICKaRbv-yVEAdoSKG3foIAB1w7pu_Wak2syk-ZscFRNDv6hUNW3rcch7lZtEBBVOPl-a9fOcoT8UKBGG3Ugd_hdz81XzUB5fBcQtUfzKqlLh7v8SRUasVhdAGfjw30P9jlHssqL25U"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-3xl fill-1">pause_circle</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">AI Üretildi</span>
+</div>
+<h3 class="text-white font-semibold text-base truncate mb-1">Dahiliye: Endokrin Vaka Analizi</h3>
+<div class="flex items-center text-xs text-slate-400 gap-2">
+<span>12 Ekim 2023</span>
+<span>•</span>
+<span>24:00 dk</span>
+</div>
+</div>
+<div class="shrink-0 pt-1">
+<span class="material-symbols-outlined text-primary">more_vert</span>
+</div>
+</div>
+<!-- Progress Bar Section -->
+<div class="mt-4">
+<div class="flex justify-between text-[10px] text-slate-500 mb-1.5 font-medium">
+<span class="text-primary">15:40</span>
+<span>24:00</span>
+</div>
+<div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 65%;"></div>
+</div>
+</div>
+</div>
+<!-- Podcast Card 2 -->
+<div class="bg-slate-900/40 border border-slate-800/60 rounded-xl p-4 transition-all hover:bg-slate-900">
+<div class="flex gap-4">
+<div class="relative w-20 h-20 shrink-0 bg-slate-800 rounded-lg overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-tr from-slate-900 to-primary/20 opacity-40"></div>
+<img class="w-full h-full object-cover opacity-80" data-alt="Close up of human heart anatomy model" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC25GDGgizR5HnSyfrNVGiiiZD8nfMABe99-ynziVeITNx6j3dKWqtlFFGqg_Z-ED95Yu11ATXJ1dI53g1IBKRfPqTnGbAiUxD_-fpiWXhX48ecbwG1_yxs0uqiYsf3PXm5qcjD0pb1QceZxsbSoydGTScK1whASCgsBT-mH4IP2j3Nwg7h4Bs3QFzNgbtJus5exDdbnWtYZ_i0kWDgTiRQzhWe0nY6bUujq8s9n_gSiqIVhwnpd1wPCvcqmMcsTvzrbOk-k24QzdY"/>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Kardiyoloji</span>
+</div>
+<h3 class="text-white font-semibold text-base truncate mb-1">EKO Bulguları ve Patolojiler</h3>
+<div class="flex items-center text-xs text-slate-400 gap-2">
+<span>08 Ekim 2023</span>
+<span>•</span>
+<span>18:15 dk</span>
+</div>
+</div>
+<div class="shrink-0 flex items-center">
+<button class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white hover:bg-primary transition-colors">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="mt-4">
+<div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-slate-600 rounded-full" style="width: 10%;"></div>
+</div>
+</div>
+</div>
+<!-- Podcast Card 3 -->
+<div class="bg-slate-900/40 border border-slate-800/60 rounded-xl p-4 transition-all hover:bg-slate-900">
+<div class="flex gap-4">
+<div class="relative w-20 h-20 shrink-0 bg-slate-800 rounded-lg overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-tr from-slate-900 to-primary/20 opacity-40"></div>
+<img class="w-full h-full object-cover opacity-80" data-alt="Dermatology microscope slide abstract pattern" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFkCWyE8jI3UaBdbTdSt41IoT9JFL91dIuYqNH3a6E0_vuwuhvOOsfH09BrLfwQD5Wgl6KIWGTeP8zLSj6BZL4e_9Ur1O72WB-T-wqr8deEiynLP5EFnZd8v97wyiXb9vF4HcttOxtwdS1VuyO1hPGUdWa0ywD9vpssxw8AxnbMVOUsuFRCwgb01HihCS0MduNe-0uTlMWTcIDkiTl8xz2p-xedKV4uLiP3C8aNTBxfW9e5RpujcQ49SVrVXlOZnnAL_QAbQJsHfk"/>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">AI Üretildi</span>
+</div>
+<h3 class="text-white font-semibold text-base truncate mb-1">Dermatoloji: Lezyon Tanımları</h3>
+<div class="flex items-center text-xs text-slate-400 gap-2">
+<span>05 Ekim 2023</span>
+<span>•</span>
+<span>32:45 dk</span>
+</div>
+</div>
+<div class="shrink-0 flex items-center">
+<button class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white hover:bg-primary transition-colors">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="mt-4">
+<div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-slate-600 rounded-full" style="width: 0%;"></div>
+</div>
+</div>
+</div>
+<!-- Empty State Concept (Hidden for this view) -->
+<!-- 
+            <div class="flex flex-col items-center justify-center py-20 text-center px-8">
+                <div class="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-slate-500 text-4xl">mic_off</span>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">Henüz podcast oluşturmadınız</h3>
+                <p class="text-slate-400 text-sm mb-6">Ders notlarınızı veya vaka raporlarınızı yükleyerek hemen bir dinleme listesi oluşturun.</p>
+                <button class="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined">add</span>
+                    Yeni Oluştur
+                </button>
+            </div>
+            -->
+</div>
+</main>
+<!-- Floating Action Button for creation -->
+<div class="fixed bottom-24 right-6 z-40">
+<button class="w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/20 flex items-center justify-center hover:scale-105 transition-transform active:scale-95">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-navy-dark/95 backdrop-blur-xl border-t border-slate-800 px-6 pb-6 pt-3 z-50">
+<div class="max-w-2xl mx-auto flex items-center justify-between">
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary transition-colors">home</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary">Anasayfa</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary transition-colors">menu_book</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary">Dersler</span>
+</a>
+<a class="flex flex-col items-center gap-1" href="#">
+<span class="material-symbols-outlined text-primary fill-1">library_music</span>
+<span class="text-[10px] font-bold text-primary">Kitaplığım</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-primary transition-colors">account_circle</span>
+<span class="text-[10px] font-medium text-slate-500 group-hover:text-primary">Profil</span>
+</a>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tusbina-postgres
+    environment:
+      POSTGRES_DB: tusbina
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: tusbina-redis
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: tusbina-api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/tusbina
+      DB_SCHEMA_MODE: alembic
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: local
+      LOCAL_UPLOAD_DIR: /app/data/uploads
+      PUBLIC_UPLOAD_BASE_URL: ${PUBLIC_UPLOAD_BASE_URL:-http://localhost:${API_PORT:-8000}/static/uploads}
+      TTS_PROVIDER: piper
+      TTS_MODELS_DIR: /app/data/models
+      PIPER_MODEL_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx
+      PIPER_MODEL_CONFIG_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx.json
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - api_uploads:/app/data/uploads
+      - api_models:/app/data/models
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: tusbina-worker
+    command: ["python", "-m", "app.worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/tusbina
+      DB_SCHEMA_MODE: alembic
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: local
+      LOCAL_UPLOAD_DIR: /app/data/uploads
+      PUBLIC_UPLOAD_BASE_URL: ${PUBLIC_UPLOAD_BASE_URL:-http://localhost:${API_PORT:-8000}/static/uploads}
+      TTS_PROVIDER: piper
+      TTS_MODELS_DIR: /app/data/models
+      PIPER_MODEL_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx
+      PIPER_MODEL_CONFIG_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx.json
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - api_uploads:/app/data/uploads
+      - api_models:/app/data/models
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tusbina-nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  api_uploads:
+  api_models:

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c15f3e",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#0D1123", // Custom requested dark navy
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Header -->
+<div class="flex items-center px-4 py-4 justify-between border-b border-slate-800/50 bg-background-dark/80 backdrop-blur-md sticky top-0 z-10">
+<button class="flex size-10 items-center justify-center rounded-full hover:bg-slate-800/50 transition-colors">
+<span class="material-symbols-outlined text-slate-100">arrow_back</span>
+</button>
+<h2 class="text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">TUSBINA</h2>
+</div>
+<!-- Main Content -->
+<div class="flex-1 flex flex-col items-center justify-center px-6 py-12">
+<div class="flex flex-col items-center w-full max-w-sm gap-8">
+<!-- Illustration Placeholder -->
+<div class="relative flex items-center justify-center w-64 h-64">
+<div class="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
+<div class="relative z-10 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[120px] opacity-80">wifi_off</span>
+<div class="absolute -bottom-2 w-48 h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent blur-sm"></div>
+</div>
+</div>
+<!-- Text Content -->
+<div class="flex flex-col items-center gap-3 text-center">
+<h1 class="text-slate-100 text-2xl font-bold tracking-tight">Bağlantı Kesildi.</h1>
+<p class="text-slate-400 text-base leading-relaxed max-w-[280px]">
+                        Dinlemeye devam edebilmek için internet bağlantını kontrol eder misin?
+                    </p>
+</div>
+<!-- Action Button -->
+<button class="w-full flex items-center justify-center gap-2 rounded-xl h-14 bg-primary hover:bg-primary/90 text-white text-base font-bold transition-all active:scale-[0.98] shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">refresh</span>
+<span>Bağlantıyı Kontrol Et</span>
+</button>
+<!-- Help Link -->
+<a class="text-primary/80 text-sm font-medium hover:text-primary transition-colors" href="#">Çevrimdışı Modu Görüntüle</a>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<div class="flex gap-2 border-t border-slate-800 bg-background-dark/95 backdrop-blur-lg px-4 pb-8 pt-3">
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">home</span>
+<p class="text-[10px] font-semibold uppercase tracking-wider">Ana Sayfa</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">explore</span>
+<p class="text-[10px] font-semibold uppercase tracking-wider">Keşfet</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">library_books</span>
+<p class="text-[10px] font-semibold uppercase tracking-wider">Kitaplığım</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">person</span>
+<p class="text-[10px] font-semibold uppercase tracking-wider">Profil</p>
+</a>
+</div>
+</div>
+</body></html>

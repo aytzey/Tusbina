@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c15f3e",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#0D1123",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .waveform-bar {
+            @apply bg-primary/30 rounded-full;
+            width: 3px;
+            transition: height 0.2s;
+        }
+        .waveform-active {
+            @apply bg-primary;
+        }
+        .glow-orange {
+            box-shadow: 0 0 20px 2px rgba(193, 95, 62, 0.4);
+        }
+        .glow-orange-lg {
+            box-shadow: 0 0 35px 5px rgba(193, 95, 62, 0.5);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<div class="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Header -->
+<div class="flex items-center p-4 justify-between">
+<div class="flex size-12 items-center justify-start">
+<span class="material-symbols-outlined text-slate-400 cursor-pointer">expand_more</span>
+</div>
+<h2 class="text-slate-100 text-sm font-bold uppercase tracking-widest flex-1 text-center">Şimdi Dinleniyor</h2>
+<div class="flex size-12 items-center justify-end">
+<button class="flex cursor-pointer items-center justify-center rounded-lg text-slate-400">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Album Cover Section -->
+<div class="flex-1 flex flex-col items-center justify-center px-8 py-4">
+<div class="relative w-full aspect-square max-w-[320px] group">
+<!-- Outer Glow -->
+<div class="absolute inset-0 rounded-xl glow-orange opacity-60"></div>
+<!-- Main Image -->
+<div class="relative w-full h-full rounded-xl overflow-hidden border border-primary/20 bg-slate-800">
+<img class="w-full h-full object-cover opacity-80" data-alt="Medical cardiology heart illustration for course cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmqKp61j8_D05vTBzLH29YGV_Za370BJhPPk9__0UCPlEuCgtJGLNQpNd4RkQ4kdnXY8vHZzKb2qvG_r_kVGhY-kSQZhUhNGgq6p1fQ-KtWjHbT1kzxUthWx-qkE0mlP3sFSzUkDO1tMQz2pXzsfI2FgxamJkc3Ighvn_hSnaA6PeSB78M8sViWq4yXRAKBCsqF8OhT3kFf98UmlygMZg056fa24qcmkQCfAbjV5OUqzY-K8smKYEjEO_525iS2_RaKhAkwER4Ong"/>
+<!-- Waveform Overlay Motif -->
+<div class="absolute inset-0 flex items-center justify-center gap-1 px-8 opacity-40">
+<div class="w-1 h-12 bg-white rounded-full"></div>
+<div class="w-1 h-20 bg-white rounded-full"></div>
+<div class="w-1 h-32 bg-white rounded-full"></div>
+<div class="w-1 h-24 bg-white rounded-full"></div>
+<div class="w-1 h-40 bg-white rounded-full"></div>
+<div class="w-1 h-28 bg-white rounded-full"></div>
+<div class="w-1 h-16 bg-white rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Course Info -->
+<div class="mt-8 text-center">
+<h3 class="text-slate-100 text-2xl font-bold leading-tight">Mitral Stenos: Fizyopatoloji</h3>
+<p class="text-primary font-medium mt-1">Kardiyoloji • Dr. Arda S.</p>
+</div>
+</div>
+<!-- Playback Controls Section -->
+<div class="px-6 pb-8">
+<!-- Custom Waveform Seekbar -->
+<div class="flex items-end justify-between gap-[2px] h-12 mb-2">
+<!-- Left (Played) -->
+<div class="waveform-bar h-4 waveform-active"></div>
+<div class="waveform-bar h-6 waveform-active"></div>
+<div class="waveform-bar h-8 waveform-active"></div>
+<div class="waveform-bar h-5 waveform-active"></div>
+<div class="waveform-bar h-10 waveform-active"></div>
+<div class="waveform-bar h-7 waveform-active"></div>
+<div class="waveform-bar h-12 waveform-active"></div>
+<div class="waveform-bar h-4 waveform-active"></div>
+<div class="waveform-bar h-9 waveform-active"></div>
+<!-- Current Position Marker -->
+<div class="w-1 h-12 bg-primary glow-orange rounded-full relative">
+<div class="absolute -top-1 -left-1 size-3 bg-primary rounded-full glow-orange"></div>
+</div>
+<!-- Right (Remaining) -->
+<div class="waveform-bar h-6"></div>
+<div class="waveform-bar h-4"></div>
+<div class="waveform-bar h-10"></div>
+<div class="waveform-bar h-5"></div>
+<div class="waveform-bar h-8"></div>
+<div class="waveform-bar h-6"></div>
+<div class="waveform-bar h-11"></div>
+<div class="waveform-bar h-4"></div>
+<div class="waveform-bar h-7"></div>
+<div class="waveform-bar h-5"></div>
+</div>
+<div class="flex justify-between text-xs text-slate-500 font-medium px-1">
+<span>12:45</span>
+<span>24:30</span>
+</div>
+<!-- Main Controls -->
+<div class="flex items-center justify-between mt-6">
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-3xl">shuffle</span>
+</button>
+<div class="flex items-center gap-8">
+<button class="text-slate-100">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1">skip_previous</span>
+</button>
+<button class="size-20 bg-primary text-white rounded-full flex items-center justify-center glow-orange-lg hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-5xl" style="font-variation-settings: 'FILL' 1">pause_circle</span>
+</button>
+<button class="text-slate-100">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1">skip_next</span>
+</button>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-3xl">repeat</span>
+</button>
+</div>
+<!-- Extra Controls -->
+<div class="flex items-center justify-between mt-10 px-4">
+<button class="px-3 py-1 bg-slate-800/50 rounded-full text-xs font-bold text-slate-300 border border-slate-700/50 hover:border-primary/50 transition-colors">
+                    1.5x
+                </button>
+<div class="flex gap-6">
+<button class="text-slate-400 hover:text-primary transition-colors flex flex-col items-center gap-1">
+<span class="material-symbols-outlined">bookmark</span>
+<span class="text-[10px] uppercase font-bold tracking-tighter">Kaydet</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors flex flex-col items-center gap-1">
+<span class="material-symbols-outlined">share</span>
+<span class="text-[10px] uppercase font-bold tracking-tighter">Paylaş</span>
+</button>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">playlist_play</span>
+</button>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<div class="mt-auto flex gap-2 border-t border-slate-800 bg-slate-900/50 backdrop-blur-md px-4 pb-3 pt-2">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-500 hover:text-primary transition-colors" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">home</span>
+</div>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-500 hover:text-primary transition-colors" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">menu_book</span>
+</div>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-primary" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">play_circle</span>
+</div>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-500 hover:text-primary transition-colors" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">person</span>
+</div>
+</a>
+</div>
+</div>
+</body></html>

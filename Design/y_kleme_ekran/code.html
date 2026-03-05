@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "navy-custom": "#0D1123",
+                        "gold-premium": "#BD9465",
+                        "motivation-orange": "#BF5F3E",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#0D1123",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: "Public Sans", sans-serif; }
+        .waveform-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 120px;
+        }
+        .wave-bar {
+            width: 6px;
+            background-color: #BD9465;
+            border-radius: 9999px;
+        }
+        /* Simulating different heights for the wave without animation as per instructions */
+        .h-xs { height: 20%; }
+        .h-sm { height: 40%; }
+        .h-md { height: 70%; }
+        .h-lg { height: 100%; }
+        .h-xl { height: 85%; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<!-- Top Navigation Bar -->
+<div class="relative flex h-screen w-full flex-col bg-navy-custom overflow-hidden">
+<!-- Header Section -->
+<div class="flex items-center justify-between p-6">
+<button class="text-slate-100/50 hover:text-slate-100 transition-colors">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-motivation-orange"></div>
+<h4 class="text-slate-100 text-sm font-bold tracking-[0.2em] uppercase">TUSBINA</h4>
+</div>
+<div class="w-6"></div> <!-- Spacer for symmetry -->
+</div>
+<!-- Main Content Area: Centered Waveform -->
+<div class="flex flex-1 flex-col items-center justify-center px-8">
+<!-- Waveform Motif -->
+<div class="waveform-container mb-12">
+<div class="wave-bar h-xs opacity-40"></div>
+<div class="wave-bar h-sm opacity-50"></div>
+<div class="wave-bar h-md opacity-70"></div>
+<div class="wave-bar h-xl opacity-90"></div>
+<div class="wave-bar h-lg bg-motivation-orange shadow-[0_0_20px_rgba(191,95,62,0.5)]"></div>
+<div class="wave-bar h-xl opacity-90"></div>
+<div class="wave-bar h-md opacity-70"></div>
+<div class="wave-bar h-sm opacity-50"></div>
+<div class="wave-bar h-xs opacity-40"></div>
+</div>
+<!-- Loading Message -->
+<div class="text-center space-y-4 max-w-xs">
+<h3 class="text-slate-100 text-2xl font-bold leading-tight">İçeriğin hazırlanıyor...</h3>
+<p class="text-slate-400 text-base font-normal leading-relaxed">Az sonra kulaklarında olacak.</p>
+</div>
+</div>
+<!-- Bottom Status Bar -->
+<div class="p-8 space-y-4">
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-gold-premium text-xs font-bold uppercase tracking-wider mb-1">Modül Aktif</p>
+<p class="text-slate-100 text-sm font-medium">Ses dalgaları oluşturuluyor...</p>
+</div>
+<p class="text-slate-100 text-lg font-bold leading-none">85%</p>
+</div>
+<!-- Progress Bar Container -->
+<div class="h-1.5 w-full bg-slate-100/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 85%;"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gold-premium text-sm">workspace_premium</span>
+<p class="text-gold-premium text-xs font-semibold">Premium Gold</p>
+</div>
+<p class="text-slate-500 text-[10px] font-medium tracking-tighter">Powered by TUSBINA AI</p>
+</div>
+</div>
+</div>
+<!-- Background Decor Element -->
+<div class="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/5 rounded-full blur-[80px]"></div>
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-gold-premium/5 rounded-full blur-[80px]"></div>
+</div>
+</body></html>

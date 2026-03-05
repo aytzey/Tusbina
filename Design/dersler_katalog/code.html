@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c15f3e",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#0D1123",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen flex flex-col">
+<!-- Top Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+<div class="flex items-center justify-between gap-4 max-w-5xl mx-auto w-full">
+<div class="flex items-center gap-2">
+<span class="text-primary font-bold text-2xl tracking-tight">TUSBINA</span>
+<span class="material-symbols-outlined text-primary text-sm">favorite</span>
+</div>
+<div class="flex-1 max-w-md mx-4">
+<label class="relative block">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+<span class="material-symbols-outlined text-xl">search</span>
+</span>
+<input class="placeholder:text-slate-500 block bg-slate-100 dark:bg-slate-800 w-full border-none rounded-full py-2 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-primary/50 sm:text-sm" name="search" placeholder="Ders ara..." type="text"/>
+</label>
+</div>
+<button class="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">person</span>
+</button>
+</div>
+</header>
+<main class="flex-1 max-w-5xl mx-auto w-full pb-24">
+<!-- Categories Chips -->
+<div class="flex gap-3 px-4 py-6 overflow-x-auto hide-scrollbar">
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary px-6 text-white shadow-lg shadow-primary/20">
+<span class="text-sm font-semibold">Tümü</span>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-100 dark:bg-slate-800 px-5 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="text-sm font-medium">Dahiliye</span>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-100 dark:bg-slate-800 px-5 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="text-sm font-medium">Cerrahi</span>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-100 dark:bg-slate-800 px-5 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="text-sm font-medium">Kadın Doğum</span>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-100 dark:bg-slate-800 px-5 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="text-sm font-medium">Pediatri</span>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-100 dark:bg-slate-800 px-5 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="text-sm font-medium">Temel Bilimler</span>
+</button>
+</div>
+<!-- Course List Section -->
+<div class="px-4">
+<h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-primary rounded-full"></span>
+                Popüler Dersler
+            </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Course Card 1 -->
+<div class="group bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex gap-4 items-center hover:border-primary/50 transition-all duration-300">
+<div class="size-16 shrink-0 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">cardiology</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">Kardiyoloji: Kapak Hastalıkları</h3>
+<div class="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">list_alt</span> 12 Bölüm</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 1 saat 15 dk</span>
+</div>
+</div>
+<button class="size-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+<!-- Course Card 2 -->
+<div class="group bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex gap-4 items-center hover:border-primary/50 transition-all duration-300">
+<div class="size-16 shrink-0 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-500">
+<span class="material-symbols-outlined text-3xl">neurology</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">Nöroloji: Epilepsi Tanısı</h3>
+<div class="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">list_alt</span> 8 Bölüm</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 45 dk</span>
+</div>
+</div>
+<button class="size-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+<!-- Course Card 3 -->
+<div class="group bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex gap-4 items-center hover:border-primary/50 transition-all duration-300">
+<div class="size-16 shrink-0 rounded-lg bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center text-green-500">
+<span class="material-symbols-outlined text-3xl">nephrology</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">Nefroloji: Akut Böbrek Yetmezliği</h3>
+<div class="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">list_alt</span> 15 Bölüm</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 2 saat 10 dk</span>
+</div>
+</div>
+<button class="size-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+<!-- Course Card 4 -->
+<div class="group bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex gap-4 items-center hover:border-primary/50 transition-all duration-300">
+<div class="size-16 shrink-0 rounded-lg bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center text-purple-500">
+<span class="material-symbols-outlined text-3xl">pulmonology</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">Göğüs Hastalıkları: KOAH Yönetimi</h3>
+<div class="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">list_alt</span> 10 Bölüm</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 1 saat 40 dk</span>
+</div>
+</div>
+<button class="size-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+<!-- Course Card 5 -->
+<div class="group bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex gap-4 items-center hover:border-primary/50 transition-all duration-300">
+<div class="size-16 shrink-0 rounded-lg bg-orange-500/10 dark:bg-orange-500/20 flex items-center justify-center text-orange-500">
+<span class="material-symbols-outlined text-3xl">gastroenterology</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">Gastroenteroloji: Peptik Ülser</h3>
+<div class="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">list_alt</span> 6 Bölüm</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 55 dk</span>
+</div>
+</div>
+<button class="size-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+<!-- Course Card 6 -->
+<div class="group bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex gap-4 items-center hover:border-primary/50 transition-all duration-300">
+<div class="size-16 shrink-0 rounded-lg bg-yellow-500/10 dark:bg-yellow-500/20 flex items-center justify-center text-yellow-500">
+<span class="material-symbols-outlined text-3xl">microbiology</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">Mikrobiyoloji: Gram Pozitif Koklar</h3>
+<div class="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">list_alt</span> 20 Bölüm</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 3 saat 15 dk</span>
+</div>
+</div>
+<button class="size-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-1">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-6 pb-6 pt-3 flex justify-between items-center z-50">
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Anasayfa</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-1">auto_stories</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Dersler</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Kitaplarım</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Profil</span>
+</a>
+</nav>
+</body></html>

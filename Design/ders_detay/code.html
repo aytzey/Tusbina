@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TUSBINA - Ders Detay</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c15f3e",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#1e1614",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative mx-auto max-w-md min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+<!-- Header -->
+<header class="flex items-center p-4 justify-between sticky top-0 z-10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+<button class="flex size-10 items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-100">arrow_back</span>
+</button>
+<div class="flex-1 px-3">
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight line-clamp-1">Kardiyoloji: Kapak Hastalıkları</h2>
+<p class="text-primary text-xs font-semibold uppercase tracking-wider">TUS Hazırlık</p>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-sm">category</span>
+<p class="text-slate-600 dark:text-slate-400 text-sm font-bold">Dahiliye</p>
+</div>
+</header>
+<main class="flex-1 pb-24">
+<!-- Hero Image/Banner -->
+<div class="px-4 mb-6">
+<div class="relative h-48 w-full overflow-hidden rounded-xl bg-primary/20">
+<img alt="Medical illustration of a heart" class="h-full w-full object-cover mix-blend-overlay opacity-60" data-alt="Abstract medical heart visualization with warm tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuegmhylqqSnSrh5-9JpXTLKF-tiqXb80tr7Yi2hJ2u4cqlUrywCCcPK5uNyTC65C9SjmANh_bo1f9qk6TckUNwMq5f0iJwKUWv9WqkdpbIPDFBEvnEal0iSlLrXmY0IwKZcWGx63s1ahrD-wxxwiycuTpdOeTOCiyBgNR_DmNqDLtyYxcy29izpwElbmoYmbjqOKdctEZVJp0mNQIKsv3AAJ6YYhIB1u9ZIMaJ8yBBkjnKE1SiGFMY21FK9mK_bJeYRya2dV_zqk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark to-transparent"></div>
+<div class="absolute bottom-4 left-4">
+<span class="bg-primary px-2 py-1 rounded text-[10px] font-bold text-white uppercase mb-2 inline-block">Popüler Kurs</span>
+<h1 class="text-2xl font-extrabold text-white">Kapak Patolojileri</h1>
+</div>
+</div>
+</div>
+<!-- Progress Section -->
+<div class="flex flex-col gap-3 px-4 mb-6">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-slate-900 dark:text-slate-100 text-base font-bold">Kurs İlerlemesi</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs">Toplam 12 Bölümden 5'i Tamamlandı</p>
+</div>
+<p class="text-primary text-sm font-bold">45%</p>
+</div>
+<div class="h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-800">
+<div class="h-2.5 rounded-full bg-primary" style="width: 45%;"></div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400 text-sm">schedule</span>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">2 saat 15 dk kaldı</p>
+</div>
+</div>
+<!-- CTA Button -->
+<div class="px-4 mb-8">
+<button class="w-full flex cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 bg-primary text-white shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-2xl fill-1">play_circle</span>
+<span class="text-lg font-bold tracking-tight">Tümünü Dinle</span>
+</button>
+</div>
+<!-- Section List -->
+<div class="px-4">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold">Ders Bölümleri</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 font-medium">12 Bölüm • 4s 30dk</span>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Completed Section -->
+<div class="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+<div class="flex size-10 items-center justify-center rounded-full bg-green-500/20 text-green-500">
+<span class="material-symbols-outlined text-2xl font-bold">check_circle</span>
+</div>
+<div class="flex-1">
+<h4 class="text-slate-900 dark:text-slate-100 text-sm font-bold">Bölüm 1: Mitral Stenoz - Etyoloji</h4>
+<p class="text-slate-500 dark:text-slate-400 text-xs">15:20 dk • Tamamlandı</p>
+</div>
+<span class="material-symbols-outlined text-slate-400">more_vert</span>
+</div>
+<!-- In Progress Section -->
+<div class="flex items-center gap-4 p-4 rounded-xl bg-primary/10 border-2 border-primary">
+<div class="flex size-10 items-center justify-center rounded-full bg-primary text-white">
+<span class="material-symbols-outlined text-2xl animate-pulse">graphic_eq</span>
+</div>
+<div class="flex-1">
+<h4 class="text-slate-900 dark:text-slate-100 text-sm font-bold">Bölüm 2: Mitral Stenoz - Fizik Muayene</h4>
+<p class="text-primary text-xs font-bold">Şu an oynatılıyor • %60</p>
+</div>
+<span class="material-symbols-outlined text-primary">equalizer</span>
+</div>
+<!-- Completed Section -->
+<div class="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+<div class="flex size-10 items-center justify-center rounded-full bg-green-500/20 text-green-500">
+<span class="material-symbols-outlined text-2xl font-bold">check_circle</span>
+</div>
+<div class="flex-1">
+<h4 class="text-slate-900 dark:text-slate-100 text-sm font-bold">Bölüm 3: Mitral Stenoz - Tedavi</h4>
+<p class="text-slate-500 dark:text-slate-400 text-xs">22:45 dk • Tamamlandı</p>
+</div>
+<span class="material-symbols-outlined text-slate-400">more_vert</span>
+</div>
+<!-- Locked Section -->
+<div class="flex items-center gap-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/40 opacity-60 grayscale border border-transparent">
+<div class="flex size-10 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-2xl">lock</span>
+</div>
+<div class="flex-1">
+<h4 class="text-slate-900 dark:text-slate-100 text-sm font-bold">Bölüm 4: Aort Yetersizliği - Giriş</h4>
+<p class="text-slate-500 dark:text-slate-400 text-xs">18:10 dk • Premium İçerik</p>
+</div>
+<span class="material-symbols-outlined text-slate-400">shopping_cart</span>
+</div>
+<!-- Locked Section -->
+<div class="flex items-center gap-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/40 opacity-60 grayscale border border-transparent">
+<div class="flex size-10 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-2xl">lock</span>
+</div>
+<div class="flex-1">
+<h4 class="text-slate-900 dark:text-slate-100 text-sm font-bold">Bölüm 5: Aort Stenozu Cerrahisi</h4>
+<p class="text-slate-500 dark:text-slate-400 text-xs">25:30 dk • Premium İçerik</p>
+</div>
+<span class="material-symbols-outlined text-slate-400">shopping_cart</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 mx-auto max-w-md bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 px-4 pb-6 pt-2 flex justify-between items-center z-20">
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-500 dark:text-slate-400" href="#">
+<span class="material-symbols-outlined text-[24px]">home</span>
+<p class="text-[10px] font-bold uppercase tracking-tighter">Ana Sayfa</p>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined text-[24px] fill-1">menu_book</span>
+<p class="text-[10px] font-bold uppercase tracking-tighter">Kurslarım</p>
+</a>
+<div class="flex-1 flex justify-center -mt-8">
+<div class="size-14 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/40 border-4 border-background-light dark:border-background-dark">
+<span class="material-symbols-outlined text-[28px] fill-1">play_arrow</span>
+</div>
+</div>
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-500 dark:text-slate-400" href="#">
+<span class="material-symbols-outlined text-[24px]">search</span>
+<p class="text-[10px] font-bold uppercase tracking-tighter">Arama</p>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-500 dark:text-slate-400" href="#">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<p class="text-[10px] font-bold uppercase tracking-tighter">Profil</p>
+</a>
+</nav>
+</div>
+</body></html>
