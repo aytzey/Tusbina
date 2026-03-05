@@ -211,7 +211,7 @@ def test_generate_auto_splits_long_pdf_when_using_default_single_section(monkeyp
             "voice": "Dr. Selin",
             "format": "summary",
             "file_ids": file_ids,
-            "sections": [{"id": "s1", "title": "uzun-kaynak", "enabled": True}],
+            "sections": [],
         },
         headers=user_headers,
     )
@@ -242,6 +242,68 @@ def test_generate_auto_splits_long_pdf_when_using_default_single_section(monkeyp
     podcast = next((item for item in podcasts if item["id"] == status_payload["result_podcast_id"]), None)
     assert podcast is not None
     assert len(podcast["parts"]) >= 2
+
+
+def test_generate_respects_explicit_single_section_without_auto_split(monkeypatch) -> None:
+    user_id = f"explicit-single-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    monkeypatch.setattr(settings, "script_auto_chars_per_part", 800)
+    monkeypatch.setattr(settings, "generation_max_parts", 20)
+    monkeypatch.setattr(settings, "upload_allowed_extensions", "pdf,txt")
+    monkeypatch.setattr(settings, "upload_validate_pdf_signature", False)
+
+    long_plain_text = (
+        "Anemi algoritmasinda ilk adim hemoglobin ve eritrosit indekslerini birlikte yorumlamaktir. "
+        "Demir eksikligi, kronik hastalik anemisi ve megaloblastik surecler ayirici tanida temel eksendir. "
+    ) * 120
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("tek-bolum-kaynak.txt", long_plain_text.encode("utf-8"), "text/plain"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Tek Bolum Koruma Test",
+            "voice": "Dr. Selin",
+            "format": "summary",
+            "file_ids": file_ids,
+            "sections": [{"id": "s1", "title": "Tek Bolum", "enabled": True}],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    status_payload = None
+    for _ in range(40):
+        with SessionLocal() as db:
+            process_next_generation_job(db, storage=get_storage_client())
+        status_response = client.get(
+            f"/api/v1/generatePodcast/{job_id}/status",
+            headers=user_headers,
+        )
+        assert status_response.status_code == 200
+        status_payload = status_response.json()
+        if status_payload["status"] == "completed":
+            break
+
+    assert status_payload is not None
+    assert status_payload["status"] == "completed"
+    assert status_payload["result_podcast_id"] is not None
+
+    podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
+    assert podcasts_response.status_code == 200
+    podcasts = podcasts_response.json()
+    podcast = next((item for item in podcasts if item["id"] == status_payload["result_podcast_id"]), None)
+    assert podcast is not None
+    assert len(podcast["parts"]) == 1
 
 
 def test_resolve_auto_chars_per_part_changes_by_format(monkeypatch) -> None:

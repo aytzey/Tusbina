@@ -1,7 +1,6 @@
 import json
 import logging
 import math
-import re
 import time as _time
 import wave
 from dataclasses import dataclass
@@ -160,7 +159,8 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         section_titles = [section.get("title", "").strip() for section in enabled_sections if section.get("title")]
 
         auto_part_plan: list[_AutoPartPlan] | None = None
-        if section_titles and not _matches_default_file_sections(section_titles=section_titles, assets=assets):
+        if section_titles:
+            # If client explicitly sends sections, always honor that exact plan.
             part_titles = section_titles
             _trace_generation(job.id, "part_plan_manual_sections", part_count=len(part_titles))
         else:
@@ -397,38 +397,9 @@ def _build_auto_part_plan(
     return plans
 
 
-def _build_auto_part_titles(
-    *,
-    assets: list[UploadAssetModel],
-    asset_text_cache: dict[str, str],
-    format_name: str,
-) -> list[str]:
-    return [
-        entry.title
-        for entry in _build_auto_part_plan(
-            assets=assets,
-            asset_text_cache=asset_text_cache,
-            format_name=format_name,
-        )
-    ]
-
-
-def _matches_default_file_sections(*, section_titles: list[str], assets: list[UploadAssetModel]) -> bool:
-    if len(section_titles) != len(assets):
-        return False
-
-    normalized_sections = [_normalize_title(title) for title in section_titles]
-    normalized_assets = [_normalize_title(_asset_base_title(asset.filename)) for asset in assets]
-    return normalized_sections == normalized_assets
-
-
 def _asset_base_title(filename: str) -> str:
     stem = Path(filename or "").stem.strip()
     return stem or "Yeni Bolum"
-
-
-def _normalize_title(value: str) -> str:
-    return re.sub(r"\W+", "", value.lower())
 
 
 def _resolve_auto_chars_per_part(*, format_name: str, text_len: int | None = None) -> int:
