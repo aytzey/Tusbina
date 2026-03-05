@@ -89,3 +89,31 @@ def test_voice_specific_model_urls_are_resolved_by_voice() -> None:
     assert "fahrettin" in ahmet_spec.model_url
     assert "fettah" in zeynep_spec.model_url
     assert "dfki" in elif_spec.model_url
+
+
+def test_edge_voice_mapping_prefers_turkish_neural_voices() -> None:
+    assert tts_module._resolve_edge_voice_short_name("Emel Neural") == settings.edge_voice_tr_emel
+    assert tts_module._resolve_edge_voice_short_name("Ahmet Neural") == settings.edge_voice_tr_ahmet
+    assert tts_module._resolve_edge_voice_short_name("Diyalog Neural") == settings.edge_voice_tr_emel
+
+
+def test_hybrid_tts_routes_neural_voice_to_edge_backend() -> None:
+    calls: list[str] = []
+
+    class _FakePiper:
+        def synthesize(self, text: str, *, voice: str | None = None):  # noqa: ANN001
+            calls.append(f"piper:{voice}")
+            return tts_module.TTSResult(content=b"piper", extension="wav", content_type="audio/wav")
+
+    class _FakeEdge:
+        def synthesize(self, text: str, *, voice: str | None = None):  # noqa: ANN001
+            calls.append(f"edge:{voice}")
+            return tts_module.TTSResult(content=b"edge", extension="mp3", content_type="audio/mpeg")
+
+    service = tts_module.HybridTTSService(piper=_FakePiper(), edge=_FakeEdge())
+    neural = service.synthesize("Merhaba", voice="Emel Neural")
+    classic = service.synthesize("Merhaba", voice="Elif")
+
+    assert neural.extension == "mp3"
+    assert classic.extension == "wav"
+    assert calls == ["edge:Emel Neural", "piper:Elif"]

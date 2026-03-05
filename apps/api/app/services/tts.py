@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 import math
 import shutil
@@ -15,6 +18,11 @@ import numpy as np
 from app.core.config import settings
 
 logger = logging.getLogger("tusbina-tts")
+
+try:
+    import edge_tts
+except Exception:  # pragma: no cover - import availability is environment-dependent
+    edge_tts = None
 
 
 class TTSService(Protocol):
@@ -63,6 +71,102 @@ class DummyTTSService:
         )
         audio = _build_sine_wav(duration_sec=adjusted_duration, frequency=profile.sine_frequency)
         return TTSResult(content=audio, extension="wav", content_type="audio/wav")
+
+
+def _is_edge_voice(voice: str | None) -> bool:
+    normalized = (voice or "").strip().lower()
+    if not normalized:
+        return False
+    return "neural" in normalized or "emel" in normalized
+
+
+def _resolve_edge_voice_short_name(voice: str | None) -> str:
+    normalized = (voice or "").strip().lower()
+    if "ahmet" in normalized:
+        return settings.edge_voice_tr_ahmet
+    if "emel" in normalized or "elif" in normalized:
+        return settings.edge_voice_tr_emel
+    if "diyalog" in normalized:
+        return settings.edge_voice_tr_emel
+    return settings.edge_voice_tr_emel
+
+
+class EdgeTTSService:
+    def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+        if edge_tts is None:
+            raise RuntimeError("edge-tts kutuphanesi yuklu degil")
+
+        safe_text = text.strip() or "Ses uretilmesi icin metin bulunamadi."
+        short_voice = _resolve_edge_voice_short_name(voice)
+        timeout_sec = max(5, int(settings.edge_synthesize_timeout_sec))
+        logger.info(
+            "TTS_EDGE_SYNTH_START voice=%s chars=%d timeout_sec=%d edge_voice=%s",
+            voice or "default",
+            len(safe_text),
+            timeout_sec,
+            short_voice,
+        )
+
+        async def _synth() -> bytes:
+            communicate = edge_tts.Communicate(
+                safe_text,
+                short_voice,
+                rate=settings.edge_rate,
+                pitch=settings.edge_pitch,
+                volume=settings.edge_volume,
+            )
+            chunks: list[bytes] = []
+            async for chunk in communicate.stream():
+                if chunk.get("type") == "audio":
+                    data = chunk.get("data", b"")
+                    if isinstance(data, bytes):
+                        chunks.append(data)
+            return b"".join(chunks)
+
+        try:
+            content = asyncio.run(asyncio.wait_for(_synth(), timeout=timeout_sec))
+        except asyncio.TimeoutError as exc:
+            raise RuntimeError(f"Edge TTS timeout ({timeout_sec}s)") from exc
+
+        if len(content) < 128:
+            raise RuntimeError("Edge TTS cikti dosyasi beklenenden kisa")
+
+        logger.info(
+            "TTS_EDGE_SYNTH_DONE voice=%s chars=%d bytes=%d edge_voice=%s",
+            voice or "default",
+            len(safe_text),
+            len(content),
+            short_voice,
+        )
+        return TTSResult(content=content, extension="mp3", content_type="audio/mpeg")
+
+    def warmup_voices(self, voices: list[str]) -> None:
+        logger.info("Edge TTS prewarm atlandi (servis ag uzerinden cagri bazli)")
+
+
+class HybridTTSService:
+    def __init__(self, *, piper: "PiperTTSService" | None, edge: EdgeTTSService | None) -> None:
+        self.piper = piper
+        self.edge = edge
+
+    def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+        wants_edge = _is_edge_voice(voice)
+        if wants_edge and self.edge is not None:
+            return self.edge.synthesize(text, voice=voice)
+        if wants_edge and self.piper is not None:
+            logger.warning("Edge ses istendi ancak Edge servis hazir degil, Piper kullaniliyor: %s", voice)
+            return self.piper.synthesize(text, voice=voice)
+        if self.piper is not None:
+            return self.piper.synthesize(text, voice=voice)
+        if self.edge is not None:
+            return self.edge.synthesize(text, voice=voice)
+        raise RuntimeError("Hybrid TTS icin uygun backend bulunamadi")
+
+    def warmup_voices(self, voices: list[str]) -> None:
+        if self.piper is not None:
+            self.piper.warmup_voices(voices)
+        if self.edge is not None:
+            self.edge.warmup_voices(voices)
 
 
 class PiperTTSService:
@@ -364,6 +468,18 @@ class PiperTTSService:
         return PiperTTSService._clamp(accelerated, min_value=0.6, max_value=2.0)
 
 
+def _build_piper_service() -> PiperTTSService:
+    service = PiperTTSService()
+    service.ensure_ready()
+    return service
+
+
+def _build_edge_service() -> EdgeTTSService:
+    if edge_tts is None:
+        raise RuntimeError("edge-tts kutuphanesi yuklu degil")
+    return EdgeTTSService()
+
+
 def get_tts_service() -> TTSService:
     provider = settings.tts_provider.lower()
     logger.info(
@@ -373,8 +489,7 @@ def get_tts_service() -> TTSService:
     )
     if provider == "piper":
         try:
-            service = PiperTTSService()
-            service.ensure_ready()
+            service = _build_piper_service()
             logger.info("TTS_PROVIDER_ACTIVE provider=piper service=PiperTTSService")
             return service
         except Exception as exc:
@@ -383,6 +498,47 @@ def get_tts_service() -> TTSService:
                 raise
             logger.warning("TTS_PROVIDER_FALLBACK provider=piper -> dummy reason=%s", exc)
             return DummyTTSService()
+    if provider == "edge":
+        try:
+            service = _build_edge_service()
+            logger.info("TTS_PROVIDER_ACTIVE provider=edge service=EdgeTTSService")
+            return service
+        except Exception as exc:
+            if not settings.tts_fallback_to_dummy:
+                logger.exception("TTS_PROVIDER_FAILED provider=edge fallback_disabled=true")
+                raise
+            logger.warning("TTS_PROVIDER_FALLBACK provider=edge -> dummy reason=%s", exc)
+            return DummyTTSService()
+    if provider == "hybrid":
+        piper_service: PiperTTSService | None = None
+        edge_service: EdgeTTSService | None = None
+        piper_error: Exception | None = None
+        edge_error: Exception | None = None
+        try:
+            piper_service = _build_piper_service()
+        except Exception as exc:
+            piper_error = exc
+            logger.exception("TTS_PROVIDER_HYBRID_PIPER_UNAVAILABLE")
+        try:
+            edge_service = _build_edge_service()
+        except Exception as exc:
+            edge_error = exc
+            logger.exception("TTS_PROVIDER_HYBRID_EDGE_UNAVAILABLE")
+
+        if piper_service is None and edge_service is None:
+            if not settings.tts_fallback_to_dummy:
+                raise RuntimeError(
+                    f"Hybrid TTS backend yok (piper={piper_error}, edge={edge_error})"
+                )
+            logger.warning("TTS_PROVIDER_FALLBACK provider=hybrid -> dummy")
+            return DummyTTSService()
+
+        logger.info(
+            "TTS_PROVIDER_ACTIVE provider=hybrid service=HybridTTSService piper_ready=%s edge_ready=%s",
+            piper_service is not None,
+            edge_service is not None,
+        )
+        return HybridTTSService(piper=piper_service, edge=edge_service)
 
     logger.warning("TTS_PROVIDER_ACTIVE provider=dummy service=DummyTTSService")
     return DummyTTSService()

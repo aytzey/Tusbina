@@ -8,5 +8,7 @@ psycopg[binary]==3.2.12
 boto3==1.40.61
 python-jose[cryptography]==3.5.0
 piper-tts>=1.2.0
+edge-tts>=7.2.0,<8
+mutagen>=1.47.0
 pathvalidate>=3.2.0
 pypdf>=6.2.0

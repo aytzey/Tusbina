@@ -28,6 +28,11 @@ from app.services.tts import TTSResult, TTSService, get_tts_service
 
 logger = logging.getLogger("tusbina-generation")
 
+try:
+    from mutagen.mp3 import MP3
+except Exception:  # pragma: no cover - dependency availability is environment-specific
+    MP3 = None
+
 FORMAT_PART_DURATION_SEC = {
     "narrative": 420,
     "summary": 300,
@@ -300,7 +305,9 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 t_tts,
                 len(tts_audio.content),
             )
-            part_duration_sec = _duration_from_wav_bytes(tts_audio.content) or default_duration_sec
+            part_duration_sec = (
+                _duration_from_audio_bytes(tts_audio.content, extension=tts_audio.extension) or default_duration_sec
+            )
 
             generated_audio = storage.save_bytes(
                 filename=f"{podcast_id}-part-{index}.{tts_audio.extension}",
@@ -710,19 +717,26 @@ def _ensure_dual_voice_turns(*, turns: list[tuple[str, str]], script: str) -> li
 
 
 def _resolve_dialogue_voice(*, speaker: str, selected_voice: str) -> str:
+    selected_normalized = (selected_voice or "").strip().lower()
+    neural_dialogue = "diyalog neural" in selected_normalized
+    female_voice = "Emel Neural" if neural_dialogue else "Elif"
+    male_voice = "Ahmet Neural" if neural_dialogue else "Ahmet"
+
     normalized = speaker.strip().lower()
     if "ahmet" in normalized:
-        return "Ahmet"
+        return male_voice
     if "hoca" in normalized or "doktor" in normalized:
-        return "Ahmet"
+        return male_voice
     if "zeynep" in normalized:
-        return "Zeynep"
+        return "Zeynep" if not neural_dialogue else female_voice
     if "ogrenci" in normalized or "öğrenci" in normalized:
-        return "Elif"
+        return female_voice
     if "narrator" in normalized or "anlat" in normalized:
-        return "Elif"
+        return female_voice
     # Fallback to the selected voice when script has unknown speaker labels.
-    return selected_voice if selected_voice and selected_voice.lower() != "diyalog" else "Elif"
+    if selected_normalized not in {"diyalog", "diyalog neural"} and selected_voice:
+        return selected_voice
+    return female_voice
 
 
 def _concat_wav_segments(segments: list[bytes], *, gap_ms: int) -> bytes:
@@ -864,6 +878,13 @@ def _heartbeat_processing_job(
         pass  # Non-critical — heartbeat/progress only
 
 
+def _duration_from_audio_bytes(content: bytes, *, extension: str | None = None) -> int | None:
+    normalized_ext = (extension or "").strip().lower().lstrip(".")
+    if normalized_ext == "mp3":
+        return _duration_from_mp3_bytes(content)
+    return _duration_from_wav_bytes(content)
+
+
 def _duration_from_wav_bytes(content: bytes) -> int | None:
     try:
         with wave.open(BytesIO(content), "rb") as wav_reader:
@@ -874,3 +895,15 @@ def _duration_from_wav_bytes(content: bytes) -> int | None:
             return max(1, int(round(frame_count / frame_rate)))
     except wave.Error:
         return None
+
+
+def _duration_from_mp3_bytes(content: bytes) -> int | None:
+    if MP3 is None:
+        return None
+    try:
+        duration = float(MP3(BytesIO(content)).info.length)
+    except Exception:
+        return None
+    if duration <= 0:
+        return None
+    return max(1, int(round(duration)))

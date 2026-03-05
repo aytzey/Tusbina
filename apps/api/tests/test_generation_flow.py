@@ -10,9 +10,11 @@ from app.main import app
 from app.services import tts as tts_module
 from app.services.generation import (
     _build_auto_part_plan,
+    _duration_from_audio_bytes,
     _extract_heading_titles,
     _is_dialogue_mode,
     _resolve_auto_chars_per_part,
+    _resolve_dialogue_voice,
     _sections_look_like_defaults,
     _synthesize_part_audio,
     _synthesize_with_retry,
@@ -432,6 +434,17 @@ def test_is_dialogue_mode_by_voice_or_format() -> None:
     assert _is_dialogue_mode(format_name="narrative", voice_name="Diyalog") is True
     assert _is_dialogue_mode(format_name="qa", voice_name="Elif") is True
     assert _is_dialogue_mode(format_name="summary", voice_name="Elif") is False
+
+
+def test_dialogue_neural_voice_routes_to_emel_and_ahmet_neural() -> None:
+    assert _resolve_dialogue_voice(speaker="Anlatıcı", selected_voice="Diyalog Neural") == "Emel Neural"
+    assert _resolve_dialogue_voice(speaker="Hoca", selected_voice="Diyalog Neural") == "Ahmet Neural"
+    assert _resolve_dialogue_voice(speaker="Ahmet", selected_voice="Diyalog Neural") == "Ahmet Neural"
+
+
+def test_duration_from_audio_bytes_supports_mp3() -> None:
+    # A tiny fake mp3 payload should be rejected gracefully (None), not crash.
+    assert _duration_from_audio_bytes(b"not-a-real-mp3", extension="mp3") is None
 
 
 def test_synthesize_with_retry_recovers_after_transient_failure(monkeypatch) -> None:

@@ -36,6 +36,21 @@ const voiceOptions: VoiceOption[] = [
     key: "Diyalog",
     label: "Diyalog - Elif & Ahmet",
     subtitle: "İki kişi arasında soru-cevap formatı"
+  },
+  {
+    key: "Emel Neural",
+    label: "Emel Neural - Gerçekçi",
+    subtitle: "Neural Türkçe model, doğal vurgu ve akıcı anlatım"
+  },
+  {
+    key: "Ahmet Neural",
+    label: "Ahmet Neural - Derin Ton",
+    subtitle: "Neural Türkçe model, daha tok ve net erkek sesi"
+  },
+  {
+    key: "Diyalog Neural",
+    label: "Diyalog Neural - Emel & Ahmet",
+    subtitle: "Neural kadın/erkek ikili diyalog akışı"
   }
 ];
 

@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     script_auto_chars_per_part_qa: int = 2600
     generation_target_max_parts: int = 120
     generation_max_parts: int = 500
-    tts_provider: str = "piper"
+    tts_provider: str = "hybrid"  # hybrid | piper | edge | dummy
     tts_fallback_to_dummy: bool = False
     tts_max_chars_per_part: int = 5200
     tts_max_chars_per_part_narrative: int = 5200
@@ -122,6 +122,12 @@ class Settings(BaseSettings):
         "https://huggingface.co/Derur/piper-tts-models/resolve/main/tr/fettah/tr_TR-fettah-medium.onnx.json"
     )
     piper_speaker_id_zeynep: int = -1
+    edge_voice_tr_emel: str = "tr-TR-EmelNeural"
+    edge_voice_tr_ahmet: str = "tr-TR-AhmetNeural"
+    edge_rate: str = "+0%"
+    edge_pitch: str = "+0Hz"
+    edge_volume: str = "+0%"
+    edge_synthesize_timeout_sec: int = 60
     worker_poll_interval_sec: int = 5
     worker_reap_interval_sec: int = 30
     worker_stale_job_max_age_minutes: int = 30
