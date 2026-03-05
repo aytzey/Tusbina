@@ -1,5 +1,6 @@
 import logging
 import re
+import time as _time
 import wave
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
@@ -93,6 +94,8 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
 
         asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
+        logger.info("Job %s: %d asset, text lengths: %s", job.id[:8], len(assets),
+                     {a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets})
         sections = payload.get("sections", [])
         enabled_sections = [section for section in sections if section.get("enabled", True)]
         if sections and not enabled_sections:
@@ -129,8 +132,10 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         db.flush()
 
         total_parts = len(part_titles)
+        logger.info("Job %s: %d parts, titles=%s", job.id[:8], total_parts, part_titles[:5])
         total_duration_sec = 0
         for index, part_title in enumerate(part_titles, start=1):
+            t0 = _time.monotonic()
             script = build_part_script(
                 part_title=part_title,
                 format_name=format_name,
@@ -140,7 +145,15 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 storage=storage,
                 asset_text_cache=asset_text_cache,
             )
+            t_script = _time.monotonic() - t0
+            logger.info("Job %s part %d/%d: script done (%.1fs, %d chars)",
+                        job.id[:8], index, total_parts, t_script, len(script))
+
+            t1 = _time.monotonic()
             tts_audio = tts_service.synthesize(script, voice=payload.get("voice"))
+            t_tts = _time.monotonic() - t1
+            logger.info("Job %s part %d/%d: TTS done (%.1fs, %d bytes)",
+                        job.id[:8], index, total_parts, t_tts, len(tts_audio.content))
             part_duration_sec = _duration_from_wav_bytes(tts_audio.content) or default_duration_sec
 
             generated_audio = storage.save_bytes(
