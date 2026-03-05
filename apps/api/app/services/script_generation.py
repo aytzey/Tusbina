@@ -131,8 +131,13 @@ def _extract_text_from_asset(asset: UploadAssetModel, storage: StorageClient) ->
     text = ""
     if is_pdf:
         text = _extract_text_from_pdf(raw)
-
-    if not text:
+        if not text:
+            logger.warning(
+                "PDF metin katmani bulunamadi (taranmis olabilir): %s",
+                asset.filename,
+            )
+            return ""
+    else:
         text = raw.decode("utf-8", errors="ignore")
 
     return _normalize_text(text)

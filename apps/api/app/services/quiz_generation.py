@@ -81,6 +81,14 @@ def generate_quiz_for_podcast(
         target_part=target_part,
     )
 
+    # Check if source text is meaningful (not just title/headers)
+    cleaned = re.sub(r"\s+", " ", source_text).strip()
+    content_portion = re.sub(r"^.*?\n\n", "", cleaned, count=1).strip()
+    if len(content_portion) < 100:
+        raise ValueError(
+            "Kaynak metin yetersiz — PDF taranmis (OCR) olabilir veya metin katmani bulunamadi"
+        )
+
     question_count = max(3, min(question_count, 10))
 
     raw_questions = _generate_with_openrouter(

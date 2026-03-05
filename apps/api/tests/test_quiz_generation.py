@@ -6,19 +6,19 @@ from app.services.quiz_generation import generate_quiz_for_podcast
 from app.services.storage import get_storage_client
 
 
-def _make_asset(*, user_id: str, filename: str, content: bytes) -> UploadAssetModel:
+def _make_asset(*, user_id: str, filename: str, content: bytes, content_type: str = "text/plain") -> UploadAssetModel:
     storage = get_storage_client()
     stored = storage.save_bytes(
         filename=filename,
         content=content,
-        content_type="application/pdf",
+        content_type=content_type,
         user_id=user_id,
     )
     return UploadAssetModel(
         id=stored.asset_id,
         user_id=user_id,
         filename=filename,
-        content_type="application/pdf",
+        content_type=content_type,
         size_bytes=len(content),
         storage_key=stored.storage_key,
         public_url=stored.public_url,
@@ -34,8 +34,9 @@ def test_generate_quiz_uses_selected_part_source(monkeypatch) -> None:
     long_text = ("ALFA " * 1400) + ("OMEGA " * 1400)
     asset = _make_asset(
         user_id=user_id,
-        filename="kaynak.pdf",
-        content=(b"%PDF-1.4\n" + long_text.encode("utf-8") + b"\n%%EOF\n"),
+        filename="kaynak.txt",
+        content=long_text.encode("utf-8"),
+        content_type="text/plain",
     )
 
     captured: dict[str, str] = {}

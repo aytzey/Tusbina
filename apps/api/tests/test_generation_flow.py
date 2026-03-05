@@ -143,16 +143,17 @@ def test_generate_auto_splits_long_pdf_when_using_default_single_section(monkeyp
     monkeypatch.setattr(settings, "openrouter_api_key", "")
     monkeypatch.setattr(settings, "script_auto_chars_per_part", 800)
     monkeypatch.setattr(settings, "generation_max_parts", 20)
+    monkeypatch.setattr(settings, "upload_allowed_extensions", "pdf,txt")
+    monkeypatch.setattr(settings, "upload_validate_pdf_signature", False)
 
     long_plain_text = (
         "Anemi algoritmasinda ilk adim hemoglobin ve eritrosit indekslerini birlikte yorumlamaktir. "
         "Demir eksikligi, kronik hastalik anemisi ve megaloblastik surecler ayirici tanida temel eksendir. "
     ) * 120
-    large_pdf_like = b"%PDF-1.4\n" + long_plain_text.encode("utf-8") + b"\n%%EOF\n"
 
     upload_response = client.post(
         "/api/v1/upload",
-        files=[("files", ("uzun-kaynak.pdf", large_pdf_like, "application/pdf"))],
+        files=[("files", ("uzun-kaynak.txt", long_plain_text.encode("utf-8"), "text/plain"))],
         headers=user_headers,
     )
     assert upload_response.status_code == 200

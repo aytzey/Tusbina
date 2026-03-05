@@ -24,7 +24,9 @@ def generate_quiz(
             question_count=payload.question_count,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        msg = str(exc)
+        code = 400 if "yetersiz" in msg or "bulunamadi" in msg else 404
+        raise HTTPException(status_code=code, detail=msg) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
