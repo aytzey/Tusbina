@@ -45,6 +45,13 @@ def run_worker() -> None:
     logger.info("Generation worker started (poll=%ss)", settings.worker_poll_interval_sec)
     storage = get_storage_client()
     tts = get_tts_service()
+    logger.info(
+        "Worker runtime services: storage=%s tts=%s configured_tts_provider=%s fallback_to_dummy=%s",
+        storage.__class__.__name__,
+        tts.__class__.__name__,
+        settings.tts_provider,
+        settings.tts_fallback_to_dummy,
+    )
 
     stop_event = threading.Event()
     reaper_thread = threading.Thread(target=_run_reaper_loop, args=(stop_event,), daemon=True)

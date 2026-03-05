@@ -32,6 +32,12 @@ class DummyTTSService:
         base_duration_sec = min(max(len(payload) // 45, 2), 12)
         speed_multiplier = max(0.5, settings.piper_speed_multiplier)
         adjusted_duration = max(1, int(round(base_duration_sec / speed_multiplier)))
+        logger.warning(
+            "TTS_DUMMY_USED voice=%s chars=%d duration_sec=%d",
+            voice or "default",
+            len(payload),
+            adjusted_duration,
+        )
         audio = _build_sine_wav(duration_sec=adjusted_duration)
         return TTSResult(content=audio, extension="wav", content_type="audio/wav")
 
@@ -46,6 +52,12 @@ class PiperTTSService:
         piper_binary = self.ensure_ready()
         safe_text = text.strip() or "Ses uretilmesi icin metin bulunamadi."
         timeout_sec = max(5, int(settings.piper_synthesize_timeout_sec))
+        logger.info(
+            "TTS_PIPER_SYNTH_START voice=%s chars=%d timeout_sec=%d",
+            voice or "default",
+            len(safe_text),
+            timeout_sec,
+        )
 
         with NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
             base_cmd = [
@@ -101,6 +113,12 @@ class PiperTTSService:
             content = Path(tmp.name).read_bytes()
             if len(content) < 64:
                 raise RuntimeError("Piper cikti dosyasi beklenenden kisa")
+        logger.info(
+            "TTS_PIPER_SYNTH_DONE voice=%s chars=%d bytes=%d",
+            voice or "default",
+            len(safe_text),
+            len(content),
+        )
 
         return TTSResult(content=content, extension="wav", content_type="audio/wav")
 
@@ -178,17 +196,25 @@ class PiperTTSService:
 
 def get_tts_service() -> TTSService:
     provider = settings.tts_provider.lower()
+    logger.info(
+        "TTS_PROVIDER_REQUESTED provider=%s fallback_to_dummy=%s",
+        provider,
+        settings.tts_fallback_to_dummy,
+    )
     if provider == "piper":
         try:
             service = PiperTTSService()
             service.ensure_ready()
+            logger.info("TTS_PROVIDER_ACTIVE provider=piper service=PiperTTSService")
             return service
         except Exception as exc:
             if not settings.tts_fallback_to_dummy:
+                logger.exception("TTS_PROVIDER_FAILED provider=piper fallback_disabled=true")
                 raise
-            logger.warning("Piper hazirlanamadi, dummy TTS kullaniliyor: %s", exc)
+            logger.warning("TTS_PROVIDER_FALLBACK provider=piper -> dummy reason=%s", exc)
             return DummyTTSService()
 
+    logger.warning("TTS_PROVIDER_ACTIVE provider=dummy service=DummyTTSService")
     return DummyTTSService()
 
 

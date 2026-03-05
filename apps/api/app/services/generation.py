@@ -1,3 +1,4 @@
+import json
 import logging
 import math
 import re
@@ -41,6 +42,11 @@ class _AutoPartPlan:
     asset_part_total: int
 
 
+def _trace_generation(job_id: str, stage: str, **fields: object) -> None:
+    payload = {"job_id": job_id[:8], "stage": stage, **fields}
+    logger.info("GEN_TRACE %s", json.dumps(payload, ensure_ascii=False, default=str))
+
+
 def enqueue_generation_job(db: Session, *, user_id: str, payload: GeneratePodcastIn) -> GenerationJobModel:
     job = GenerationJobModel(
         id=uuid4().hex,
@@ -79,14 +85,31 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         return False
 
     tts_service = tts or get_tts_service()
+    job_started_at = _time.monotonic()
+    current_stage = "claimed"
     stored_keys: list[str] = []
+    _trace_generation(
+        job.id,
+        "claimed",
+        user_id=job.user_id,
+        tts_service=tts_service.__class__.__name__,
+    )
 
     try:
+        current_stage = "payload_loaded"
         payload = job.payload_json
         file_ids = payload.get("file_ids", [])
         if not file_ids:
             raise ValueError("No file_ids provided for generation")
+        _trace_generation(
+            job.id,
+            "payload_loaded",
+            file_count=len(file_ids),
+            format=payload.get("format"),
+            section_count=len(payload.get("sections", [])),
+        )
 
+        current_stage = "assets_query"
         assets_unordered = list(
             db.execute(
                 select(UploadAssetModel).where(
@@ -106,9 +129,24 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         missing_ids = [file_id for file_id in file_ids if file_id not in found_ids]
         if missing_ids:
             raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
+        _trace_generation(
+            job.id,
+            "assets_resolved",
+            asset_count=len(assets),
+            missing_count=len(missing_ids),
+            asset_ids=[asset.id[:8] for asset in assets],
+        )
 
+        current_stage = "asset_text_extract"
+        t_asset = _time.monotonic()
         asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
         asset_context_cache = build_asset_context_cache(assets=assets, asset_text_cache=asset_text_cache)
+        _trace_generation(
+            job.id,
+            "asset_text_ready",
+            elapsed_sec=round(_time.monotonic() - t_asset, 2),
+            text_lengths={a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets},
+        )
         logger.info(
             "Job %s: %d asset, text lengths: %s",
             job.id[:8],
@@ -124,6 +162,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         auto_part_plan: list[_AutoPartPlan] | None = None
         if section_titles and not _matches_default_file_sections(section_titles=section_titles, assets=assets):
             part_titles = section_titles
+            _trace_generation(job.id, "part_plan_manual_sections", part_count=len(part_titles))
         else:
             auto_part_plan = _build_auto_part_plan(
                 assets=assets,
@@ -131,6 +170,12 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 format_name=str(payload.get("format", "narrative")),
             )
             part_titles = [entry.title for entry in auto_part_plan]
+            _trace_generation(
+                job.id,
+                "part_plan_auto",
+                part_count=len(part_titles),
+                sample_titles=part_titles[:6],
+            )
         if len(part_titles) > settings.generation_max_parts:
             raise ValueError(
                 f"Part limiti asildi: {len(part_titles)} > {settings.generation_max_parts}"
@@ -157,6 +202,18 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         total_duration_sec = 0
         for index, part_title in enumerate(part_titles, start=1):
             plan_entry = auto_part_plan[index - 1] if auto_part_plan and index <= len(auto_part_plan) else None
+            current_stage = f"part_{index}_script"
+            _trace_generation(
+                job.id,
+                "part_start",
+                part=index,
+                total_parts=total_parts,
+                title=part_title,
+                tts_service=tts_service.__class__.__name__,
+                source_asset=(plan_entry.asset_id[:8] if plan_entry else None),
+                source_slice_index=(plan_entry.asset_part_index if plan_entry else index),
+                source_slice_total=(plan_entry.asset_part_total if plan_entry else total_parts),
+            )
             _heartbeat_processing_job(job.id, primary_db=db)
             t0 = _time.monotonic()
             script = build_part_script(
@@ -173,6 +230,13 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 source_slice_total=plan_entry.asset_part_total if plan_entry else None,
             )
             t_script = _time.monotonic() - t0
+            _trace_generation(
+                job.id,
+                "part_script_done",
+                part=index,
+                elapsed_sec=round(t_script, 2),
+                script_chars=len(script),
+            )
             logger.info(
                 "Job %s part %d/%d: script done (%.1fs, %d chars)",
                 job.id[:8],
@@ -182,10 +246,19 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 len(script),
             )
 
+            current_stage = f"part_{index}_tts"
             _heartbeat_processing_job(job.id, primary_db=db)
             t1 = _time.monotonic()
             tts_audio = tts_service.synthesize(script, voice=payload.get("voice"))
             t_tts = _time.monotonic() - t1
+            _trace_generation(
+                job.id,
+                "part_tts_done",
+                part=index,
+                elapsed_sec=round(t_tts, 2),
+                audio_bytes=len(tts_audio.content),
+                extension=tts_audio.extension,
+            )
             logger.info(
                 "Job %s part %d/%d: TTS done (%.1fs, %d bytes)",
                 job.id[:8],
@@ -203,6 +276,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 user_id=job.user_id,
             )
             stored_keys.append(generated_audio.storage_key)
+            current_stage = f"part_{index}_db_save"
             part = PodcastPartModel(
                 id=f"{podcast_id}-part-{index}",
                 podcast_id=podcast_id,
@@ -214,6 +288,13 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             )
             db.add(part)
             total_duration_sec += part_duration_sec
+            _trace_generation(
+                job.id,
+                "part_saved",
+                part=index,
+                duration_sec=part_duration_sec,
+                storage_key=generated_audio.storage_key,
+            )
 
             # Update progress in a separate connection so the poll endpoint sees it
             # without breaking the main atomic transaction
@@ -226,10 +307,25 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         job.result_podcast_id = podcast_id
         job.updated_at = datetime.now(UTC)
         db.commit()
+        _trace_generation(
+            job.id,
+            "completed",
+            total_parts=total_parts,
+            total_duration_sec=total_duration_sec,
+            elapsed_sec=round(_time.monotonic() - job_started_at, 2),
+            podcast_id=podcast_id,
+        )
         return True
 
     except Exception as exc:
         db.rollback()
+        _trace_generation(
+            job.id,
+            "failed",
+            failed_stage=current_stage,
+            elapsed_sec=round(_time.monotonic() - job_started_at, 2),
+            error=str(exc),
+        )
         # Clean up any audio files already written to storage
         for key in stored_keys:
             try:
