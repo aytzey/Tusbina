@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     piper_speed_multiplier: float = 1.15
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
+    piper_voice_pitch_semitones_elif: float = 0.8
+    piper_voice_pitch_semitones_ahmet: float = -3.2
+    piper_voice_pitch_semitones_zeynep: float = 3.5
     piper_synthesize_timeout_sec: int = 180
     piper_synthesize_retries: int = 2
     piper_synthesize_retry_backoff_sec: float = 0.6

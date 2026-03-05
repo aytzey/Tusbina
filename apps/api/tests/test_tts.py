@@ -68,3 +68,13 @@ def test_piper_adds_speaker_flag_when_voice_override_has_speaker_id(monkeypatch,
     assert "--speaker" in captured_cmd
     speaker_index = captured_cmd.index("--speaker")
     assert captured_cmd[speaker_index + 1] == "2"
+
+
+def test_voice_signature_pitch_shift_changes_waveform() -> None:
+    base = tts_module._build_sine_wav(duration_sec=1, frequency=440)
+    elif_shifted = tts_module._apply_voice_signature(base, voice="Elif", semitones=2.0)
+    ahmet_shifted = tts_module._apply_voice_signature(base, voice="Ahmet", semitones=-3.0)
+
+    assert elif_shifted != base
+    assert ahmet_shifted != base
+    assert elif_shifted != ahmet_shifted

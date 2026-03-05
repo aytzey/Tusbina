@@ -10,6 +10,8 @@ from tempfile import NamedTemporaryFile
 from typing import Protocol
 from urllib.request import urlretrieve
 
+import numpy as np
+
 from app.core.config import settings
 
 logger = logging.getLogger("tusbina-tts")
@@ -34,6 +36,7 @@ class _VoiceProfile:
     sentence_silence: float
     volume: float
     sine_frequency: int = 440
+    pitch_semitones: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -142,6 +145,7 @@ class PiperTTSService:
             content = Path(tmp.name).read_bytes()
             if len(content) < 64:
                 raise RuntimeError("Piper cikti dosyasi beklenenden kisa")
+            content = _apply_voice_signature(content, voice=voice, semitones=voice_profile.pitch_semitones)
         logger.info(
             "TTS_PIPER_SYNTH_DONE voice=%s chars=%d bytes=%d",
             voice or "default",
@@ -302,18 +306,24 @@ class PiperTTSService:
             noise_scale = PiperTTSService._clamp(noise_scale * 0.88, min_value=0.0, max_value=2.0)
             sentence_silence = PiperTTSService._clamp(sentence_silence + 0.04, min_value=0.0, max_value=2.0)
             sine_frequency = 360
+            pitch_semitones = float(settings.piper_voice_pitch_semitones_ahmet)
         elif "zeynep" in voice_name:
             noise_scale = PiperTTSService._clamp(noise_scale * 1.08, min_value=0.0, max_value=2.0)
             noise_w_scale = PiperTTSService._clamp(noise_w_scale * 0.95, min_value=0.0, max_value=2.0)
             sentence_silence = PiperTTSService._clamp(sentence_silence * 0.72, min_value=0.0, max_value=2.0)
             volume = PiperTTSService._clamp(volume * 1.05, min_value=0.1, max_value=3.0)
             sine_frequency = 520
+            pitch_semitones = float(settings.piper_voice_pitch_semitones_zeynep)
         elif "diyalog" in voice_name:
             sentence_silence = PiperTTSService._clamp(sentence_silence + 0.05, min_value=0.0, max_value=2.0)
             sine_frequency = 480
+            pitch_semitones = 0.0
         elif "elif" in voice_name or "selin" in voice_name:
             noise_w_scale = PiperTTSService._clamp(noise_w_scale * 1.03, min_value=0.0, max_value=2.0)
             sine_frequency = 460
+            pitch_semitones = float(settings.piper_voice_pitch_semitones_elif)
+        else:
+            pitch_semitones = 0.0
 
         return _VoiceProfile(
             length_scale=length_scale,
@@ -322,6 +332,7 @@ class PiperTTSService:
             sentence_silence=sentence_silence,
             volume=volume,
             sine_frequency=sine_frequency,
+            pitch_semitones=PiperTTSService._clamp(pitch_semitones, min_value=-6.0, max_value=6.0),
         )
 
     @staticmethod
@@ -384,3 +395,74 @@ def _build_sine_wav(duration_sec: int = 2, sample_rate: int = 22050, frequency: 
             wav.writeframesraw(sample.to_bytes(2, byteorder="little", signed=True))
 
     return stream.getvalue()
+
+
+def _apply_voice_signature(content: bytes, *, voice: str | None, semitones: float) -> bytes:
+    if abs(semitones) < 0.05:
+        return content
+
+    try:
+        with wave.open(BytesIO(content), "rb") as reader:
+            channels = reader.getnchannels()
+            sample_width = reader.getsampwidth()
+            sample_rate = reader.getframerate()
+            frames = reader.getnframes()
+            pcm = reader.readframes(frames)
+    except Exception:
+        return content
+
+    if sample_width != 2 or frames <= 4 or channels <= 0:
+        return content
+
+    try:
+        samples = np.frombuffer(pcm, dtype=np.int16)
+        if samples.size == 0:
+            return content
+        if channels > 1:
+            samples = samples.reshape(-1, channels)
+        else:
+            samples = samples.reshape(-1, 1)
+
+        pitched_channels: list[np.ndarray] = []
+        for channel_idx in range(samples.shape[1]):
+            channel = samples[:, channel_idx].astype(np.float32)
+            pitched_channels.append(_pitch_shift_keep_duration(channel, semitones=semitones))
+
+        processed = np.stack(pitched_channels, axis=1)
+        clipped = np.clip(np.round(processed), -32768, 32767).astype(np.int16)
+        if channels == 1:
+            pcm_out = clipped[:, 0].tobytes()
+        else:
+            pcm_out = clipped.reshape(-1).tobytes()
+
+        stream = BytesIO()
+        with wave.open(stream, "wb") as writer:
+            writer.setnchannels(channels)
+            writer.setsampwidth(sample_width)
+            writer.setframerate(sample_rate)
+            writer.writeframes(pcm_out)
+        logger.debug("TTS_VOICE_SIGNATURE_APPLIED voice=%s semitones=%.2f frames=%d", voice or "default", semitones, frames)
+        return stream.getvalue()
+    except Exception:
+        return content
+
+
+def _pitch_shift_keep_duration(channel: np.ndarray, *, semitones: float) -> np.ndarray:
+    if channel.size < 8 or abs(semitones) < 0.05:
+        return channel
+
+    pitch_factor = float(2 ** (semitones / 12.0))
+    if pitch_factor <= 0:
+        return channel
+
+    # Step 1: pitch move via resampling.
+    target_len = max(8, int(round(channel.size / pitch_factor)))
+    idx_in = np.linspace(0, channel.size - 1, num=channel.size, dtype=np.float32)
+    idx_mid = np.linspace(0, channel.size - 1, num=target_len, dtype=np.float32)
+    pitched = np.interp(idx_mid, idx_in, channel).astype(np.float32)
+
+    # Step 2: stretch back to original length to preserve duration.
+    idx_pitched = np.linspace(0, pitched.size - 1, num=pitched.size, dtype=np.float32)
+    idx_out = np.linspace(0, pitched.size - 1, num=channel.size, dtype=np.float32)
+    restored = np.interp(idx_out, idx_pitched, pitched).astype(np.float32)
+    return restored
