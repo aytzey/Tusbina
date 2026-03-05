@@ -10,6 +10,7 @@ from sqlalchemy import Select, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import SessionLocal
 from app.db.models import GenerationJobModel, PodcastModel, PodcastPartModel, UploadAssetModel
 from app.models.schemas import GeneratePodcastIn, GeneratePodcastStatusOut
 from app.services.script_generation import build_asset_text_cache, build_part_script
@@ -161,10 +162,10 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             db.add(part)
             total_duration_sec += part_duration_sec
 
-            # Update progress without committing — keep the transaction atomic
-            job.progress_pct = min(95, 20 + int((index / max(total_parts, 1)) * 70))
-            job.updated_at = datetime.now(UTC)
-            db.flush()
+            # Update progress in a separate connection so the poll endpoint sees it
+            # without breaking the main atomic transaction
+            new_pct = min(95, 20 + int((index / max(total_parts, 1)) * 70))
+            _update_job_progress(job.id, new_pct)
 
         podcast.total_duration_sec = total_duration_sec
         job.status = "completed"
@@ -305,6 +306,20 @@ def _claim_next_generation_job(db: Session) -> GenerationJobModel | None:
     db.commit()
     db.refresh(job)
     return job
+
+
+def _update_job_progress(job_id: str, progress_pct: int) -> None:
+    """Update job progress in a separate short-lived session so poll endpoint sees it."""
+    try:
+        with SessionLocal() as progress_db:
+            progress_db.execute(
+                update(GenerationJobModel)
+                .where(GenerationJobModel.id == job_id)
+                .values(progress_pct=progress_pct, updated_at=datetime.now(UTC))
+            )
+            progress_db.commit()
+    except Exception:
+        pass  # Non-critical — progress display only
 
 
 def _duration_from_wav_bytes(content: bytes) -> int | None:
