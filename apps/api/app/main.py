@@ -7,6 +7,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.routes.auth import router as auth_router
 from app.api.routes.courses import router as courses_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.generation import router as generation_router
@@ -43,6 +44,7 @@ if settings.storage_backend.lower() == "local":
     app.mount("/static/uploads", StaticFiles(directory=local_upload_dir), name="uploads")
 
 app.include_router(health_router)
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(courses_router, prefix="/api/v1")
 app.include_router(podcasts_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")

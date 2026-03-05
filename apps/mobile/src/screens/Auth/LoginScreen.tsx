@@ -1,0 +1,169 @@
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
+import { ScreenContainer } from "@/components";
+import { RootStackParamList } from "@/navigation/types";
+import { useAuthStore } from "@/state/stores/authStore";
+import { colors, radius, spacing, typography } from "@/theme";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+export function LoginScreen() {
+  const navigation = useNavigation<Nav>();
+  const signIn = useAuthStore((s) => s.signIn);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const error = useAuthStore((s) => s.error);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const canSubmit = email.trim().length > 0 && password.length >= 6 && !isLoading;
+
+  const handleLogin = async () => {
+    if (!canSubmit) return;
+    await signIn(email.trim(), password);
+  };
+
+  return (
+    <ScreenContainer scroll contentStyle={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.inner}
+      >
+        {/* Logo / Title */}
+        <View style={styles.header}>
+          <Ionicons name="school-outline" size={64} color={colors.motivationOrange} />
+          <Text style={styles.title}>TusBina</Text>
+          <Text style={styles.subtitle}>Hesabiniza giris yapin</Text>
+        </View>
+
+        {/* Form */}
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>E-posta</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ornek@email.com"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
+              editable={!isLoading}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Sifre</Text>
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="En az 6 karakter"
+                placeholderTextColor={colors.textSecondary}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                value={password}
+                onChangeText={setPassword}
+                editable={!isLoading}
+              />
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <Pressable
+            disabled={!canSubmit}
+            onPress={handleLogin}
+            style={({ pressed }) => [
+              styles.button,
+              !canSubmit && styles.buttonDisabled,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={colors.textPrimary} />
+            ) : (
+              <Text style={styles.buttonLabel}>Giris Yap</Text>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Hesabiniz yok mu?</Text>
+          <Pressable onPress={() => navigation.navigate("Register")}>
+            <Text style={styles.footerLink}> Kayit Ol</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center" },
+  inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.xl },
+  header: { alignItems: "center", gap: spacing.sm },
+  title: { ...typography.title, color: colors.textPrimary, fontSize: 32 },
+  subtitle: { ...typography.body, color: colors.textSecondary },
+  form: { gap: spacing.lg },
+  inputGroup: { gap: spacing.xs },
+  label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
+  input: {
+    height: 48,
+    backgroundColor: colors.surfaceNavy,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    color: colors.textPrimary,
+    ...typography.body,
+  },
+  passwordRow: { position: "relative" },
+  passwordInput: { paddingRight: 48 },
+  eyeButton: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    height: 48,
+    width: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  error: { ...typography.caption, color: colors.danger, textAlign: "center" },
+  button: {
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.motivationOrange,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.sm,
+  },
+  buttonDisabled: { opacity: 0.4 },
+  buttonPressed: { opacity: 0.8 },
+  buttonLabel: { ...typography.button, color: colors.textPrimary },
+  footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
+  footerText: { ...typography.body, color: colors.textSecondary },
+  footerLink: { ...typography.body, color: colors.motivationOrange, fontWeight: "700" },
+});

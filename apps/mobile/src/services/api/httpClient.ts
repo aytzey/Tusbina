@@ -1,3 +1,5 @@
+import { useAuthStore } from "@/state/stores/authStore";
+
 const CONFIGURED_API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 export const API_BASE_URL = normalizeBaseUrl(CONFIGURED_API_BASE_URL);
 let activeApiBaseUrl = API_BASE_URL;
@@ -56,13 +58,22 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const candidateBaseUrls = getApiBaseCandidates();
   let lastNetworkMessage = "Network request failed";
 
+  // Build auth headers: prefer Bearer token, fall back to x-user-id
+  const authHeaders: Record<string, string> = {};
+  const accessToken = useAuthStore.getState().getAccessToken();
+  if (accessToken) {
+    authHeaders["Authorization"] = `Bearer ${accessToken}`;
+  } else {
+    authHeaders["x-user-id"] = userId;
+  }
+
   for (const baseUrl of candidateBaseUrls) {
     try {
       const response = await fetch(`${baseUrl}${path}`, {
         ...init,
         headers: {
           ...(isJson ? { "Content-Type": "application/json" } : {}),
-          "x-user-id": userId,
+          ...authHeaders,
           ...headers
         },
         body

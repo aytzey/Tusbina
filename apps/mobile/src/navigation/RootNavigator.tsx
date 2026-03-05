@@ -1,7 +1,12 @@
+import { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "@/theme";
+import { useAuthStore } from "@/state/stores/authStore";
 import { MainTabNavigator } from "./MainTabNavigator";
 import { RootStackParamList } from "./types";
+import { LoginScreen } from "@/screens/Auth/LoginScreen";
+import { RegisterScreen } from "@/screens/Auth/RegisterScreen";
 import { CourseDetailScreen } from "@/screens/Courses/CourseDetailScreen";
 import { PlayerScreen } from "@/screens/Player/PlayerScreen";
 import { UploadStep2Screen } from "@/screens/Upload/UploadStep2Screen";
@@ -15,9 +20,24 @@ import { NoInternetScreen } from "@/screens/States/NoInternetScreen";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const initialize = useAuthStore((s) => s.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.primaryNavy, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={colors.motivationOrange} />
+      </View>
+    );
+  }
+
   return (
     <Stack.Navigator
-      initialRouteName="MainTabs"
       screenOptions={{
         headerStyle: { backgroundColor: colors.primaryNavy },
         headerTintColor: colors.textPrimary,
@@ -25,16 +45,25 @@ export function RootNavigator() {
         contentStyle: { backgroundColor: colors.primaryNavy }
       }}
     >
-      <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen name="CourseDetail" component={CourseDetailScreen} options={{ title: "Ders Detay" }} />
-      <Stack.Screen name="Player" component={PlayerScreen} options={{ title: "Şimdi Dinleniyor" }} />
-      <Stack.Screen name="UploadStep2" component={UploadStep2Screen} options={{ title: "Ses ve Format" }} />
-      <Stack.Screen name="UploadStep3" component={UploadStep3Screen} options={{ title: "Önizleme" }} />
-      <Stack.Screen name="Uploading" component={UploadingScreen} options={{ title: "Hazırlanıyor" }} />
-      <Stack.Screen name="Premium" component={PremiumScreen} options={{ title: "Premium" }} />
-      <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: "Soru-Cevap" }} />
-      <Stack.Screen name="GeneralError" component={GeneralErrorScreen} options={{ title: "Bir Hata Oluştu" }} />
-      <Stack.Screen name="NoInternet" component={NoInternetScreen} options={{ title: "Bağlantı Yok" }} />
+      {isAuthenticated ? (
+        <>
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
+          <Stack.Screen name="CourseDetail" component={CourseDetailScreen} options={{ title: "Ders Detay" }} />
+          <Stack.Screen name="Player" component={PlayerScreen} options={{ title: "Simdi Dinleniyor" }} />
+          <Stack.Screen name="UploadStep2" component={UploadStep2Screen} options={{ title: "Ses ve Format" }} />
+          <Stack.Screen name="UploadStep3" component={UploadStep3Screen} options={{ title: "Onizleme" }} />
+          <Stack.Screen name="Uploading" component={UploadingScreen} options={{ title: "Hazirlaniyor" }} />
+          <Stack.Screen name="Premium" component={PremiumScreen} options={{ title: "Premium" }} />
+          <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: "Soru-Cevap" }} />
+          <Stack.Screen name="GeneralError" component={GeneralErrorScreen} options={{ title: "Bir Hata Olustu" }} />
+          <Stack.Screen name="NoInternet" component={NoInternetScreen} options={{ title: "Baglanti Yok" }} />
+        </>
+      ) : (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

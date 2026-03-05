@@ -12,6 +12,16 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+class UserProfileModel(Base):
+    __tablename__ = "user_profiles"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # Supabase auth user id
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class CourseModel(Base):
     __tablename__ = "courses"
 

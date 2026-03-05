@@ -5,7 +5,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { useUserStore } from "@/state/stores";
+import { useUserStore, useAuthStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 import { formatDuration } from "@/utils";
 
@@ -51,7 +51,8 @@ export function ProfileScreen() {
   const usageLoading = useUserStore((state) => state.usageLoading);
   const usageError = useUserStore((state) => state.usageError);
   const addExtraPackage = useUserStore((state) => state.addExtraPackage);
-  const logoutMock = useUserStore((state) => state.logoutMock);
+  const signOut = useAuthStore((state) => state.signOut);
+  const authUser = useAuthStore((state) => state.user);
   const syncUsage = useUserStore((state) => state.syncUsage);
 
   useFocusEffect(
@@ -81,7 +82,9 @@ export function ProfileScreen() {
           <Ionicons name="person-outline" size={36} color={colors.textPrimary} />
         </View>
 
-        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userName}>
+          {authUser?.user_metadata?.display_name || user.name}
+        </Text>
 
         <View style={styles.badgeRow}>
           <Ionicons
@@ -162,11 +165,19 @@ export function ProfileScreen() {
         />
       </View>
 
+      {/* Auth info */}
+      {authUser?.email ? (
+        <View style={styles.emailRow}>
+          <Ionicons name="mail-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.emailText}>{authUser.email}</Text>
+        </View>
+      ) : null}
+
       {/* Logout */}
       <MenuItem
         icon="log-out-outline"
-        label="Çıkış Yap"
-        onPress={logoutMock}
+        label="Cikis Yap"
+        onPress={signOut}
         danger
       />
     </ScreenContainer>
@@ -296,5 +307,16 @@ const styles = StyleSheet.create({
   },
   dangerLabel: {
     color: colors.danger
+  },
+  emailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm
+  },
+  emailText: {
+    ...typography.caption,
+    color: colors.textSecondary
   }
 });

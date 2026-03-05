@@ -3,7 +3,7 @@ import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { QuotaLimitModal } from "@/components";
 import { RootNavigator } from "@/navigation";
-import { useCoursesStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
+import { useAuthStore, useCoursesStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
 import { colors } from "@/theme";
 
 const appTheme = {
@@ -19,15 +19,17 @@ const appTheme = {
 };
 
 function useBootstrapData() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const loadCourses = useCoursesStore((state) => state.loadCourses);
   const loadPodcasts = usePodcastsStore((state) => state.loadPodcasts);
   const syncUsage = useUserStore((state) => state.syncUsage);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void loadCourses();
     void loadPodcasts();
     void syncUsage();
-  }, [loadCourses, loadPodcasts, syncUsage]);
+  }, [isAuthenticated, loadCourses, loadPodcasts, syncUsage]);
 }
 
 function usePlaybackQuotaSync() {

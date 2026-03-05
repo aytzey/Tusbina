@@ -9,6 +9,9 @@ PodcastFormat = Literal["narrative", "summary", "qa"]
 SourceType = Literal["course", "ai"]
 
 
+# --- Course schemas ---
+
+
 class CoursePart(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

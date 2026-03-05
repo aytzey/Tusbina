@@ -8,6 +8,8 @@ export type MainTabParamList = {
 };
 
 export type RootStackParamList = {
+  Login: undefined;
+  Register: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   CourseDetail: { courseId: string };
   Player: { trackId?: string; sourceType?: "course" | "ai" } | undefined;

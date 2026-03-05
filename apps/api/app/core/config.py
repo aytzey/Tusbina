@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     demo_monthly_quota_sec: int = 3600
     premium_monthly_quota_sec: int = 10 * 60 * 60
 
-    # Supabase auth (optional in MVP)
+    # Supabase auth
     enable_auth: bool = False
     default_user_id: str = "demo-user"
     supabase_url: str = ""
@@ -71,6 +72,21 @@ class Settings(BaseSettings):
     worker_poll_interval_sec: int = 5
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @model_validator(mode="after")
+    def _auto_enable_auth(self) -> "Settings":
+        """Enable auth automatically when SUPABASE_URL is configured,
+        unless ENABLE_AUTH was explicitly set to false in the environment."""
+        # pydantic-settings populates enable_auth from env var ENABLE_AUTH.
+        # If SUPABASE_URL is set but ENABLE_AUTH was not explicitly provided,
+        # the field still has the class default (False).  We flip it to True
+        # only when supabase_url is present and enable_auth is still the default.
+        import os
+
+        explicit_enable_auth = os.environ.get("ENABLE_AUTH", "").strip().lower()
+        if self.supabase_url and not explicit_enable_auth:
+            self.enable_auth = True
+        return self
 
 
 settings = Settings()
