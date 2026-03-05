@@ -135,6 +135,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         logger.info("Job %s: %d parts, titles=%s", job.id[:8], total_parts, part_titles[:5])
         total_duration_sec = 0
         for index, part_title in enumerate(part_titles, start=1):
+            _heartbeat_processing_job(job.id, primary_db=db)
             t0 = _time.monotonic()
             script = build_part_script(
                 part_title=part_title,
@@ -149,6 +150,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             logger.info("Job %s part %d/%d: script done (%.1fs, %d chars)",
                         job.id[:8], index, total_parts, t_script, len(script))
 
+            _heartbeat_processing_job(job.id, primary_db=db)
             t1 = _time.monotonic()
             tts_audio = tts_service.synthesize(script, voice=payload.get("voice"))
             t_tts = _time.monotonic() - t1
@@ -178,7 +180,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             # Update progress in a separate connection so the poll endpoint sees it
             # without breaking the main atomic transaction
             new_pct = min(95, 20 + int((index / max(total_parts, 1)) * 70))
-            _update_job_progress(job.id, new_pct)
+            _heartbeat_processing_job(job.id, progress_pct=new_pct, primary_db=db)
 
         podcast.total_duration_sec = total_duration_sec
         job.status = "completed"
@@ -321,18 +323,37 @@ def _claim_next_generation_job(db: Session) -> GenerationJobModel | None:
     return job
 
 
-def _update_job_progress(job_id: str, progress_pct: int) -> None:
-    """Update job progress in a separate short-lived session so poll endpoint sees it."""
+def _heartbeat_processing_job(
+    job_id: str,
+    progress_pct: int | None = None,
+    *,
+    primary_db: Session | None = None,
+) -> None:
+    """Keep processing job alive via short-lived updates that do not commit main work."""
     try:
-        with SessionLocal() as progress_db:
-            progress_db.execute(
-                update(GenerationJobModel)
-                .where(GenerationJobModel.id == job_id)
-                .values(progress_pct=progress_pct, updated_at=datetime.now(UTC))
+        values: dict[str, object] = {"updated_at": datetime.now(UTC)}
+        if progress_pct is not None:
+            values["progress_pct"] = progress_pct
+        stmt = (
+            update(GenerationJobModel)
+            .where(
+                GenerationJobModel.id == job_id,
+                GenerationJobModel.status == "processing",
             )
+            .values(**values)
+        )
+
+        # SQLite test/local mode can deadlock if we open another writer session.
+        if primary_db is not None and primary_db.get_bind().dialect.name == "sqlite":
+            primary_db.execute(stmt)
+            primary_db.flush()
+            return
+
+        with SessionLocal() as progress_db:
+            progress_db.execute(stmt)
             progress_db.commit()
     except Exception:
-        pass  # Non-critical — progress display only
+        pass  # Non-critical — heartbeat/progress only
 
 
 def _duration_from_wav_bytes(content: bytes) -> int | None:

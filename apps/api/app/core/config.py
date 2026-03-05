@@ -81,7 +81,9 @@ class Settings(BaseSettings):
     piper_speed_multiplier: float = 1.15
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
+    piper_synthesize_timeout_sec: int = 180
     worker_poll_interval_sec: int = 5
+    worker_reap_interval_sec: int = 30
     worker_stale_job_max_age_minutes: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

@@ -35,6 +35,9 @@ services:
       TTS_MODELS_DIR: /app/data/models
       PIPER_MODEL_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx
       PIPER_MODEL_CONFIG_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx.json
+      PIPER_SYNTHESIZE_TIMEOUT_SEC: ${PIPER_SYNTHESIZE_TIMEOUT_SEC:-180}
+      WORKER_REAP_INTERVAL_SEC: ${WORKER_REAP_INTERVAL_SEC:-30}
+      WORKER_STALE_JOB_MAX_AGE_MINUTES: ${WORKER_STALE_JOB_MAX_AGE_MINUTES:-30}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -63,6 +66,9 @@ services:
       TTS_MODELS_DIR: /app/data/models
       PIPER_MODEL_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx
       PIPER_MODEL_CONFIG_PATH: /app/data/models/piper/tr_TR-dfki-medium.onnx.json
+      PIPER_SYNTHESIZE_TIMEOUT_SEC: ${PIPER_SYNTHESIZE_TIMEOUT_SEC:-180}
+      WORKER_REAP_INTERVAL_SEC: ${WORKER_REAP_INTERVAL_SEC:-30}
+      WORKER_STALE_JOB_MAX_AGE_MINUTES: ${WORKER_STALE_JOB_MAX_AGE_MINUTES:-30}
     depends_on:
       - postgres
       - redis

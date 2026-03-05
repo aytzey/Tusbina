@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 from app.core.config import settings
@@ -7,6 +8,22 @@ from app.services.bootstrap import bootstrap_application
 from app.services.generation import process_next_generation_job, reap_stale_processing_jobs
 from app.services.storage import get_storage_client
 from app.services.tts import get_tts_service
+
+
+def _run_reaper_loop(stop_event: threading.Event) -> None:
+    logger = logging.getLogger("tusbina-reaper")
+    logger.info(
+        "Generation reaper started (interval=%ss, stale=%sm)",
+        settings.worker_reap_interval_sec,
+        settings.worker_stale_job_max_age_minutes,
+    )
+    while not stop_event.is_set():
+        try:
+            with SessionLocal() as db:
+                reap_stale_processing_jobs(db, max_age_minutes=settings.worker_stale_job_max_age_minutes)
+        except Exception:
+            logger.exception("Generation reaper failed")
+        stop_event.wait(settings.worker_reap_interval_sec)
 
 
 def run_worker() -> None:
@@ -29,15 +46,11 @@ def run_worker() -> None:
     storage = get_storage_client()
     tts = get_tts_service()
 
-    reap_counter = 0
-    while True:
-        # Every 6 poll cycles (~30s), reap stuck processing jobs
-        reap_counter += 1
-        if reap_counter >= 6:
-            reap_counter = 0
-            with SessionLocal() as db:
-                reap_stale_processing_jobs(db, max_age_minutes=settings.worker_stale_job_max_age_minutes)
+    stop_event = threading.Event()
+    reaper_thread = threading.Thread(target=_run_reaper_loop, args=(stop_event,), daemon=True)
+    reaper_thread.start()
 
+    while True:
         with SessionLocal() as db:
             processed = process_next_generation_job(db, storage=storage, tts=tts)
         if not processed:

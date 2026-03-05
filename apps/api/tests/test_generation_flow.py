@@ -106,6 +106,50 @@ def test_generate_accepts_uploaded_file_ids_alias() -> None:
     assert generation_response.json()["status"] == "queued"
 
 
+def test_generate_fails_when_some_file_ids_are_missing() -> None:
+    user_id = f"missing-ids-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("existing.pdf", DUMMY_PDF, "application/pdf"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    existing_file_id = upload_response.json()["file_ids"][0]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Missing IDs",
+            "voice": "Dr. Selin",
+            "format": "narrative",
+            "file_ids": [existing_file_id, "does-not-exist"],
+            "sections": [
+                {"id": "s1", "title": "Birinci", "enabled": True},
+                {"id": "s2", "title": "Ikinci", "enabled": True},
+            ],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    status_payload = None
+    for _ in range(20):
+        with SessionLocal() as db:
+            process_next_generation_job(db, storage=get_storage_client())
+        status_response = client.get(f"/api/v1/generatePodcast/{job_id}/status", headers=user_headers)
+        assert status_response.status_code == 200
+        status_payload = status_response.json()
+        if status_payload["status"] == "failed":
+            break
+
+    assert status_payload is not None
+    assert status_payload["status"] == "failed"
+    assert "not found" in (status_payload.get("error") or "").lower()
+
+
 def test_generate_rejects_too_many_parts(monkeypatch) -> None:
     user_id = f"parts-user-{uuid4().hex[:8]}"
     user_headers = {"x-user-id": user_id}

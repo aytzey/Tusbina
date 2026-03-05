@@ -45,6 +45,7 @@ class PiperTTSService:
     def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
         piper_binary = self.ensure_ready()
         safe_text = text.strip() or "Ses uretilmesi icin metin bulunamadi."
+        timeout_sec = max(5, int(settings.piper_synthesize_timeout_sec))
 
         with NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
             base_cmd = [
@@ -82,7 +83,7 @@ class PiperTTSService:
             if use_cuda:
                 cmd.append("--cuda")
 
-            completed = subprocess.run(cmd, input=safe_text.encode("utf-8"), capture_output=True, check=False)
+            completed = self._run_piper_command(cmd, safe_text=safe_text, timeout_sec=timeout_sec)
             if completed.returncode != 0:
                 stderr = completed.stderr.decode("utf-8", errors="ignore")
                 if use_cuda:
@@ -90,12 +91,7 @@ class PiperTTSService:
                         "Piper CUDA sentez basarisiz, CPU fallback deneniyor: %s",
                         stderr.strip() or completed.returncode,
                     )
-                    completed = subprocess.run(
-                        base_cmd,
-                        input=safe_text.encode("utf-8"),
-                        capture_output=True,
-                        check=False,
-                    )
+                    completed = self._run_piper_command(base_cmd, safe_text=safe_text, timeout_sec=timeout_sec)
                 if completed.returncode != 0:
                     retry_stderr = completed.stderr.decode("utf-8", errors="ignore")
                     raise RuntimeError(
@@ -107,6 +103,24 @@ class PiperTTSService:
                 raise RuntimeError("Piper cikti dosyasi beklenenden kisa")
 
         return TTSResult(content=content, extension="wav", content_type="audio/wav")
+
+    @staticmethod
+    def _run_piper_command(
+        cmd: list[str],
+        *,
+        safe_text: str,
+        timeout_sec: int,
+    ) -> subprocess.CompletedProcess[bytes]:
+        try:
+            return subprocess.run(
+                cmd,
+                input=safe_text.encode("utf-8"),
+                capture_output=True,
+                check=False,
+                timeout=timeout_sec,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"Piper sentez timeout ({timeout_sec}s)") from exc
 
     def ensure_ready(self) -> str:
         piper_binary = shutil.which(self.binary_path) if self.binary_path else None
