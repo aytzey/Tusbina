@@ -8,7 +8,7 @@ from app.services.generation import process_next_generation_job
 from app.services.storage import get_storage_client
 from app.services.tts import get_tts_service
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)
 logger = logging.getLogger("tusbina-worker")
 
 
