@@ -87,10 +87,12 @@ class PiperTTSService:
         self._ensure_model_files_for_spec(model_spec)
         voice_profile = self._resolve_voice_profile(voice)
         logger.info(
-            "TTS_PIPER_SYNTH_START voice=%s chars=%d timeout_sec=%d",
+            "TTS_PIPER_SYNTH_START voice=%s chars=%d timeout_sec=%d model=%s speaker=%s",
             voice or "default",
             len(safe_text),
             timeout_sec,
+            model_spec.model_path.name,
+            model_spec.speaker_id if model_spec.speaker_id is not None else "default",
         )
 
         with NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
@@ -279,6 +281,13 @@ class PiperTTSService:
             urlretrieve(spec.config_url, spec.config_path)
 
         self._ready_model_keys.add(spec.cache_key)
+        logger.info(
+            "Piper model hazir: key=%s model=%s config=%s speaker=%s",
+            spec.cache_key,
+            spec.model_path.name,
+            spec.config_path.name,
+            spec.speaker_id if spec.speaker_id is not None else "default",
+        )
 
     @staticmethod
     def _clamp(value: float, *, min_value: float, max_value: float) -> float:
