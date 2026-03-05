@@ -19,6 +19,7 @@ def generate_quiz(
         questions = generate_quiz_for_podcast(
             db,
             podcast_id=payload.podcast_id,
+            part_id=payload.part_id,
             user_id=current_user.user_id,
             question_count=payload.question_count,
         )

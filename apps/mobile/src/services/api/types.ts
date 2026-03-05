@@ -109,3 +109,9 @@ export interface ApiQuizGenerateResponse {
   podcast_id: string;
   questions: ApiQuizQuestion[];
 }
+
+export interface ApiQuizGenerateRequest {
+  podcast_id: string;
+  part_id?: string;
+  question_count?: number;
+}

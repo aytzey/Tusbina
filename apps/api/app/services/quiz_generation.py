@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -9,9 +10,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.models import GenerationJobModel, PodcastModel, PodcastPartModel, QuizQuestionModel, UploadAssetModel
+from app.db.models import (
+    GenerationJobModel,
+    PodcastModel,
+    PodcastPartModel,
+    QuizQuestionModel,
+    UploadAssetModel,
+)
 from app.services.script_generation import build_asset_text_cache
-from app.services.storage import StorageClient, get_storage_client
+from app.services.storage import get_storage_client
 
 logger = logging.getLogger("tusbina-quiz")
 
@@ -43,6 +50,7 @@ def generate_quiz_for_podcast(
     db: Session,
     *,
     podcast_id: str,
+    part_id: str | None = None,
     user_id: str,
     question_count: int = 5,
 ) -> list[QuizQuestionModel]:
@@ -58,7 +66,20 @@ def generate_quiz_for_podcast(
     if podcast is None:
         raise ValueError("Podcast bulunamadi")
 
-    source_text = _collect_source_text(db, podcast_id=podcast_id, podcast_title=podcast.title)
+    parts = _get_ordered_podcast_parts(db, podcast_id=podcast_id)
+    target_part: PodcastPartModel | None = None
+    if part_id:
+        target_part = next((part for part in parts if part.id == part_id), None)
+        if target_part is None:
+            raise ValueError("Podcast bolumu bulunamadi")
+
+    source_text = _collect_source_text(
+        db,
+        podcast_id=podcast_id,
+        podcast_title=podcast.title,
+        parts=parts,
+        target_part=target_part,
+    )
 
     question_count = max(3, min(question_count, 10))
 
@@ -127,8 +148,17 @@ def get_quiz_questions(
     return list(db.execute(stmt).scalars().all())
 
 
-def _collect_source_text(db: Session, *, podcast_id: str, podcast_title: str) -> str:
+def _collect_source_text(
+    db: Session,
+    *,
+    podcast_id: str,
+    podcast_title: str,
+    parts: list[PodcastPartModel],
+    target_part: PodcastPartModel | None,
+) -> str:
     """Load original PDF content from upload assets linked to this podcast's generation job."""
+
+    part_prefix = _build_part_prefix(parts=parts, target_part=target_part)
 
     # Find the generation job that produced this podcast
     job = db.execute(
@@ -148,22 +178,81 @@ def _collect_source_text(db: Session, *, podcast_id: str, podcast_title: str) ->
                 text_cache = build_asset_text_cache(assets=assets, storage=storage)
                 merged = "\n\n".join(t for t in text_cache.values() if t).strip()
                 if merged:
+                    if target_part is not None:
+                        part_index = _resolve_part_position(parts=parts, target_part_id=target_part.id)
+                        focused = _slice_text_for_part(
+                            merged,
+                            index=part_index,
+                            total=max(1, len(parts)),
+                        )
+                        header = f"Podcast basligi: {podcast_title}\n{part_prefix}\n"
+                        return (header + focused)[: settings.script_source_max_chars]
+
                     header = f"Podcast basligi: {podcast_title}\n\n"
                     return (header + merged)[: settings.script_source_max_chars]
 
     # Fallback: use part titles if no source assets found
-    parts = db.execute(
-        select(PodcastPartModel)
-        .where(PodcastPartModel.podcast_id == podcast_id)
-        .order_by(PodcastPartModel.id)
-    ).scalars().all()
-
     segments: list[str] = [f"Podcast basligi: {podcast_title}"]
-    for part in parts:
-        segments.append(f"Bolum: {part.title}")
+    if target_part is not None:
+        segments.append(part_prefix.strip())
+    else:
+        for part in parts:
+            segments.append(f"Bolum: {part.title}")
 
     merged = "\n\n".join(segments).strip()
     return merged[: settings.script_source_max_chars] if merged else podcast_title
+
+
+def _get_ordered_podcast_parts(db: Session, *, podcast_id: str) -> list[PodcastPartModel]:
+    rows = db.execute(
+        select(PodcastPartModel).where(PodcastPartModel.podcast_id == podcast_id)
+    ).scalars().all()
+    return sorted(rows, key=lambda part: _part_sort_key(part.id, part.title))
+
+
+def _build_part_prefix(*, parts: list[PodcastPartModel], target_part: PodcastPartModel | None) -> str:
+    if target_part is None:
+        return ""
+
+    index = _resolve_part_position(parts=parts, target_part_id=target_part.id)
+    total = max(1, len(parts))
+    return f"Odak bolum basligi: {target_part.title}\nBolum indeks: {index}/{total}\n\n"
+
+
+def _resolve_part_position(*, parts: list[PodcastPartModel], target_part_id: str) -> int:
+    for idx, part in enumerate(parts, start=1):
+        if part.id == target_part_id:
+            return idx
+    return 1
+
+
+def _part_sort_key(part_id: str, part_title: str) -> tuple[int, str]:
+    id_match = re.search(r"-part-(\d+)$", part_id or "")
+    if id_match:
+        return (int(id_match.group(1)), part_id)
+
+    title_match = re.search(r"\b(\d+)\b", part_title or "")
+    if title_match:
+        return (int(title_match.group(1)), part_id)
+
+    return (10**9, part_id)
+
+
+def _slice_text_for_part(text: str, *, index: int, total: int) -> str:
+    compact = re.sub(r"\s+", " ", text).strip()
+    if not compact:
+        return ""
+    if total <= 1:
+        return compact[: settings.script_source_max_chars]
+
+    chunk_size = max(1, math.ceil(len(compact) / total))
+    safe_index = min(max(index, 1), total)
+    start = (safe_index - 1) * chunk_size
+    end = min(len(compact), start + chunk_size)
+    chunk = compact[start:end]
+    if not chunk:
+        chunk = compact[max(0, len(compact) - chunk_size) :]
+    return chunk[: settings.script_source_max_chars]
 
 
 def _generate_with_openrouter(

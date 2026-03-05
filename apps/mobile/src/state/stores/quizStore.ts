@@ -13,7 +13,7 @@ interface QuizState {
   generating: boolean;
   error: string | null;
   loadQuiz: (podcastId: string) => Promise<void>;
-  generateQuiz: (podcastId: string) => Promise<void>;
+  generateQuiz: (podcastId: string, partId?: string) => Promise<void>;
   setIndex: (index: number) => void;
   answerQuestion: (questionId: string, optionIndex: number) => void;
   next: () => void;
@@ -42,10 +42,10 @@ export const useQuizStore = create<QuizState>()(
         }
       },
 
-      generateQuiz: async (podcastId: string) => {
-        set({ generating: true, error: null, podcastId });
+      generateQuiz: async (podcastId: string, partId?: string) => {
+        set({ generating: true, error: null, podcastId, questions: [], index: 0, answers: {} });
         try {
-          const result = await generateQuizQuestions(podcastId);
+          const result = await generateQuizQuestions(podcastId, partId);
           set({ questions: result.questions, generating: false, index: 0, answers: {} });
         } catch {
           set({ generating: false, error: "Quiz üretilemedi. Lütfen tekrar deneyin." });

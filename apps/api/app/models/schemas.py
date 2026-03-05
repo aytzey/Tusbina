@@ -155,6 +155,7 @@ class GeneratePodcastStatusOut(BaseModel):
 
 class QuizGenerateIn(BaseModel):
     podcast_id: str
+    part_id: str | None = None
     question_count: int = Field(default=5, ge=3, le=10)
 
 

@@ -5,7 +5,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { PrimaryButton, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { useQuizStore } from "@/state/stores";
+import { usePlayerStore, useQuizStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
@@ -17,6 +17,11 @@ export function QuizScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<QuizRoute>();
   const podcastId = route.params.podcastId;
+  const activeTrack = usePlayerStore((state) => state.activeTrack);
+  const currentPartId =
+    activeTrack?.sourceType === "ai" && activeTrack.parentId === podcastId ? activeTrack.id : undefined;
+  const currentPartTitle =
+    activeTrack?.sourceType === "ai" && activeTrack.parentId === podcastId ? activeTrack.title : undefined;
 
   const questions = useQuizStore((state) => state.questions);
   const index = useQuizStore((state) => state.index);
@@ -31,8 +36,12 @@ export function QuizScreen() {
   const answerQuestion = useQuizStore((state) => state.answerQuestion);
 
   useEffect(() => {
+    if (currentPartId) {
+      void generateQuiz(podcastId, currentPartId);
+      return;
+    }
     void loadQuiz(podcastId);
-  }, [loadQuiz, podcastId]);
+  }, [currentPartId, generateQuiz, loadQuiz, podcastId]);
 
   const safeIndex = Math.min(Math.max(index, 0), Math.max(questions.length - 1, 0));
   const current = questions[safeIndex];
@@ -68,11 +77,13 @@ export function QuizScreen() {
           {error ?? "Bu podcast için henüz quiz oluşturulmamış."}
         </Text>
         <Text style={styles.emptySubtitle}>
-          AI ile podcast içeriğinden TUS formatında sorular üretilebilir.
+          {currentPartTitle
+            ? `AI, aktif bolumden (${currentPartTitle}) TUS formatinda soru uretir.`
+            : "AI ile podcast içeriğinden TUS formatında sorular üretilebilir."}
         </Text>
         <PrimaryButton
           label="Quiz Oluştur"
-          onPress={() => void generateQuiz(podcastId)}
+          onPress={() => void generateQuiz(podcastId, currentPartId)}
         />
       </ScreenContainer>
     );
@@ -87,7 +98,7 @@ export function QuizScreen() {
       <View style={styles.sourceBadge}>
         <Ionicons name="document-text" size={14} color={colors.success} />
         <Text style={styles.sourceBadgeText}>
-          {current.category} - Kaynak Dosya
+          {currentPartTitle ? `${currentPartTitle} - Bolum Kaynagi` : `${current.category} - Kaynak Dosya`}
         </Text>
       </View>
 
