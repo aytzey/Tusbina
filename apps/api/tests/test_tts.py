@@ -1,6 +1,9 @@
 import subprocess
+import wave
+from io import BytesIO
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from app.core.config import settings
@@ -78,3 +81,30 @@ def test_voice_signature_pitch_shift_changes_waveform() -> None:
     assert elif_shifted != base
     assert ahmet_shifted != base
     assert elif_shifted != ahmet_shifted
+
+
+def test_voice_signature_tonal_profiles_are_distinct() -> None:
+    base = tts_module._build_sine_wav(duration_sec=2, frequency=440)
+    elif_audio = tts_module._apply_voice_signature(base, voice="Elif", semitones=1.5)
+    ahmet_audio = tts_module._apply_voice_signature(base, voice="Ahmet", semitones=-4.0)
+    zeynep_audio = tts_module._apply_voice_signature(base, voice="Zeynep", semitones=5.0)
+
+    def _centroid(content: bytes) -> float:
+        with wave.open(BytesIO(content), "rb") as reader:
+            raw = reader.readframes(reader.getnframes())
+            sample_rate = reader.getframerate()
+        x = np.frombuffer(raw, dtype=np.int16).astype(np.float32)
+        if x.size < 32:
+            return 0.0
+        x = x - np.mean(x)
+        fft = np.fft.rfft(x)
+        freqs = np.fft.rfftfreq(x.size, d=1.0 / sample_rate)
+        mag = np.abs(fft) + 1e-9
+        return float((freqs * mag).sum() / mag.sum())
+
+    c_elif = _centroid(elif_audio)
+    c_ahmet = _centroid(ahmet_audio)
+    c_zeynep = _centroid(zeynep_audio)
+
+    assert abs(c_elif - c_ahmet) > 80.0
+    assert abs(c_zeynep - c_elif) > 80.0

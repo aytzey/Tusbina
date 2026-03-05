@@ -398,7 +398,8 @@ def _build_sine_wav(duration_sec: int = 2, sample_rate: int = 22050, frequency: 
 
 
 def _apply_voice_signature(content: bytes, *, voice: str | None, semitones: float) -> bytes:
-    if abs(semitones) < 0.05:
+    voice_key = PiperTTSService._resolve_voice_key(voice)
+    if abs(semitones) < 0.05 and not voice_key:
         return content
 
     try:
@@ -426,7 +427,9 @@ def _apply_voice_signature(content: bytes, *, voice: str | None, semitones: floa
         pitched_channels: list[np.ndarray] = []
         for channel_idx in range(samples.shape[1]):
             channel = samples[:, channel_idx].astype(np.float32)
-            pitched_channels.append(_pitch_shift_keep_duration(channel, semitones=semitones))
+            shifted = _pitch_shift_keep_duration(channel, semitones=semitones)
+            shaped = _apply_voice_tone(shifted, sample_rate=sample_rate, voice_key=voice_key)
+            pitched_channels.append(shaped)
 
         processed = np.stack(pitched_channels, axis=1)
         clipped = np.clip(np.round(processed), -32768, 32767).astype(np.int16)
@@ -466,3 +469,32 @@ def _pitch_shift_keep_duration(channel: np.ndarray, *, semitones: float) -> np.n
     idx_out = np.linspace(0, pitched.size - 1, num=channel.size, dtype=np.float32)
     restored = np.interp(idx_out, idx_pitched, pitched).astype(np.float32)
     return restored
+
+
+def _apply_voice_tone(channel: np.ndarray, *, sample_rate: int, voice_key: str) -> np.ndarray:
+    if channel.size < 8 or not voice_key:
+        return channel
+
+    # Lightweight timbre shaping so mobile voice options are clearly audible.
+    kernel = np.array([0.08, 0.2, 0.44, 0.2, 0.08], dtype=np.float32)
+    low = np.convolve(channel, kernel, mode="same").astype(np.float32)
+    high = (channel - low).astype(np.float32)
+
+    if voice_key == "ahmet":
+        # Warmer / lower perceived timbre.
+        out = (low * 1.25) + (high * 0.22)
+        out *= 0.95
+    elif voice_key == "zeynep":
+        # Brighter / energetic timbre.
+        out = (low * 0.52) + (high * 1.45)
+        if sample_rate > 0:
+            n = np.arange(out.size, dtype=np.float32)
+            tremolo = 1.0 + (0.05 * np.sin((2.0 * np.pi * 5.6 * n) / float(sample_rate)))
+            out *= tremolo
+    elif voice_key == "elif":
+        # Keep neutral/clear baseline.
+        out = (low * 0.78) + (high * 1.02)
+    else:
+        out = channel
+
+    return out.astype(np.float32)
