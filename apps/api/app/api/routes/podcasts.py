@@ -2,13 +2,15 @@ from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import CurrentUser, get_current_user
+from app.core.config import settings
 from app.core.database import get_db
-from app.db.models import PodcastModel, PodcastUserStateModel
+from app.db.models import GenerationJobModel, PodcastModel, PodcastUserStateModel, QuizQuestionModel
 from app.models.schemas import Podcast, PodcastPart, PodcastStateUpdateIn
+from app.services.storage import get_storage_client
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
@@ -64,6 +66,39 @@ def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | Non
         is_downloaded=state.is_downloaded if state else False,
         progress_sec=state.progress_sec if state else 0,
     )
+
+
+def _storage_key_from_audio_url(audio_url: str | None) -> str | None:
+    if not audio_url:
+        return None
+
+    if audio_url.startswith("/static/uploads/"):
+        return audio_url.removeprefix("/static/uploads/")
+
+    if audio_url.startswith("http://") or audio_url.startswith("https://"):
+        parsed = urlsplit(audio_url)
+        path = parsed.path or ""
+
+        static_prefix = "/static/uploads/"
+        if static_prefix in path:
+            _, tail = path.split(static_prefix, 1)
+            return tail or None
+
+        if settings.r2_public_base_url:
+            public_base = settings.r2_public_base_url.rstrip("/")
+            if audio_url.startswith(public_base + "/"):
+                return audio_url.removeprefix(public_base + "/") or None
+        elif settings.r2_bucket:
+            bucket_prefix = f"/{settings.r2_bucket}/"
+            if bucket_prefix in path:
+                _, tail = path.split(bucket_prefix, 1)
+                return tail or None
+        return None
+
+    if "/" in audio_url and not audio_url.startswith("file://"):
+        return audio_url.lstrip("/")
+
+    return None
 
 
 @router.get("", response_model=list[Podcast])
@@ -153,3 +188,63 @@ def update_podcast_state(
     db.refresh(state)
 
     return _serialize_podcast(podcast, state)
+
+
+@router.delete("/{podcast_id}")
+def delete_podcast(
+    podcast_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> dict[str, str | int | bool]:
+    stmt = (
+        select(PodcastModel)
+        .where(PodcastModel.id == podcast_id, PodcastModel.user_id == current_user.user_id)
+        .options(selectinload(PodcastModel.parts))
+    )
+    podcast = db.execute(stmt).scalar_one_or_none()
+    if not podcast:
+        raise HTTPException(status_code=404, detail="Podcast not found")
+
+    storage = get_storage_client()
+    deleted_files = 0
+    for part in podcast.parts:
+        storage_key = _storage_key_from_audio_url(part.audio_url)
+        if not storage_key:
+            continue
+        try:
+            storage.delete(storage_key)
+            deleted_files += 1
+        except Exception:
+            # Deleting DB records is more important; orphan files can be reaped later.
+            pass
+
+    db.execute(
+        delete(PodcastUserStateModel).where(
+            PodcastUserStateModel.user_id == current_user.user_id,
+            PodcastUserStateModel.podcast_id == podcast_id,
+        )
+    )
+    db.execute(
+        delete(QuizQuestionModel).where(
+            QuizQuestionModel.user_id == current_user.user_id,
+            QuizQuestionModel.podcast_id == podcast_id,
+        )
+    )
+    db.execute(
+        update(GenerationJobModel)
+        .where(
+            GenerationJobModel.user_id == current_user.user_id,
+            GenerationJobModel.result_podcast_id == podcast_id,
+        )
+        .values(result_podcast_id=None)
+    )
+    deleted_parts = len(podcast.parts)
+    db.delete(podcast)
+    db.commit()
+
+    return {
+        "ok": True,
+        "podcast_id": podcast_id,
+        "deleted_parts": deleted_parts,
+        "deleted_files": deleted_files,
+    }

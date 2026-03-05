@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from app.core.config import settings
 from fastapi.testclient import TestClient
 
 from app.core.database import SessionLocal
@@ -73,3 +76,59 @@ def test_podcast_state_and_usage_actions() -> None:
     )
     assert usage_after_package.status_code == 200
     assert usage_after_package.json()["monthly_listen_quota_sec"] >= 36000
+
+
+def test_delete_podcast_removes_audio_and_record() -> None:
+    user_headers = {"x-user-id": "delete-user"}
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("delete.pdf", DUMMY_PDF, "application/pdf"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Delete Me",
+            "voice": "Dr. Selin",
+            "format": "summary",
+            "file_ids": file_ids,
+            "sections": [{"id": "s1", "title": "Tek Bolum", "enabled": True}],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+
+    with SessionLocal() as db:
+        processed = process_next_generation_job(db, storage=get_storage_client())
+    assert processed is True
+
+    podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
+    assert podcasts_response.status_code == 200
+    podcasts = podcasts_response.json()
+    podcast = next((item for item in podcasts if item["title"] == "Delete Me"), None)
+    assert podcast is not None
+
+    audio_url = podcast["parts"][0]["audio_url"]
+    assert isinstance(audio_url, str) and "/static/uploads/" in audio_url
+    audio_key = audio_url.split("/static/uploads/")[-1]
+    audio_path = Path(settings.local_upload_dir) / audio_key
+    assert audio_path.exists()
+
+    delete_response = client.delete(f"/api/v1/podcasts/{podcast['id']}", headers=user_headers)
+    assert delete_response.status_code == 200
+    delete_payload = delete_response.json()
+    assert delete_payload["ok"] is True
+    assert delete_payload["deleted_parts"] >= 1
+    assert delete_payload["deleted_files"] >= 1
+
+    after_response = client.get("/api/v1/podcasts", headers=user_headers)
+    assert after_response.status_code == 200
+    assert all(item["id"] != podcast["id"] for item in after_response.json())
+    assert not audio_path.exists()
+
+    not_found_again = client.delete(f"/api/v1/podcasts/{podcast['id']}", headers=user_headers)
+    assert not_found_again.status_code == 404
