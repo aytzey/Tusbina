@@ -1,5 +1,6 @@
 from app.core.config import settings
 from app.db.models import UploadAssetModel
+from app.services import script_generation
 from app.services.script_generation import build_part_script
 from app.services.storage import LocalStorageClient
 
@@ -112,3 +113,77 @@ def test_build_part_script_uses_format_specific_limits(monkeypatch) -> None:
     assert len(narrative_script) <= 620
     assert len(summary_script) <= 260
     assert len(narrative_script) > len(summary_script)
+
+
+def test_extract_text_from_pdf_stops_at_char_budget(monkeypatch) -> None:
+    class _FakePage:
+        def __init__(self, text: str) -> None:
+            self._text = text
+
+        def extract_text(self) -> str:
+            return self._text
+
+    class _FakeReader:
+        def __init__(self, _raw: object) -> None:
+            self.pages = [
+                _FakePage("A" * 500),
+                _FakePage("B" * 500),
+                _FakePage("C" * 500),
+                _FakePage("D" * 500),
+            ]
+
+    monkeypatch.setattr(script_generation, "PdfReader", _FakeReader)
+    monkeypatch.setattr(settings, "script_pdf_max_pages", 20)
+    monkeypatch.setattr(settings, "script_pdf_max_chars_per_asset", 1200)
+    monkeypatch.setattr(settings, "script_source_max_chars", 600)
+    monkeypatch.setattr(settings, "script_pdf_extraction_log_every_pages", 0)
+
+    extracted = script_generation._extract_text_from_pdf(b"%PDF-1.4\n")
+
+    assert len(extracted) <= 1202
+    assert extracted.count("A") == 500
+    assert extracted.count("B") == 500
+    assert extracted.count("C") == 200
+    assert "D" not in extracted
+
+
+def test_build_part_script_uses_explicit_asset_part_mapping(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    monkeypatch.setattr(settings, "script_target_max_chars", 520)
+    monkeypatch.setattr(settings, "tts_max_chars_per_part", 520)
+
+    asset_one = _make_asset(
+        filename="kardiyoloji.txt",
+        content_type="text/plain",
+        content=(
+            b"Kardiyoloji metni: miyokard iskemisi, troponin ve EKG degisiklikleri birlikte yorumlanir. " * 20
+        ),
+        user_id="script-user-map",
+    )
+    asset_two = _make_asset(
+        filename="nefroloji.txt",
+        content_type="text/plain",
+        content=(
+            b"Nefroloji metni: glomeruler filtrasyon, kreatinin klirensi ve proteinuri algoritmasi birlikte degerlendirilir. "
+            * 20
+        ),
+        user_id="script-user-map",
+    )
+
+    script = build_part_script(
+        part_title="Nefroloji Bolumu",
+        format_name="narrative",
+        index=4,
+        total=6,
+        assets=[asset_one, asset_two],
+        storage=LocalStorageClient(),
+        asset_context_cache={asset_one.id: "", asset_two.id: ""},
+        preferred_asset_id=asset_two.id,
+        source_slice_index=2,
+        source_slice_total=2,
+    )
+
+    lowered = script.lower()
+    assert "nefroloji" in lowered
+    assert "glomeruler" in lowered
+    assert "miyokard" not in lowered

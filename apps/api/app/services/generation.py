@@ -1,7 +1,9 @@
 import logging
+import math
 import re
 import time as _time
 import wave
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -14,7 +16,11 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.db.models import GenerationJobModel, PodcastModel, PodcastPartModel, UploadAssetModel
 from app.models.schemas import GeneratePodcastIn, GeneratePodcastStatusOut
-from app.services.script_generation import build_asset_text_cache, build_part_script
+from app.services.script_generation import (
+    build_asset_context_cache,
+    build_asset_text_cache,
+    build_part_script,
+)
 from app.services.storage import StorageClient
 from app.services.tts import TTSService, get_tts_service
 
@@ -25,6 +31,14 @@ FORMAT_PART_DURATION_SEC = {
     "summary": 300,
     "qa": 360,
 }
+
+
+@dataclass(frozen=True)
+class _AutoPartPlan:
+    title: str
+    asset_id: str
+    asset_part_index: int
+    asset_part_total: int
 
 
 def enqueue_generation_job(db: Session, *, user_id: str, payload: GeneratePodcastIn) -> GenerationJobModel:
@@ -94,22 +108,29 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
 
         asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
-        logger.info("Job %s: %d asset, text lengths: %s", job.id[:8], len(assets),
-                     {a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets})
+        asset_context_cache = build_asset_context_cache(assets=assets, asset_text_cache=asset_text_cache)
+        logger.info(
+            "Job %s: %d asset, text lengths: %s",
+            job.id[:8],
+            len(assets),
+            {a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets},
+        )
         sections = payload.get("sections", [])
         enabled_sections = [section for section in sections if section.get("enabled", True)]
         if sections and not enabled_sections:
             raise ValueError("All sections are disabled")
         section_titles = [section.get("title", "").strip() for section in enabled_sections if section.get("title")]
 
+        auto_part_plan: list[_AutoPartPlan] | None = None
         if section_titles and not _matches_default_file_sections(section_titles=section_titles, assets=assets):
             part_titles = section_titles
         else:
-            part_titles = _build_auto_part_titles(
+            auto_part_plan = _build_auto_part_plan(
                 assets=assets,
                 asset_text_cache=asset_text_cache,
                 format_name=str(payload.get("format", "narrative")),
             )
+            part_titles = [entry.title for entry in auto_part_plan]
         if len(part_titles) > settings.generation_max_parts:
             raise ValueError(
                 f"Part limiti asildi: {len(part_titles)} > {settings.generation_max_parts}"
@@ -135,6 +156,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         logger.info("Job %s: %d parts, titles=%s", job.id[:8], total_parts, part_titles[:5])
         total_duration_sec = 0
         for index, part_title in enumerate(part_titles, start=1):
+            plan_entry = auto_part_plan[index - 1] if auto_part_plan and index <= len(auto_part_plan) else None
             _heartbeat_processing_job(job.id, primary_db=db)
             t0 = _time.monotonic()
             script = build_part_script(
@@ -145,17 +167,33 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 assets=assets,
                 storage=storage,
                 asset_text_cache=asset_text_cache,
+                asset_context_cache=asset_context_cache,
+                preferred_asset_id=plan_entry.asset_id if plan_entry else None,
+                source_slice_index=plan_entry.asset_part_index if plan_entry else None,
+                source_slice_total=plan_entry.asset_part_total if plan_entry else None,
             )
             t_script = _time.monotonic() - t0
-            logger.info("Job %s part %d/%d: script done (%.1fs, %d chars)",
-                        job.id[:8], index, total_parts, t_script, len(script))
+            logger.info(
+                "Job %s part %d/%d: script done (%.1fs, %d chars)",
+                job.id[:8],
+                index,
+                total_parts,
+                t_script,
+                len(script),
+            )
 
             _heartbeat_processing_job(job.id, primary_db=db)
             t1 = _time.monotonic()
             tts_audio = tts_service.synthesize(script, voice=payload.get("voice"))
             t_tts = _time.monotonic() - t1
-            logger.info("Job %s part %d/%d: TTS done (%.1fs, %d bytes)",
-                        job.id[:8], index, total_parts, t_tts, len(tts_audio.content))
+            logger.info(
+                "Job %s part %d/%d: TTS done (%.1fs, %d bytes)",
+                job.id[:8],
+                index,
+                total_parts,
+                t_tts,
+                len(tts_audio.content),
+            )
             part_duration_sec = _duration_from_wav_bytes(tts_audio.content) or default_duration_sec
 
             generated_audio = storage.save_bytes(
@@ -208,37 +246,75 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         return True
 
 
-def _build_auto_part_titles(
+def _build_auto_part_plan(
     *,
     assets: list[UploadAssetModel],
     asset_text_cache: dict[str, str],
     format_name: str,
-) -> list[str]:
-    titles: list[str] = []
+) -> list[_AutoPartPlan]:
+    plans: list[_AutoPartPlan] = []
     remaining = settings.generation_max_parts
-    chars_per_part = max(600, _resolve_auto_chars_per_part(format_name=format_name))
 
     for asset in assets:
         if remaining <= 0:
             break
 
         text_len = len(asset_text_cache.get(asset.id, ""))
+        chars_per_part = _resolve_auto_chars_per_part(format_name=format_name, text_len=text_len)
         estimated_parts = max(1, (text_len + chars_per_part - 1) // chars_per_part)
         part_count = min(estimated_parts, remaining)
         base_title = _asset_base_title(asset.filename)
 
         if part_count == 1:
-            titles.append(base_title)
+            plans.append(
+                _AutoPartPlan(
+                    title=base_title,
+                    asset_id=asset.id,
+                    asset_part_index=1,
+                    asset_part_total=1,
+                )
+            )
         else:
-            for index in range(1, part_count + 1):
-                titles.append(f"{base_title} - Bolum {index}")
+            for part_index in range(1, part_count + 1):
+                plans.append(
+                    _AutoPartPlan(
+                        title=f"{base_title} - Bolum {part_index}",
+                        asset_id=asset.id,
+                        asset_part_index=part_index,
+                        asset_part_total=part_count,
+                    )
+                )
 
         remaining -= part_count
 
-    if not titles:
-        return [asset.filename for asset in assets[: settings.generation_max_parts]]
+    if not plans:
+        return [
+            _AutoPartPlan(
+                title=asset.filename or "Yeni Bolum",
+                asset_id=asset.id,
+                asset_part_index=1,
+                asset_part_total=1,
+            )
+            for asset in assets[: settings.generation_max_parts]
+        ]
 
-    return titles
+    return plans
+
+
+def _build_auto_part_titles(
+    *,
+    assets: list[UploadAssetModel],
+    asset_text_cache: dict[str, str],
+    format_name: str,
+) -> list[str]:
+    return [
+        entry.title
+        for entry in _build_auto_part_plan(
+            assets=assets,
+            asset_text_cache=asset_text_cache,
+            format_name=format_name,
+        )
+    ]
 
 
 def _matches_default_file_sections(*, section_titles: list[str], assets: list[UploadAssetModel]) -> bool:
@@ -259,7 +335,7 @@ def _normalize_title(value: str) -> str:
     return re.sub(r"\W+", "", value.lower())
 
 
-def _resolve_auto_chars_per_part(*, format_name: str) -> int:
+def _resolve_auto_chars_per_part(*, format_name: str, text_len: int | None = None) -> int:
     normalized = (format_name or "").lower()
     if normalized == "summary":
         preferred = settings.script_auto_chars_per_part_summary
@@ -267,9 +343,17 @@ def _resolve_auto_chars_per_part(*, format_name: str) -> int:
         preferred = settings.script_auto_chars_per_part_qa
     else:
         preferred = settings.script_auto_chars_per_part_narrative
-    if preferred <= 0:
-        return settings.script_auto_chars_per_part
-    return min(preferred, settings.script_auto_chars_per_part)
+
+    baseline = max(600, settings.script_auto_chars_per_part)
+    if preferred > 0:
+        baseline = max(600, min(preferred, baseline))
+
+    target_parts = settings.generation_target_max_parts
+    if text_len and text_len > 0 and target_parts > 0:
+        baseline = max(baseline, math.ceil(text_len / target_parts))
+
+    upper_bound = max(600, settings.script_source_max_chars)
+    return min(baseline, upper_bound)
 
 
 def reap_stale_processing_jobs(db: Session, *, max_age_minutes: int | None = None) -> int:

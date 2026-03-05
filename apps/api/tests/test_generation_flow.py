@@ -5,8 +5,9 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.db.models import UploadAssetModel
 from app.main import app
-from app.services.generation import _resolve_auto_chars_per_part, process_next_generation_job
+from app.services.generation import _build_auto_part_plan, _resolve_auto_chars_per_part, process_next_generation_job
 from app.services.storage import get_storage_client
 
 client = TestClient(app)
@@ -252,3 +253,60 @@ def test_resolve_auto_chars_per_part_changes_by_format(monkeypatch) -> None:
     assert _resolve_auto_chars_per_part(format_name="narrative") == 3200
     assert _resolve_auto_chars_per_part(format_name="summary") == 1800
     assert _resolve_auto_chars_per_part(format_name="qa") == 2300
+
+
+def test_resolve_auto_chars_per_part_scales_for_very_long_assets(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "script_auto_chars_per_part", 4000)
+    monkeypatch.setattr(settings, "script_auto_chars_per_part_narrative", 3200)
+    monkeypatch.setattr(settings, "generation_target_max_parts", 100)
+    monkeypatch.setattr(settings, "script_source_max_chars", 12000)
+
+    scaled = _resolve_auto_chars_per_part(format_name="narrative", text_len=900_000)
+    assert scaled == 9000
+
+
+def test_build_auto_part_plan_keeps_asset_mapping_for_multi_file(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "generation_max_parts", 50)
+    monkeypatch.setattr(settings, "generation_target_max_parts", 4)
+    monkeypatch.setattr(settings, "script_auto_chars_per_part", 3000)
+    monkeypatch.setattr(settings, "script_auto_chars_per_part_narrative", 3000)
+    monkeypatch.setattr(settings, "script_source_max_chars", 12000)
+
+    assets = [
+        UploadAssetModel(
+            id="asset-a",
+            user_id="u-map",
+            filename="kardiyoloji.pdf",
+            content_type="application/pdf",
+            size_bytes=1,
+            storage_key="asset-a.pdf",
+            public_url="/a.pdf",
+        ),
+        UploadAssetModel(
+            id="asset-b",
+            user_id="u-map",
+            filename="nefroloji.pdf",
+            content_type="application/pdf",
+            size_bytes=1,
+            storage_key="asset-b.pdf",
+            public_url="/b.pdf",
+        ),
+    ]
+    text_cache = {
+        "asset-a": "A" * 24000,
+        "asset-b": "B" * 12000,
+    }
+
+    plan = _build_auto_part_plan(assets=assets, asset_text_cache=text_cache, format_name="narrative")
+
+    first_asset_parts = [entry for entry in plan if entry.asset_id == "asset-a"]
+    second_asset_parts = [entry for entry in plan if entry.asset_id == "asset-b"]
+
+    assert len(first_asset_parts) >= 2
+    assert len(second_asset_parts) >= 1
+    assert [entry.asset_part_index for entry in first_asset_parts] == list(
+        range(1, first_asset_parts[0].asset_part_total + 1)
+    )
+    assert [entry.asset_part_index for entry in second_asset_parts] == list(
+        range(1, second_asset_parts[0].asset_part_total + 1)
+    )

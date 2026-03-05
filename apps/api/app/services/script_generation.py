@@ -2,6 +2,7 @@ import json
 import logging
 import math
 import re
+import time as _time
 from io import BytesIO
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -24,6 +25,10 @@ def build_part_script(
     assets: list[UploadAssetModel],
     storage: StorageClient,
     asset_text_cache: dict[str, str] | None = None,
+    asset_context_cache: dict[str, str] | None = None,
+    preferred_asset_id: str | None = None,
+    source_slice_index: int | None = None,
+    source_slice_total: int | None = None,
 ) -> str:
     source_text = _load_source_text(
         index=index,
@@ -31,6 +36,10 @@ def build_part_script(
         assets=assets,
         storage=storage,
         asset_text_cache=asset_text_cache,
+        asset_context_cache=asset_context_cache,
+        preferred_asset_id=preferred_asset_id,
+        source_slice_index=source_slice_index,
+        source_slice_total=source_slice_total,
     )
     target_limit = _resolve_target_limit(format_name=format_name)
 
@@ -58,8 +67,27 @@ def build_part_script(
 def build_asset_text_cache(*, assets: list[UploadAssetModel], storage: StorageClient) -> dict[str, str]:
     cache: dict[str, str] = {}
     for asset in assets:
+        t0 = _time.monotonic()
         cache[asset.id] = _extract_text_from_asset(asset, storage)
+        logger.info(
+            "Asset text extracted: %s (%d chars, %.1fs)",
+            asset.filename,
+            len(cache[asset.id]),
+            _time.monotonic() - t0,
+        )
     return cache
+
+
+def build_asset_context_cache(
+    *,
+    assets: list[UploadAssetModel],
+    asset_text_cache: dict[str, str],
+) -> dict[str, str]:
+    context_limit = max(2000, settings.script_source_max_chars // 4)
+    return {
+        asset.id: (asset_text_cache.get(asset.id, "")[:context_limit])
+        for asset in assets
+    }
 
 
 def _load_source_text(
@@ -69,12 +97,22 @@ def _load_source_text(
     assets: list[UploadAssetModel],
     storage: StorageClient,
     asset_text_cache: dict[str, str] | None,
+    asset_context_cache: dict[str, str] | None,
+    preferred_asset_id: str | None,
+    source_slice_index: int | None,
+    source_slice_total: int | None,
 ) -> str:
     if not assets:
         return ""
 
     # Prefer matching source asset when sections map one-to-one with uploaded files.
-    preferred_asset = assets[index - 1] if index <= len(assets) else assets[0]
+    by_id = {asset.id: asset for asset in assets}
+    preferred_asset = by_id.get(preferred_asset_id) if preferred_asset_id else None
+    if preferred_asset is None:
+        preferred_asset = assets[index - 1] if index <= len(assets) else assets[0]
+
+    effective_index = source_slice_index if source_slice_index and source_slice_index > 0 else index
+    effective_total = source_slice_total if source_slice_total and source_slice_total > 0 else total
     texts: list[str] = []
 
     preferred_text = _resolve_asset_text(
@@ -86,19 +124,25 @@ def _load_source_text(
         texts.append(
             _slice_text_for_part(
                 preferred_text,
-                index=index,
-                total=total,
+                index=effective_index,
+                total=effective_total,
                 max_chars=settings.script_source_max_chars,
             )
         )
 
     # Add short context from remaining assets so sections still keep global coherence.
+    context_limit = max(2000, settings.script_source_max_chars // 4)
     for asset in assets:
         if asset.id == preferred_asset.id:
             continue
-        extra = _resolve_asset_text(asset=asset, storage=storage, asset_text_cache=asset_text_cache)
+        if asset_context_cache is not None:
+            extra = asset_context_cache.get(asset.id, "")
+        else:
+            extra = _resolve_asset_text(asset=asset, storage=storage, asset_text_cache=asset_text_cache)
+            if extra:
+                extra = extra[:context_limit]
         if extra:
-            texts.append(extra[: max(2000, settings.script_source_max_chars // 4)])
+            texts.append(extra)
 
     merged = "\n\n".join(texts).strip()
     return merged[: settings.script_source_max_chars]
@@ -147,10 +191,43 @@ def _extract_text_from_pdf(raw: bytes) -> str:
     try:
         reader = PdfReader(BytesIO(raw))
         pages: list[str] = []
-        for page in reader.pages[: settings.script_pdf_max_pages]:
-            page_text = page.extract_text() or ""
-            if page_text.strip():
-                pages.append(page_text)
+        total_chars = 0
+        page_limit = min(len(reader.pages), max(1, settings.script_pdf_max_pages))
+        char_budget = max(settings.script_pdf_max_chars_per_asset, settings.script_source_max_chars)
+        log_every = max(0, settings.script_pdf_extraction_log_every_pages)
+
+        for page_index, page in enumerate(reader.pages[:page_limit], start=1):
+            try:
+                page_text = page.extract_text() or ""
+            except Exception as exc:
+                logger.warning("PDF sayfa metin cikarimi basarisiz (sayfa=%d): %s", page_index, exc)
+                continue
+
+            cleaned = page_text.strip()
+            if cleaned:
+                remaining = char_budget - total_chars
+                if remaining <= 0:
+                    break
+                if len(cleaned) > remaining:
+                    cleaned = cleaned[:remaining]
+                pages.append(cleaned)
+                total_chars += len(cleaned)
+
+            if log_every and page_index % log_every == 0:
+                logger.info(
+                    "PDF extraction progress: %d/%d pages, %d chars",
+                    page_index,
+                    page_limit,
+                    total_chars,
+                )
+
+            if total_chars >= char_budget:
+                logger.info(
+                    "PDF extraction early stop: char budget reached (%d chars)",
+                    char_budget,
+                )
+                break
+
         return "\n".join(pages)
     except Exception as exc:
         logger.warning("PDF metin cikarimi basarisiz: %s", exc)
@@ -163,7 +240,7 @@ def _normalize_text(text: str) -> str:
 
 
 def _slice_text_for_part(text: str, *, index: int, total: int, max_chars: int) -> str:
-    compact = re.sub(r"\s+", " ", text).strip()
+    compact = text.strip()
     if not compact:
         return ""
     if total <= 1:

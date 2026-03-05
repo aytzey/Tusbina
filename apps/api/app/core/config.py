@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     openrouter_timeout_sec: int = 45
     script_source_max_chars: int = 12000
     script_pdf_max_pages: int = 1200
+    script_pdf_max_chars_per_asset: int = 1_800_000
+    script_pdf_extraction_log_every_pages: int = 25
     script_target_max_chars: int = 4600
     script_target_max_chars_narrative: int = 4600
     script_target_max_chars_summary: int = 3000
@@ -52,6 +54,7 @@ class Settings(BaseSettings):
     script_auto_chars_per_part_narrative: int = 3200
     script_auto_chars_per_part_summary: int = 2200
     script_auto_chars_per_part_qa: int = 2600
+    generation_target_max_parts: int = 120
     generation_max_parts: int = 500
     tts_provider: str = "piper"
     tts_fallback_to_dummy: bool = False
