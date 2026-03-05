@@ -19,11 +19,41 @@ import { colors, radius, spacing, typography } from "@/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+function SocialButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.socialButton,
+        disabled && styles.buttonDisabled,
+        pressed && styles.buttonPressed,
+      ]}
+    >
+      <Ionicons name={icon} size={20} color={colors.textPrimary} />
+      <Text style={styles.socialLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function RegisterScreen() {
   const navigation = useNavigation<Nav>();
   const signUp = useAuthStore((s) => s.signUp);
+  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
+  const confirmationPending = useAuthStore((s) => s.confirmationPending);
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,11 +68,28 @@ export function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!canSubmit) return;
-    const ok = await signUp(email.trim(), password, displayName.trim());
-    if (ok) {
-      // Navigation handled by auth state change in RootNavigator
-    }
+    await signUp(email.trim(), password, displayName.trim());
   };
+
+  if (confirmationPending) {
+    return (
+      <ScreenContainer scroll contentStyle={styles.container}>
+        <View style={styles.confirmationBox}>
+          <Ionicons name="mail-outline" size={64} color={colors.motivationOrange} />
+          <Text style={styles.confirmTitle}>E-postanizi kontrol edin</Text>
+          <Text style={styles.confirmText}>
+            {email} adresine bir onay baglantisi gonderdik. Hesabinizi aktif etmek icin e-postadaki baglantiya tiklayin.
+          </Text>
+          <Pressable
+            onPress={() => navigation.navigate("Login")}
+            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.buttonLabel}>Giris Sayfasina Don</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
@@ -52,9 +99,32 @@ export function RegisterScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Ionicons name="person-add-outline" size={56} color={colors.motivationOrange} />
           <Text style={styles.title}>Kayit Ol</Text>
           <Text style={styles.subtitle}>Yeni hesap olusturun</Text>
+        </View>
+
+        {/* Social login */}
+        <View style={styles.socialRow}>
+          <SocialButton
+            icon="logo-google"
+            label="Google"
+            onPress={signInWithGoogle}
+            disabled={isLoading}
+          />
+          {Platform.OS === "ios" ? (
+            <SocialButton
+              icon="logo-apple"
+              label="Apple"
+              onPress={signInWithApple}
+              disabled={isLoading}
+            />
+          ) : null}
+        </View>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>veya</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {/* Form */}
@@ -150,6 +220,23 @@ const styles = StyleSheet.create({
   header: { alignItems: "center", gap: spacing.sm },
   title: { ...typography.title, color: colors.textPrimary, fontSize: 28 },
   subtitle: { ...typography.body, color: colors.textSecondary },
+  socialRow: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },
+  socialButton: {
+    flex: 1,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceNavy,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  socialLabel: { ...typography.body, color: colors.textPrimary, fontWeight: "600" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
+  dividerText: { ...typography.caption, color: colors.textSecondary },
   form: { gap: spacing.lg },
   inputGroup: { gap: spacing.xs },
   label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
@@ -187,4 +274,13 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   footerText: { ...typography.body, color: colors.textSecondary },
   footerLink: { ...typography.body, color: colors.motivationOrange, fontWeight: "700" },
+  confirmationBox: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.xl,
+    gap: spacing.lg,
+  },
+  confirmTitle: { ...typography.h2, color: colors.textPrimary, textAlign: "center" },
+  confirmText: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 24 },
 });

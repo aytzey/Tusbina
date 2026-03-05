@@ -19,9 +19,38 @@ import { colors, radius, spacing, typography } from "@/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+function SocialButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.socialButton,
+        disabled && styles.buttonDisabled,
+        pressed && styles.buttonPressed,
+      ]}
+    >
+      <Ionicons name={icon} size={20} color={colors.textPrimary} />
+      <Text style={styles.socialLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function LoginScreen() {
   const navigation = useNavigation<Nav>();
   const signIn = useAuthStore((s) => s.signIn);
+  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
 
@@ -47,6 +76,30 @@ export function LoginScreen() {
           <Ionicons name="school-outline" size={64} color={colors.motivationOrange} />
           <Text style={styles.title}>TusBina</Text>
           <Text style={styles.subtitle}>Hesabiniza giris yapin</Text>
+        </View>
+
+        {/* Social login */}
+        <View style={styles.socialRow}>
+          <SocialButton
+            icon="logo-google"
+            label="Google"
+            onPress={signInWithGoogle}
+            disabled={isLoading}
+          />
+          {Platform.OS === "ios" ? (
+            <SocialButton
+              icon="logo-apple"
+              label="Apple"
+              onPress={signInWithApple}
+              disabled={isLoading}
+            />
+          ) : null}
+        </View>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>veya</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {/* Form */}
@@ -129,6 +182,23 @@ const styles = StyleSheet.create({
   header: { alignItems: "center", gap: spacing.sm },
   title: { ...typography.title, color: colors.textPrimary, fontSize: 32 },
   subtitle: { ...typography.body, color: colors.textSecondary },
+  socialRow: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },
+  socialButton: {
+    flex: 1,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceNavy,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  socialLabel: { ...typography.body, color: colors.textPrimary, fontWeight: "600" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
+  dividerText: { ...typography.caption, color: colors.textSecondary },
   form: { gap: spacing.lg },
   inputGroup: { gap: spacing.xs },
   label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },

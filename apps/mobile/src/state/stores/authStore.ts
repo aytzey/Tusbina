@@ -1,6 +1,14 @@
+import { Platform } from "react-native";
 import { create } from "zustand";
+import * as WebBrowser from "expo-web-browser";
+import { makeRedirectUri } from "expo-auth-session";
 import { supabase } from "@/services/supabase";
 import type { Session, User } from "@supabase/supabase-js";
+
+// Needed so the browser dismisses properly on iOS after OAuth
+WebBrowser.maybeCompleteAuthSession();
+
+const redirectTo = makeRedirectUri();
 
 interface AuthState {
   session: Session | null;
@@ -8,11 +16,15 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  confirmationPending: boolean;
 
   initialize: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<boolean>;
+  signInWithGoogle: () => Promise<boolean>;
+  signInWithApple: () => Promise<boolean>;
   signOut: () => Promise<void>;
+  clearError: () => void;
   getAccessToken: () => string | null;
 }
 
@@ -22,6 +34,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   isAuthenticated: false,
   isLoading: true,
   error: null,
+  confirmationPending: false,
 
   initialize: async () => {
     set({ isLoading: true, error: null });
@@ -37,13 +50,16 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isLoading: false,
       });
 
-      // Listen for auth state changes (token refresh, sign out from another tab, etc.)
       supabase.auth.onAuthStateChange((_event, newSession) => {
         set({
           session: newSession,
           user: newSession?.user ?? null,
           isAuthenticated: !!newSession,
         });
+        // Sync profile on any new sign-in
+        if (newSession) {
+          syncProfileToBackend(newSession.access_token).catch(() => {});
+        }
       });
     } catch {
       set({ isLoading: false, isAuthenticated: false, session: null, user: null });
@@ -51,7 +67,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   signUp: async (email, password, displayName) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, confirmationPending: false });
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -61,6 +77,17 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       if (error) throw error;
 
       const session = data.session;
+
+      // If no session returned, email confirmation is required
+      if (!session && data.user) {
+        set({
+          isLoading: false,
+          confirmationPending: true,
+          error: null,
+        });
+        return false;
+      }
+
       set({
         session,
         user: data.user ?? null,
@@ -68,7 +95,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isLoading: false,
       });
 
-      // Sync profile to our backend
       if (session) {
         syncProfileToBackend(session.access_token, displayName).catch(() => {});
       }
@@ -82,7 +108,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   signIn: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, confirmationPending: false });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -95,7 +121,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isLoading: false,
       });
 
-      // Sync profile to our backend
       if (session) {
         syncProfileToBackend(session.access_token).catch(() => {});
       }
@@ -108,8 +133,87 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 
+  signInWithGoogle: async () => {
+    set({ isLoading: true, error: null, confirmationPending: false });
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error) throw error;
+      if (!data.url) throw new Error("OAuth URL alinamadi");
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type === "success") {
+        const url = result.url;
+        // Extract tokens from the redirect URL hash fragment
+        const hashParams = extractHashParams(url);
+        const access_token = hashParams.get("access_token");
+        const refresh_token = hashParams.get("refresh_token");
+
+        if (access_token && refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+          if (sessionError) throw sessionError;
+          set({ isLoading: false });
+          return true;
+        }
+      }
+
+      set({ isLoading: false });
+      return false;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Google giris basarisiz";
+      set({ isLoading: false, error: message });
+      return false;
+    }
+  },
+
+  signInWithApple: async () => {
+    if (Platform.OS !== "ios") {
+      set({ error: "Apple ile giris sadece iOS'ta kullanilabilir" });
+      return false;
+    }
+
+    set({ isLoading: true, error: null, confirmationPending: false });
+    try {
+      // Dynamic import to avoid crash on non-iOS
+      const AppleAuth = await import("expo-apple-authentication");
+      const credential = await AppleAuth.signInAsync({
+        requestedScopes: [
+          AppleAuth.AppleAuthenticationScope.EMAIL,
+          AppleAuth.AppleAuthenticationScope.FULL_NAME,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("Apple kimlik tokeni alinamadi");
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: credential.identityToken,
+      });
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Apple giris basarisiz";
+      // User cancelled = not an error
+      if (message.includes("cancelled") || message.includes("ERR_CANCELED")) {
+        set({ isLoading: false });
+        return false;
+      }
+      set({ isLoading: false, error: message });
+      return false;
+    }
+  },
+
   signOut: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, confirmationPending: false });
     try {
       await supabase.auth.signOut();
     } finally {
@@ -123,8 +227,25 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 
+  clearError: () => set({ error: null, confirmationPending: false }),
+
   getAccessToken: () => get().session?.access_token ?? null,
 }));
+
+function extractHashParams(url: string): Map<string, string> {
+  const map = new Map<string, string>();
+  try {
+    const hash = url.includes("#") ? url.split("#")[1] : "";
+    if (!hash) return map;
+    for (const pair of hash.split("&")) {
+      const [key, val] = pair.split("=");
+      if (key && val) map.set(decodeURIComponent(key), decodeURIComponent(val));
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return map;
+}
 
 async function syncProfileToBackend(accessToken: string, displayName?: string) {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
