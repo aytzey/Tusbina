@@ -1,6 +1,8 @@
+import re
 import wave
 from datetime import UTC, datetime
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy import Select, select
@@ -75,22 +77,28 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         if not assets:
             raise ValueError("No uploaded assets found")
 
+        asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
         sections = payload.get("sections", [])
         enabled_sections = [section for section in sections if section.get("enabled", True)]
         if sections and not enabled_sections:
             raise ValueError("All sections are disabled")
         section_titles = [section.get("title", "").strip() for section in enabled_sections if section.get("title")]
 
-        if section_titles:
+        if section_titles and not _matches_default_file_sections(section_titles=section_titles, assets=assets):
             part_titles = section_titles
         else:
-            part_titles = [asset.filename for asset in assets]
+            part_titles = _build_auto_part_titles(
+                assets=assets,
+                asset_text_cache=asset_text_cache,
+                format_name=str(payload.get("format", "narrative")),
+            )
         if len(part_titles) > settings.generation_max_parts:
             raise ValueError(
                 f"Part limiti asildi: {len(part_titles)} > {settings.generation_max_parts}"
             )
 
-        default_duration_sec = FORMAT_PART_DURATION_SEC.get(payload.get("format", "narrative"), 420)
+        format_name = str(payload.get("format", "narrative"))
+        default_duration_sec = FORMAT_PART_DURATION_SEC.get(format_name, 420)
         podcast_id = f"pod-{uuid4().hex[:12]}"
         podcast = PodcastModel(
             id=podcast_id,
@@ -107,11 +115,10 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
 
         total_parts = len(part_titles)
         total_duration_sec = 0
-        asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
         for index, part_title in enumerate(part_titles, start=1):
             script = build_part_script(
                 part_title=part_title,
-                format_name=str(payload.get("format", "narrative")),
+                format_name=format_name,
                 index=index,
                 total=total_parts,
                 assets=assets,
@@ -161,6 +168,70 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             failed.updated_at = datetime.now(UTC)
             db.commit()
         return True
+
+
+def _build_auto_part_titles(
+    *,
+    assets: list[UploadAssetModel],
+    asset_text_cache: dict[str, str],
+    format_name: str,
+) -> list[str]:
+    titles: list[str] = []
+    remaining = settings.generation_max_parts
+    chars_per_part = max(600, _resolve_auto_chars_per_part(format_name=format_name))
+
+    for asset in assets:
+        if remaining <= 0:
+            break
+
+        text_len = len(asset_text_cache.get(asset.id, ""))
+        estimated_parts = max(1, (text_len + chars_per_part - 1) // chars_per_part)
+        part_count = min(estimated_parts, remaining)
+        base_title = _asset_base_title(asset.filename)
+
+        if part_count == 1:
+            titles.append(base_title)
+        else:
+            for index in range(1, part_count + 1):
+                titles.append(f"{base_title} - Bolum {index}")
+
+        remaining -= part_count
+
+    if not titles:
+        return [asset.filename for asset in assets[: settings.generation_max_parts]]
+
+    return titles
+
+
+def _matches_default_file_sections(*, section_titles: list[str], assets: list[UploadAssetModel]) -> bool:
+    if len(section_titles) != len(assets):
+        return False
+
+    normalized_sections = [_normalize_title(title) for title in section_titles]
+    normalized_assets = [_normalize_title(_asset_base_title(asset.filename)) for asset in assets]
+    return normalized_sections == normalized_assets
+
+
+def _asset_base_title(filename: str) -> str:
+    stem = Path(filename or "").stem.strip()
+    return stem or "Yeni Bolum"
+
+
+def _normalize_title(value: str) -> str:
+    return re.sub(r"\W+", "", value.lower())
+
+
+def _resolve_auto_chars_per_part(*, format_name: str) -> int:
+    normalized = (format_name or "").lower()
+    if normalized == "summary":
+        preferred = settings.script_auto_chars_per_part_summary
+    elif normalized == "qa":
+        preferred = settings.script_auto_chars_per_part_qa
+    else:
+        preferred = settings.script_auto_chars_per_part_narrative
+    if preferred <= 0:
+        return settings.script_auto_chars_per_part
+    return min(preferred, settings.script_auto_chars_per_part)
 
 
 def _claim_next_generation_job(db: Session) -> GenerationJobModel | None:

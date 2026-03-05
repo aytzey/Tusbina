@@ -29,7 +29,10 @@ class TTSResult:
 class DummyTTSService:
     def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
         payload = text if text.strip() else "Ses icin metin bulunamadi."
-        audio = _build_sine_wav(duration_sec=min(max(len(payload) // 45, 2), 12))
+        base_duration_sec = min(max(len(payload) // 45, 2), 12)
+        speed_multiplier = max(0.5, settings.piper_speed_multiplier)
+        adjusted_duration = max(1, int(round(base_duration_sec / speed_multiplier)))
+        audio = _build_sine_wav(duration_sec=adjusted_duration)
         return TTSResult(content=audio, extension="wav", content_type="audio/wav")
 
 
@@ -145,12 +148,18 @@ class PiperTTSService:
         return max(min_value, min(max_value, value))
 
     def _resolve_length_scale(self, voice: str | None) -> float:
+        speed_multiplier = self._clamp(settings.piper_speed_multiplier, min_value=0.5, max_value=2.5)
         voice_name = (voice or "").lower()
         if "selin" in voice_name:
-            return self._clamp(settings.piper_voice_selin_length_scale, min_value=0.6, max_value=2.0)
-        if "arda" in voice_name:
-            return self._clamp(settings.piper_voice_arda_length_scale, min_value=0.6, max_value=2.0)
-        return self._clamp(settings.piper_length_scale, min_value=0.6, max_value=2.0)
+            base_scale = self._clamp(settings.piper_voice_selin_length_scale, min_value=0.6, max_value=2.0)
+        elif "arda" in voice_name:
+            base_scale = self._clamp(settings.piper_voice_arda_length_scale, min_value=0.6, max_value=2.0)
+        else:
+            base_scale = self._clamp(settings.piper_length_scale, min_value=0.6, max_value=2.0)
+
+        # Piper length_scale grows speech duration; divide to increase playback speed.
+        accelerated = base_scale / speed_multiplier
+        return self._clamp(accelerated, min_value=0.6, max_value=2.0)
 
 
 def get_tts_service() -> TTSService:

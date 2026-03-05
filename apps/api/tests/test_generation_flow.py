@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.main import app
-from app.services.generation import process_next_generation_job
+from app.services.generation import _resolve_auto_chars_per_part, process_next_generation_job
 from app.services.storage import get_storage_client
 
 client = TestClient(app)
@@ -134,3 +134,76 @@ def test_generate_rejects_too_many_parts(monkeypatch) -> None:
         headers=user_headers,
     )
     assert generation_response.status_code == 400
+
+
+def test_generate_auto_splits_long_pdf_when_using_default_single_section(monkeypatch) -> None:
+    user_id = f"auto-split-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    monkeypatch.setattr(settings, "script_auto_chars_per_part", 800)
+    monkeypatch.setattr(settings, "generation_max_parts", 20)
+
+    long_plain_text = (
+        "Anemi algoritmasinda ilk adim hemoglobin ve eritrosit indekslerini birlikte yorumlamaktir. "
+        "Demir eksikligi, kronik hastalik anemisi ve megaloblastik surecler ayirici tanida temel eksendir. "
+    ) * 120
+    large_pdf_like = b"%PDF-1.4\n" + long_plain_text.encode("utf-8") + b"\n%%EOF\n"
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("uzun-kaynak.pdf", large_pdf_like, "application/pdf"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Uzun Kaynak Test",
+            "voice": "Dr. Selin",
+            "format": "summary",
+            "file_ids": file_ids,
+            "sections": [{"id": "s1", "title": "uzun-kaynak", "enabled": True}],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    status_payload = None
+    for _ in range(40):
+        with SessionLocal() as db:
+            process_next_generation_job(db, storage=get_storage_client())
+
+        status_response = client.get(
+            f"/api/v1/generatePodcast/{job_id}/status",
+            headers=user_headers,
+        )
+        assert status_response.status_code == 200
+        status_payload = status_response.json()
+        if status_payload["status"] == "completed":
+            break
+
+    assert status_payload is not None
+    assert status_payload["status"] == "completed"
+    assert status_payload["result_podcast_id"] is not None
+
+    podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
+    assert podcasts_response.status_code == 200
+    podcasts = podcasts_response.json()
+    podcast = next((item for item in podcasts if item["id"] == status_payload["result_podcast_id"]), None)
+    assert podcast is not None
+    assert len(podcast["parts"]) >= 2
+
+
+def test_resolve_auto_chars_per_part_changes_by_format(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "script_auto_chars_per_part", 4000)
+    monkeypatch.setattr(settings, "script_auto_chars_per_part_narrative", 3200)
+    monkeypatch.setattr(settings, "script_auto_chars_per_part_summary", 1800)
+    monkeypatch.setattr(settings, "script_auto_chars_per_part_qa", 2300)
+
+    assert _resolve_auto_chars_per_part(format_name="narrative") == 3200
+    assert _resolve_auto_chars_per_part(format_name="summary") == 1800
+    assert _resolve_auto_chars_per_part(format_name="qa") == 2300

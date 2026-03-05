@@ -32,7 +32,7 @@ def build_part_script(
         storage=storage,
         asset_text_cache=asset_text_cache,
     )
-    target_limit = min(settings.script_target_max_chars, settings.tts_max_chars_per_part)
+    target_limit = _resolve_target_limit(format_name=format_name)
 
     llm_script = _generate_with_openrouter(
         source_text=source_text,
@@ -319,3 +319,22 @@ def _format_style_hint(format_name: str) -> str:
     if format_name == "qa":
         return "Soru sorup yanitlayan aciklayici akista, net klinik gerekcelerle ilerle."
     return "Anlatimsel, akici, temel kavramdan klinik yoruma dogru ilerleyen dogal bir ton kullan."
+
+
+def _resolve_target_limit(*, format_name: str) -> int:
+    normalized = (format_name or "").lower()
+    if normalized == "summary":
+        preferred_script_limit = settings.script_target_max_chars_summary
+        preferred_tts_limit = settings.tts_max_chars_per_part_summary
+    elif normalized == "qa":
+        preferred_script_limit = settings.script_target_max_chars_qa
+        preferred_tts_limit = settings.tts_max_chars_per_part_qa
+    else:
+        preferred_script_limit = settings.script_target_max_chars_narrative
+        preferred_tts_limit = settings.tts_max_chars_per_part_narrative
+
+    script_limit = preferred_script_limit if preferred_script_limit > 0 else settings.script_target_max_chars
+    tts_limit = preferred_tts_limit if preferred_tts_limit > 0 else settings.tts_max_chars_per_part
+    script_limit = min(script_limit, settings.script_target_max_chars)
+    tts_limit = min(tts_limit, settings.tts_max_chars_per_part)
+    return max(180, min(script_limit, tts_limit))

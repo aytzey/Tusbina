@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
@@ -51,10 +51,11 @@ export function PlayerScreen() {
   const remoteAudioSource = track?.audioUrl ?? null;
   const hasRemoteAudio = Boolean(track?.audioUrl);
   const audioPlayer = useAudioPlayer(remoteAudioSource, {
-    updateInterval: 250,
-    downloadFirst: true
+    updateInterval: 200
   });
   const audioStatus = useAudioPlayerStatus(audioPlayer);
+  const isBuffering = hasRemoteAudio && audioStatus.isBuffering;
+  const isAudioLoading = hasRemoteAudio && !audioStatus.isLoaded;
 
   const persistCurrentProgress = useCallback(async () => {
     if (!track) {
@@ -198,7 +199,11 @@ export function PlayerScreen() {
     );
   }
 
-  const progress = track.durationSec > 0 ? (positionSec / track.durationSec) * 100 : 0;
+  const actualDuration =
+    hasRemoteAudio && audioStatus.isLoaded && audioStatus.duration > 0
+      ? audioStatus.duration
+      : track.durationSec;
+  const progress = actualDuration > 0 ? (positionSec / actualDuration) * 100 : 0;
 
   const onTogglePlay = () => {
     if (isPlaying) {
@@ -225,9 +230,9 @@ export function PlayerScreen() {
   };
 
   const onSeek = (seconds: number) => {
-    const bounded = Math.min(Math.max(seconds, 0), track.durationSec);
+    const bounded = Math.min(Math.max(seconds, 0), actualDuration);
     seekTo(bounded);
-    if (hasRemoteAudio) {
+    if (hasRemoteAudio && audioStatus.isLoaded) {
       void audioPlayer.seekTo(bounded);
     }
   };
@@ -296,16 +301,29 @@ export function PlayerScreen() {
       {track.sourceType === "ai" && track.voice ? (
         <Text style={styles.voiceInfo}>Seslendiren: {track.voice}</Text>
       ) : null}
-      {track.sourceType === "ai" && !track.audioUrl ? (
+      {!track.audioUrl ? (
         <Text style={styles.mutedInfo}>Ses dosyası henüz hazır değil.</Text>
+      ) : isAudioLoading ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color={colors.motivationOrange} />
+          <Text style={styles.mutedInfo}>Ses yükleniyor...</Text>
+        </View>
       ) : null}
 
       {/* --- Seekbar --- */}
       <View style={styles.seekSection}>
-        <ProgressBar progress={progress} />
+        <ProgressBar
+          progress={progress}
+          buffering={isBuffering}
+          onSeek={(pct) => onSeek((pct / 100) * actualDuration)}
+        />
         <View style={styles.timerRow}>
           <Text style={styles.timer}>{formatTimer(Math.floor(positionSec))}</Text>
-          <Text style={styles.timer}>{formatDuration(track.durationSec)}</Text>
+          {isBuffering ? (
+            <Text style={styles.bufferingLabel}>Arabelleğe alınıyor...</Text>
+          ) : (
+            <Text style={styles.timer}>{formatDuration(actualDuration)}</Text>
+          )}
         </View>
       </View>
 
@@ -324,8 +342,12 @@ export function PlayerScreen() {
           <Ionicons name="play-skip-back" size={28} color={colors.textPrimary} />
         </Pressable>
 
-        <Pressable style={styles.playButton} onPress={onTogglePlay}>
-          <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={colors.textPrimary} />
+        <Pressable style={styles.playButton} onPress={onTogglePlay} disabled={isAudioLoading}>
+          {isBuffering && isPlaying ? (
+            <ActivityIndicator size={28} color={colors.textPrimary} />
+          ) : (
+            <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={colors.textPrimary} />
+          )}
         </Pressable>
 
         <Pressable
@@ -528,6 +550,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center"
   },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm
+  },
 
   /* ---- Seekbar ---- */
   seekSection: {
@@ -542,6 +570,10 @@ const styles = StyleSheet.create({
   timer: {
     ...typography.caption,
     color: colors.textSecondary
+  },
+  bufferingLabel: {
+    ...typography.caption,
+    color: colors.motivationOrange
   },
 
   /* ---- Main Controls ---- */

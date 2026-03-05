@@ -43,11 +43,22 @@ class Settings(BaseSettings):
     openrouter_model: str = "google/gemini-2.0-flash-001"
     openrouter_timeout_sec: int = 45
     script_source_max_chars: int = 12000
-    script_target_max_chars: int = 4200
-    generation_max_parts: int = 50
+    script_pdf_max_pages: int = 1200
+    script_target_max_chars: int = 4600
+    script_target_max_chars_narrative: int = 4600
+    script_target_max_chars_summary: int = 3000
+    script_target_max_chars_qa: int = 3600
+    script_auto_chars_per_part: int = 3200
+    script_auto_chars_per_part_narrative: int = 3200
+    script_auto_chars_per_part_summary: int = 2200
+    script_auto_chars_per_part_qa: int = 2600
+    generation_max_parts: int = 500
     tts_provider: str = "piper"
     tts_fallback_to_dummy: bool = True
-    tts_max_chars_per_part: int = 5000
+    tts_max_chars_per_part: int = 5200
+    tts_max_chars_per_part_narrative: int = 5200
+    tts_max_chars_per_part_summary: int = 3400
+    tts_max_chars_per_part_qa: int = 4200
     tts_models_dir: str = "data/models"
 
     # Piper TTS
@@ -67,6 +78,7 @@ class Settings(BaseSettings):
     piper_sentence_silence: float = 0.18
     piper_volume: float = 1.0
     piper_no_normalize: bool = False
+    piper_speed_multiplier: float = 1.15
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
     worker_poll_interval_sec: int = 5
