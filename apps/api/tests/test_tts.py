@@ -1,8 +1,10 @@
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from app.core.config import settings
+from app.services import tts as tts_module
 from app.services.tts import PiperTTSService
 
 
@@ -38,3 +40,31 @@ def test_voice_profiles_differ_for_mobile_voice_options() -> None:
     assert ahmet.sentence_silence >= base.sentence_silence
     assert zeynep.sentence_silence <= base.sentence_silence
     assert zeynep.length_scale <= base.length_scale
+
+
+def test_piper_adds_speaker_flag_when_voice_override_has_speaker_id(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(settings, "piper_model_path_ahmet", str(tmp_path / "ahmet.onnx"))
+    monkeypatch.setattr(settings, "piper_model_config_path_ahmet", str(tmp_path / "ahmet.onnx.json"))
+    monkeypatch.setattr(settings, "piper_speaker_id_ahmet", 2)
+    monkeypatch.setattr(settings, "piper_model_url_ahmet", "")
+    monkeypatch.setattr(settings, "piper_model_config_url_ahmet", "")
+
+    service = PiperTTSService()
+    monkeypatch.setattr(service, "ensure_ready", lambda: "/usr/bin/piper")
+    monkeypatch.setattr(service, "_ensure_model_files_for_spec", lambda _spec: None)
+
+    captured_cmd: list[str] = []
+
+    def _fake_run(cmd, *, safe_text, timeout_sec):  # noqa: ANN001
+        nonlocal captured_cmd
+        captured_cmd = list(cmd)
+        output_path = Path(cmd[cmd.index("--output_file") + 1])
+        output_path.write_bytes(tts_module._build_sine_wav(duration_sec=1))
+        return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+    monkeypatch.setattr(service, "_run_piper_command", _fake_run)
+    service.synthesize("Test metni", voice="Ahmet")
+
+    assert "--speaker" in captured_cmd
+    speaker_index = captured_cmd.index("--speaker")
+    assert captured_cmd[speaker_index + 1] == "2"

@@ -4,6 +4,7 @@ import math
 import re
 import time as _time
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
@@ -561,16 +562,49 @@ def _synthesize_part_audio(
 
     audio_turns: list[bytes] = []
     try:
-        for speaker, text in turns:
-            voice_for_turn = _resolve_dialogue_voice(speaker=speaker, selected_voice=selected_voice)
-            result = tts_service.synthesize(text, voice=voice_for_turn)
-            audio_turns.append(result.content)
+        worker_count = max(1, int(settings.piper_dialogue_parallel_workers))
+        if worker_count == 1 or len(turns) <= 1:
+            for speaker, text in turns:
+                voice_for_turn = _resolve_dialogue_voice(speaker=speaker, selected_voice=selected_voice)
+                result = tts_service.synthesize(text, voice=voice_for_turn)
+                audio_turns.append(result.content)
+        else:
+            with ThreadPoolExecutor(max_workers=min(worker_count, len(turns))) as executor:
+                futures = [
+                    executor.submit(
+                        _synthesize_dialogue_turn,
+                        tts_service=tts_service,
+                        index=index,
+                        speaker=speaker,
+                        text=text,
+                        selected_voice=selected_voice,
+                    )
+                    for index, (speaker, text) in enumerate(turns)
+                ]
+                ordered: list[bytes] = [b"" for _ in turns]
+                for future in futures:
+                    index, content = future.result()
+                    ordered[index] = content
+                audio_turns = ordered
 
         merged = _concat_wav_segments(audio_turns, gap_ms=130)
         return TTSResult(content=merged, extension="wav", content_type="audio/wav")
     except Exception as exc:
         logger.warning("Dialog TTS birlestirme fallback tek sese dondu: %s", exc)
         return tts_service.synthesize(script, voice=selected_voice)
+
+
+def _synthesize_dialogue_turn(
+    *,
+    tts_service: TTSService,
+    index: int,
+    speaker: str,
+    text: str,
+    selected_voice: str,
+) -> tuple[int, bytes]:
+    voice_for_turn = _resolve_dialogue_voice(speaker=speaker, selected_voice=selected_voice)
+    result = tts_service.synthesize(text, voice=voice_for_turn)
+    return index, result.content
 
 
 def _split_dialogue_turns(script: str) -> list[tuple[str, str]]:

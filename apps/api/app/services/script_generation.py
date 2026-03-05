@@ -290,9 +290,12 @@ def _generate_with_openrouter(
         voice_name=voice_name,
         dialogue_mode=dialogue_mode,
     )
+    dialogue_turn_target = max(6, min(24, settings.script_dialogue_target_turns))
+    min_turns = max(4, dialogue_turn_target - 2)
+    max_turns = min(28, dialogue_turn_target + 2)
     mode_instructions = (
         "Yalnizca diyalog satirlari uret. Her satir 'Elif:' veya 'Ahmet:' ile baslasin. "
-        "Maksimum 18-24 satir kullan. Sahne notu, madde imi veya markdown kullanma."
+        f"Toplam {min_turns}-{max_turns} satir kullan. Sahne notu, madde imi veya markdown kullanma."
         if dialogue_mode
         else "Tek parca, akici bir anlatim metni uret."
     )
@@ -423,8 +426,10 @@ def _generate_dialogue_fallback_script(
             "Her adimi once pratik bir soruyla acip sonra kisa bir aciklama ile baglayacagiz.",
         ]
 
+    target_turns = max(6, min(24, settings.script_dialogue_target_turns))
+    usable_sentence_count = max(4, target_turns - 2)
     turns = [f"Elif: Bolum {index}/{total} - {part_title} icin hizli tekrar basliyor."]
-    for turn_index, sentence in enumerate(sentences[:14], start=1):
+    for turn_index, sentence in enumerate(sentences[:usable_sentence_count], start=1):
         speaker = "Ahmet" if turn_index % 2 == 0 else "Elif"
         turns.append(f"{speaker}: {sentence}")
     turns.append("Ahmet: Bu bolumun sonunda kilit noktalarin tekrarini tamamladik.")

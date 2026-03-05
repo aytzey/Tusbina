@@ -36,6 +36,16 @@ class _VoiceProfile:
     sine_frequency: int = 440
 
 
+@dataclass(frozen=True)
+class _ResolvedModelSpec:
+    cache_key: str
+    model_path: Path
+    config_path: Path
+    model_url: str
+    config_url: str
+    speaker_id: int | None = None
+
+
 class DummyTTSService:
     def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
         payload = text if text.strip() else "Ses icin metin bulunamadi."
@@ -55,13 +65,23 @@ class DummyTTSService:
 class PiperTTSService:
     def __init__(self) -> None:
         self.binary_path = settings.piper_binary_path
-        self.model_path, self.config_path = self._resolve_model_paths()
+        self.model_path, self.config_path = self._resolve_default_model_paths()
+        self._default_model_spec = _ResolvedModelSpec(
+            cache_key="default",
+            model_path=self.model_path,
+            config_path=self.config_path,
+            model_url=settings.piper_model_url,
+            config_url=settings.piper_model_config_url,
+        )
         self._ready = False
+        self._ready_model_keys: set[str] = set()
 
     def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
         piper_binary = self.ensure_ready()
         safe_text = text.strip() or "Ses uretilmesi icin metin bulunamadi."
         timeout_sec = max(5, int(settings.piper_synthesize_timeout_sec))
+        model_spec = self._resolve_model_spec(voice)
+        self._ensure_model_files_for_spec(model_spec)
         voice_profile = self._resolve_voice_profile(voice)
         logger.info(
             "TTS_PIPER_SYNTH_START voice=%s chars=%d timeout_sec=%d",
@@ -74,7 +94,7 @@ class PiperTTSService:
             base_cmd = [
                 piper_binary,
                 "--model",
-                str(self.model_path),
+                str(model_spec.model_path),
                 "--output_file",
                 tmp.name,
                 "--length_scale",
@@ -84,8 +104,10 @@ class PiperTTSService:
                 "--noise_w_scale",
                 f"{voice_profile.noise_w_scale:.3f}",
             ]
-            if self.config_path.exists():
-                base_cmd.extend(["--config", str(self.config_path)])
+            if model_spec.config_path.exists():
+                base_cmd.extend(["--config", str(model_spec.config_path)])
+            if model_spec.speaker_id is not None:
+                base_cmd.extend(["--speaker", str(model_spec.speaker_id)])
             sentence_silence = voice_profile.sentence_silence
             if sentence_silence > 0:
                 base_cmd.extend(["--sentence_silence", f"{sentence_silence:.3f}"])
@@ -153,12 +175,12 @@ class PiperTTSService:
             raise RuntimeError(f"Piper binary bulunamadi: {self.binary_path}")
 
         if not self._ready:
-            self._ensure_model_files()
+            self._ensure_model_files_for_spec(self._default_model_spec)
             self._ready = True
 
         return piper_binary
 
-    def _resolve_model_paths(self) -> tuple[Path, Path]:
+    def _resolve_default_model_paths(self) -> tuple[Path, Path]:
         if settings.piper_model_path:
             model_path = Path(settings.piper_model_path)
         else:
@@ -172,15 +194,80 @@ class PiperTTSService:
 
         return model_path, config_path
 
-    def _ensure_model_files(self) -> None:
-        self.model_path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.model_path.exists():
-            logger.info("Piper model indiriliyor: %s", self.model_path)
-            urlretrieve(settings.piper_model_url, self.model_path)
+    def _resolve_model_spec(self, voice: str | None) -> _ResolvedModelSpec:
+        voice_key = self._resolve_voice_key(voice)
+        if not voice_key:
+            return self._default_model_spec
 
-        if not self.config_path.exists():
-            logger.info("Piper model config indiriliyor: %s", self.config_path)
-            urlretrieve(settings.piper_model_config_url, self.config_path)
+        model_path_override = getattr(settings, f"piper_model_path_{voice_key}", "").strip()
+        config_path_override = getattr(settings, f"piper_model_config_path_{voice_key}", "").strip()
+        model_url_override = getattr(settings, f"piper_model_url_{voice_key}", "").strip()
+        config_url_override = getattr(settings, f"piper_model_config_url_{voice_key}", "").strip()
+        speaker_id_raw = int(getattr(settings, f"piper_speaker_id_{voice_key}", -1))
+
+        has_model_override = bool(model_path_override or config_path_override or model_url_override or config_url_override)
+        has_speaker_override = speaker_id_raw >= 0
+        if not has_model_override and not has_speaker_override:
+            return self._default_model_spec
+
+        if model_path_override:
+            model_path = Path(model_path_override)
+        elif model_url_override:
+            model_name = Path(model_url_override).name or self.model_path.name
+            model_path = Path(settings.tts_models_dir) / "piper" / model_name
+        else:
+            model_path = self.model_path
+
+        if config_path_override:
+            config_path = Path(config_path_override)
+        elif config_url_override:
+            config_name = Path(config_url_override).name or f"{model_path.name}.json"
+            config_path = Path(settings.tts_models_dir) / "piper" / config_name
+        elif model_path_override or model_url_override:
+            config_path = Path(f"{model_path}.json")
+        else:
+            config_path = self.config_path
+
+        model_url = model_url_override or settings.piper_model_url
+        config_url = config_url_override or settings.piper_model_config_url
+        speaker_id = speaker_id_raw if speaker_id_raw >= 0 else None
+        cache_key = f"{voice_key}:{model_path}:{config_path}:{speaker_id or 'none'}"
+        return _ResolvedModelSpec(
+            cache_key=cache_key,
+            model_path=model_path,
+            config_path=config_path,
+            model_url=model_url,
+            config_url=config_url,
+            speaker_id=speaker_id,
+        )
+
+    @staticmethod
+    def _resolve_voice_key(voice: str | None) -> str:
+        voice_name = (voice or "").strip().lower()
+        if "ahmet" in voice_name or "arda" in voice_name:
+            return "ahmet"
+        if "zeynep" in voice_name:
+            return "zeynep"
+        if "elif" in voice_name or "selin" in voice_name or "diyalog" in voice_name:
+            return "elif"
+        return ""
+
+    def _ensure_model_files_for_spec(self, spec: _ResolvedModelSpec) -> None:
+        if spec.cache_key in self._ready_model_keys:
+            return
+
+        spec.model_path.parent.mkdir(parents=True, exist_ok=True)
+        if not spec.model_path.exists():
+            if not spec.model_url:
+                raise RuntimeError(f"Piper model bulunamadi: {spec.model_path}")
+            logger.info("Piper model indiriliyor: %s", spec.model_path)
+            urlretrieve(spec.model_url, spec.model_path)
+
+        if not spec.config_path.exists() and spec.config_url:
+            logger.info("Piper model config indiriliyor: %s", spec.config_path)
+            urlretrieve(spec.config_url, spec.config_path)
+
+        self._ready_model_keys.add(spec.cache_key)
 
     @staticmethod
     def _clamp(value: float, *, min_value: float, max_value: float) -> float:
