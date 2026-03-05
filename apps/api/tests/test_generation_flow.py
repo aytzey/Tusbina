@@ -7,12 +7,14 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.db.models import UploadAssetModel
 from app.main import app
+from app.services import tts as tts_module
 from app.services.generation import (
     _build_auto_part_plan,
     _extract_heading_titles,
     _is_dialogue_mode,
     _resolve_auto_chars_per_part,
     _sections_look_like_defaults,
+    _synthesize_part_audio,
     _synthesize_with_retry,
     process_next_generation_job,
 )
@@ -451,3 +453,64 @@ def test_synthesize_with_retry_recovers_after_transient_failure(monkeypatch) -> 
 
     assert result.content == b"wav-data"
     assert flaky.calls == 2
+
+
+def test_diyalog_voice_forces_dual_speakers_on_unlabeled_text(monkeypatch) -> None:
+    class _CaptureTTS:
+        def __init__(self) -> None:
+            self.voices: list[str] = []
+
+        def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+            self.voices.append(voice or "default")
+            tone = 520 if (voice or "").lower() == "ahmet" else 460
+            return TTSResult(
+                content=tts_module._build_sine_wav(duration_sec=1, frequency=tone),
+                extension="wav",
+                content_type="audio/wav",
+            )
+
+    monkeypatch.setattr(settings, "piper_dialogue_parallel_workers", 1)
+    tts = _CaptureTTS()
+    script = (
+        "Hiponatremi degerlendirmesinde serum osmolalite, idrar sodyumu ve volu"
+        "m durumu birlikte yorumlanir. SIADH ile hipovolemik nedenler ayirici "
+        "tanida kritik rol oynar."
+    )
+
+    _synthesize_part_audio(
+        tts_service=tts,
+        script=script,
+        selected_voice="Diyalog",
+        dialogue_mode=True,
+    )
+
+    assert "Elif" in tts.voices
+    assert "Ahmet" in tts.voices
+
+
+def test_non_dialogue_voice_does_not_force_dual_speakers(monkeypatch) -> None:
+    class _CaptureTTS:
+        def __init__(self) -> None:
+            self.voices: list[str] = []
+
+        def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+            self.voices.append(voice or "default")
+            return TTSResult(
+                content=tts_module._build_sine_wav(duration_sec=1, frequency=460),
+                extension="wav",
+                content_type="audio/wav",
+            )
+
+    monkeypatch.setattr(settings, "piper_dialogue_parallel_workers", 1)
+    tts = _CaptureTTS()
+    script = "Bu metin speaker etiketi olmadan tek parca uretilmis bir soru-cevap ozetidir."
+
+    _synthesize_part_audio(
+        tts_service=tts,
+        script=script,
+        selected_voice="Elif",
+        dialogue_mode=True,
+    )
+
+    assert tts.voices
+    assert all(voice == "Elif" for voice in tts.voices)

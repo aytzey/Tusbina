@@ -557,6 +557,8 @@ def _synthesize_part_audio(
         return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
 
     turns = _split_dialogue_turns(script)
+    if _is_forced_dual_voice(selected_voice=selected_voice):
+        turns = _ensure_dual_voice_turns(turns=turns, script=script)
     if not turns:
         return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
 
@@ -635,11 +637,15 @@ def _synthesize_with_retry(*, tts_service: TTSService, text: str, voice: str) ->
 
 def _split_dialogue_turns(script: str) -> list[tuple[str, str]]:
     turns: list[tuple[str, str]] = []
+    dialogue_line_re = re.compile(
+        r"^(?:\d+[\).:\-]\s*)?(Elif|Ahmet|Zeynep|Anlatici|Anlatıcı|Narrator|Ogrenci|Öğrenci|Hoca|Doktor)\s*[:\-–—]\s*(.+)$",
+        flags=re.IGNORECASE,
+    )
     for raw_line in script.splitlines():
         line = raw_line.strip()
         if not line:
             continue
-        match = re.match(r"^(Elif|Ahmet|Zeynep|Anlatici|Anlatıcı|Narrator)\s*[:\-]\s*(.+)$", line, flags=re.IGNORECASE)
+        match = dialogue_line_re.match(line)
         if match:
             speaker = match.group(1).strip().capitalize()
             text = match.group(2).strip()
@@ -650,12 +656,69 @@ def _split_dialogue_turns(script: str) -> list[tuple[str, str]]:
     return turns
 
 
+def _is_forced_dual_voice(*, selected_voice: str) -> bool:
+    return "diyalog" in (selected_voice or "").strip().lower()
+
+
+def _ensure_dual_voice_turns(*, turns: list[tuple[str, str]], script: str) -> list[tuple[str, str]]:
+    """Guarantee Elif/Ahmet alternation when dialogue voice is explicitly selected.
+
+    LLM output can occasionally ignore speaker tags and return plain paragraphs.
+    In that case we split text into short sentence turns and alternate speakers.
+    """
+    if not turns:
+        return []
+
+    resolved_speakers = {
+        _resolve_dialogue_voice(speaker=speaker, selected_voice="Diyalog").strip().lower()
+        for speaker, text in turns
+        if text.strip()
+    }
+    if "elif" in resolved_speakers and "ahmet" in resolved_speakers:
+        return turns
+
+    merged_text = " ".join(text.strip() for _, text in turns if text.strip())
+    if not merged_text:
+        merged_text = re.sub(r"\s+", " ", script).strip()
+    if not merged_text:
+        return turns
+
+    sentence_turns = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+", merged_text)
+        if sentence.strip()
+    ]
+    if len(sentence_turns) < 2:
+        words = merged_text.split()
+        if len(words) >= 10:
+            pivot = max(1, len(words) // 2)
+            sentence_turns = [" ".join(words[:pivot]), " ".join(words[pivot:])]
+        else:
+            sentence_turns = [merged_text]
+
+    rebalanced: list[tuple[str, str]] = []
+    for idx, sentence in enumerate(sentence_turns):
+        speaker = "Elif" if idx % 2 == 0 else "Ahmet"
+        rebalanced.append((speaker, sentence))
+
+    logger.info(
+        "Dialog satirlari yeniden dengelendi: onceki=%d yeni=%d",
+        len(turns),
+        len(rebalanced),
+    )
+    return rebalanced
+
+
 def _resolve_dialogue_voice(*, speaker: str, selected_voice: str) -> str:
     normalized = speaker.strip().lower()
     if "ahmet" in normalized:
         return "Ahmet"
+    if "hoca" in normalized or "doktor" in normalized:
+        return "Ahmet"
     if "zeynep" in normalized:
         return "Zeynep"
+    if "ogrenci" in normalized or "öğrenci" in normalized:
+        return "Elif"
     if "narrator" in normalized or "anlat" in normalized:
         return "Elif"
     # Fallback to the selected voice when script has unknown speaker labels.
