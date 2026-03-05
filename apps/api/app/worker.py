@@ -11,7 +11,15 @@ from app.services.tts import get_tts_service
 
 def run_worker() -> None:
     bootstrap_application()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)
+
+    # Reset ALL handlers on root logger (alembic adds its own) and set up fresh console output
+    root = logging.getLogger()
+    root.handlers.clear()
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+
     logger = logging.getLogger("tusbina-worker")
     logger.info("Generation worker started (poll=%ss)", settings.worker_poll_interval_sec)
     storage = get_storage_client()
