@@ -26,6 +26,15 @@ app = FastAPI(
 )
 
 bootstrap_application()
+# Alembic's fileConfig can disable app loggers; restore them for request/debug visibility.
+root = logging.getLogger()
+if not root.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    root.addHandler(handler)
+root.setLevel(logging.INFO)
+for logger_name in list(logging.Logger.manager.loggerDict):
+    logging.getLogger(logger_name).disabled = False
 
 origins = [origin.strip() for origin in settings.app_cors_origins.split(",") if origin.strip()]
 allow_all_origins = not origins or "*" in origins
