@@ -8,12 +8,11 @@ from app.services.generation import process_next_generation_job
 from app.services.storage import get_storage_client
 from app.services.tts import get_tts_service
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)
-logger = logging.getLogger("tusbina-worker")
-
 
 def run_worker() -> None:
     bootstrap_application()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)
+    logger = logging.getLogger("tusbina-worker")
     logger.info("Generation worker started (poll=%ss)", settings.worker_poll_interval_sec)
     storage = get_storage_client()
     tts = get_tts_service()
