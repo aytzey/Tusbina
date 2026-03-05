@@ -16,6 +16,8 @@ interface UploadWizardState {
   podcastName: string;
   sections: UploadSection[];
   addFiles: (files: UploadFileItem[]) => void;
+  addSection: () => void;
+  removeSection: (id: string) => void;
   removeFile: (localId: string) => void;
   setUploadedFileIds: (ids: string[]) => void;
   setVoice: (voice: string) => void;
@@ -42,6 +44,10 @@ function titleFromFilename(name: string): string {
   return withoutExtension.trim() || "Yeni Bolum";
 }
 
+function createSectionId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export const useUploadWizardStore = create<UploadWizardState>((set) => ({
   files: [],
   uploadedFileIds: [],
@@ -57,7 +63,7 @@ export const useUploadWizardStore = create<UploadWizardState>((set) => ({
         if (!unique.find((item) => item.uri === file.uri)) {
           unique.push(file);
           sections.push({
-            id: `file-${file.localId}`,
+            id: createSectionId(`file-${file.localId}`),
             title: titleFromFilename(file.name),
             enabled: true,
             sourceFileLocalId: file.localId
@@ -71,6 +77,21 @@ export const useUploadWizardStore = create<UploadWizardState>((set) => ({
           : `${titleFromFilename(unique[0].name)} ve ${unique.length - 1} dosya`);
       return { files: unique, sections, podcastName };
     }),
+  addSection: () =>
+    set((state) => ({
+      sections: [
+        ...state.sections,
+        {
+          id: createSectionId("manual"),
+          title: `Yeni Bolum ${state.sections.length + 1}`,
+          enabled: true
+        }
+      ]
+    })),
+  removeSection: (id) =>
+    set((state) => ({
+      sections: state.sections.filter((section) => section.id !== id)
+    })),
   removeFile: (localId) =>
     set((state) => ({
       files: state.files.filter((file) => file.localId !== localId),

@@ -43,11 +43,11 @@ class Settings(BaseSettings):
     openrouter_model: str = "google/gemini-2.0-flash-001"
     openrouter_timeout_sec: int = 45
     script_source_max_chars: int = 12000
-    script_target_max_chars: int = 1200
+    script_target_max_chars: int = 4200
     generation_max_parts: int = 50
     tts_provider: str = "piper"
     tts_fallback_to_dummy: bool = True
-    tts_max_chars_per_part: int = 1000
+    tts_max_chars_per_part: int = 5000
     tts_models_dir: str = "data/models"
 
     # Piper TTS

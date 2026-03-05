@@ -86,6 +86,7 @@ export function CourseDetailScreen() {
       sourceType: "course" as const,
       parentId: course.id,
       resumePositionSec: item.lastPositionSec,
+      audioUrl: item.audioUrl,
     }));
     const startIndex = queue.findIndex((item) => item.id === part.id);
     setQueue(queue, startIndex, part.lastPositionSec);

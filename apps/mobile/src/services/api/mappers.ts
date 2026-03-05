@@ -16,7 +16,8 @@ export function mapApiCourse(course: ApiCourse): Course {
       title: part.title,
       durationSec: part.duration_sec,
       status: part.status,
-      lastPositionSec: part.last_position_sec
+      lastPositionSec: part.last_position_sec,
+      audioUrl: resolveApiAssetUrl(part.audio_url)
     }))
   };
 }

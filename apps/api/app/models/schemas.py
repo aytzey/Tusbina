@@ -21,6 +21,7 @@ class CoursePart(BaseModel):
     duration_sec: int
     status: CoursePartStatus
     last_position_sec: int = 0
+    audio_url: str | None = None
 
 
 class Course(BaseModel):

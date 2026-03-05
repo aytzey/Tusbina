@@ -136,6 +136,18 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   signInWithGoogle: async () => {
     set({ isLoading: true, error: null, confirmationPending: false });
     try {
+      if (Platform.OS === "web") {
+        // On web: full page redirect, onAuthStateChange handles the rest
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: window.location.origin },
+        });
+        if (error) throw error;
+        // Page will redirect — no need to set isLoading false
+        return true;
+      }
+
+      // On mobile: use in-app browser
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo, skipBrowserRedirect: true },
@@ -146,7 +158,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       if (result.type === "success") {
         const url = result.url;
-        // Extract tokens from the redirect URL hash fragment
         const hashParams = extractHashParams(url);
         const access_token = hashParams.get("access_token");
         const refresh_token = hashParams.get("refresh_token");

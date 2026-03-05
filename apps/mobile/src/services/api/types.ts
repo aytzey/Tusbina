@@ -5,6 +5,7 @@ export interface ApiCoursePart {
   duration_sec: number;
   status: "completed" | "inProgress" | "locked" | "new";
   last_position_sec: number;
+  audio_url?: string | null;
 }
 
 export interface ApiCourse {

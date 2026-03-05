@@ -46,6 +46,7 @@ class CoursePartModel(Base):
     duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     last_position_sec: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    audio_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     course: Mapped[CourseModel] = relationship(back_populates="parts")
 

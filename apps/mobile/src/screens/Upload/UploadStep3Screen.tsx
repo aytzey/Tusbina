@@ -17,6 +17,8 @@ export function UploadStep3Screen() {
   const format = useUploadWizardStore((state) => state.format);
   const sections = useUploadWizardStore((state) => state.sections);
   const podcastName = useUploadWizardStore((state) => state.podcastName);
+  const addSection = useUploadWizardStore((state) => state.addSection);
+  const removeSection = useUploadWizardStore((state) => state.removeSection);
   const setSectionTitle = useUploadWizardStore((state) => state.setSectionTitle);
   const toggleSection = useUploadWizardStore((state) => state.toggleSection);
   const moveSectionUp = useUploadWizardStore((state) => state.moveSectionUp);
@@ -52,7 +54,13 @@ export function UploadStep3Screen() {
       </View>
 
       {/* Section List */}
-      <Text style={styles.sectionTitle}>Bölüm Listesi</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Bölüm Listesi</Text>
+        <Pressable style={styles.addSectionButton} onPress={addSection}>
+          <Ionicons name="add" size={16} color={colors.motivationOrange} />
+          <Text style={styles.addSectionText}>Bölüm Ekle</Text>
+        </Pressable>
+      </View>
       {sections.length === 0 ? (
         <Text style={styles.emptySections}>Bölüm listesi için önce PDF ekle.</Text>
       ) : (
@@ -140,6 +148,15 @@ export function UploadStep3Screen() {
                   }}
                   thumbColor={colors.textPrimary}
                 />
+                {!section.sourceFileLocalId ? (
+                  <Pressable
+                    style={styles.removeSectionButton}
+                    hitSlop={8}
+                    onPress={() => removeSection(section.id)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                ) : null}
               </View>
             );
           })}
@@ -211,6 +228,27 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.textPrimary
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  addSectionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.motivationOrange,
+    backgroundColor: "rgba(191,95,62,0.08)"
+  },
+  addSectionText: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    fontWeight: "700"
+  },
   emptySections: {
     ...typography.caption,
     color: colors.textSecondary
@@ -281,6 +319,13 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     paddingHorizontal: spacing.sm
+  },
+  removeSectionButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center"
   },
 
   /* Warning */

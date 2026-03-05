@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import re
 from io import BytesIO
 from urllib.error import HTTPError, URLError
@@ -26,6 +27,7 @@ def build_part_script(
 ) -> str:
     source_text = _load_source_text(
         index=index,
+        total=total,
         assets=assets,
         storage=storage,
         asset_text_cache=asset_text_cache,
@@ -63,6 +65,7 @@ def build_asset_text_cache(*, assets: list[UploadAssetModel], storage: StorageCl
 def _load_source_text(
     *,
     index: int,
+    total: int,
     assets: list[UploadAssetModel],
     storage: StorageClient,
     asset_text_cache: dict[str, str] | None,
@@ -80,7 +83,14 @@ def _load_source_text(
         asset_text_cache=asset_text_cache,
     )
     if preferred_text:
-        texts.append(preferred_text)
+        texts.append(
+            _slice_text_for_part(
+                preferred_text,
+                index=index,
+                total=total,
+                max_chars=settings.script_source_max_chars,
+            )
+        )
 
     # Add short context from remaining assets so sections still keep global coherence.
     for asset in assets:
@@ -132,7 +142,7 @@ def _extract_text_from_pdf(raw: bytes) -> str:
     try:
         reader = PdfReader(BytesIO(raw))
         pages: list[str] = []
-        for page in reader.pages[:50]:
+        for page in reader.pages[: settings.script_pdf_max_pages]:
             page_text = page.extract_text() or ""
             if page_text.strip():
                 pages.append(page_text)
@@ -144,7 +154,24 @@ def _extract_text_from_pdf(raw: bytes) -> str:
 
 def _normalize_text(text: str) -> str:
     compact = re.sub(r"\s+", " ", text).strip()
-    return compact[: settings.script_source_max_chars]
+    return compact
+
+
+def _slice_text_for_part(text: str, *, index: int, total: int, max_chars: int) -> str:
+    compact = re.sub(r"\s+", " ", text).strip()
+    if not compact:
+        return ""
+    if total <= 1:
+        return compact[:max_chars]
+
+    chunk_size = max(1, math.ceil(len(compact) / total))
+    start = max(0, (index - 1) * chunk_size)
+    end = min(len(compact), start + chunk_size)
+    chunk = compact[start:end]
+    if not chunk:
+        chunk = compact[max(0, len(compact) - chunk_size) :]
+
+    return chunk[:max_chars]
 
 
 def _generate_with_openrouter(
@@ -167,7 +194,7 @@ def _generate_with_openrouter(
     payload = {
         "model": settings.openrouter_model,
         "temperature": 0.3,
-        "max_tokens": max(220, min(700, target_limit // 2)),
+        "max_tokens": max(320, min(1800, int(target_limit * 0.7))),
         "messages": [
             {
                 "role": "system",
@@ -236,10 +263,6 @@ def _generate_fallback_script(
     total: int,
     target_limit: int,
 ) -> str:
-    snippet = _extractive_summary(source_text, max_sentences=4)
-    if not snippet:
-        snippet = "Kaynak metin sinirli oldugu icin bu bolum baslik odakli bir ozet olarak hazirlandi."
-
     intro = f"Bolum {index}. {part_title}. "
     if format_name == "summary":
         bridge = "Hizli tekrar icin kritik noktalar: "
@@ -249,16 +272,45 @@ def _generate_fallback_script(
         bridge = "Bu bolumde temel kavramlari sistematik sekilde ele aliyoruz: "
 
     outro = f" Bu icerik {total} bolumluk serinin {index}. bolumudur."
+    static_len = len(intro) + len(bridge) + len(outro)
+    snippet_budget = max(180, target_limit - static_len)
+
+    snippet = _extractive_summary(source_text, max_chars=snippet_budget)
+    if not snippet:
+        snippet = "Kaynak metin sinirli oldugu icin bu bolum baslik odakli bir ozet olarak hazirlandi."
+
     text = f"{intro}{bridge}{snippet}{outro}"
     return text[:target_limit].strip()
 
 
-def _extractive_summary(text: str, *, max_sentences: int) -> str:
+def _extractive_summary(text: str, *, max_chars: int) -> str:
     if not text.strip():
         return ""
     sentences = re.split(r"(?<=[.!?])\s+", text)
-    selected = [sentence.strip() for sentence in sentences if len(sentence.strip()) > 30][:max_sentences]
-    return " ".join(selected).strip()
+    selected: list[str] = []
+    current_len = 0
+
+    for sentence in sentences:
+        cleaned = sentence.strip()
+        if len(cleaned) < 30:
+            continue
+
+        projected = current_len + len(cleaned) + (1 if selected else 0)
+        if selected and projected > max_chars:
+            break
+
+        selected.append(cleaned)
+        current_len = projected
+        if current_len >= max_chars:
+            break
+
+    summary = " ".join(selected).strip()
+    if summary:
+        return summary
+
+    # Sentence extraction can fail on noisy OCR text; still return a bounded snippet.
+    compact = re.sub(r"\s+", " ", text).strip()
+    return compact[:max_chars]
 
 
 def _format_style_hint(format_name: str) -> str:

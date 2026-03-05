@@ -18,6 +18,7 @@ export interface CoursePart {
   durationSec: number;
   status: CoursePartStatus;
   lastPositionSec: number;
+  audioUrl?: string;
 }
 
 export interface Course {
