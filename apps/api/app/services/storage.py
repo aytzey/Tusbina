@@ -27,6 +27,8 @@ class StorageClient(Protocol):
 
     def read_bytes(self, storage_key: str) -> bytes: ...
 
+    def delete(self, storage_key: str) -> None: ...
+
 
 class LocalStorageClient:
     def __init__(self) -> None:
@@ -61,6 +63,10 @@ class LocalStorageClient:
     def read_bytes(self, storage_key: str) -> bytes:
         target = self.base_dir / storage_key
         return target.read_bytes()
+
+    def delete(self, storage_key: str) -> None:
+        target = self.base_dir / storage_key
+        target.unlink(missing_ok=True)
 
 
 class R2StorageClient:
@@ -104,6 +110,9 @@ class R2StorageClient:
     def read_bytes(self, storage_key: str) -> bytes:
         response = self.client.get_object(Bucket=settings.r2_bucket, Key=storage_key)
         return response["Body"].read()
+
+    def delete(self, storage_key: str) -> None:
+        self.client.delete_object(Bucket=settings.r2_bucket, Key=storage_key)
 
 
 def get_storage_client() -> StorageClient:

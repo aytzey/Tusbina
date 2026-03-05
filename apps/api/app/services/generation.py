@@ -1,11 +1,12 @@
+import logging
 import re
 import wave
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -14,6 +15,8 @@ from app.models.schemas import GeneratePodcastIn, GeneratePodcastStatusOut
 from app.services.script_generation import build_asset_text_cache, build_part_script
 from app.services.storage import StorageClient
 from app.services.tts import TTSService, get_tts_service
+
+logger = logging.getLogger("tusbina-generation")
 
 FORMAT_PART_DURATION_SEC = {
     "narrative": 420,
@@ -60,6 +63,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         return False
 
     tts_service = tts or get_tts_service()
+    stored_keys: list[str] = []
 
     try:
         payload = job.payload_json
@@ -67,15 +71,25 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         if not file_ids:
             raise ValueError("No file_ids provided for generation")
 
-        assets = db.execute(
-            select(UploadAssetModel).where(
-                UploadAssetModel.id.in_(file_ids),
-                UploadAssetModel.user_id == job.user_id,
-            )
-        ).scalars().all()
+        assets_unordered = list(
+            db.execute(
+                select(UploadAssetModel).where(
+                    UploadAssetModel.id.in_(file_ids),
+                    UploadAssetModel.user_id == job.user_id,
+                )
+            ).scalars().all()
+        )
 
-        if not assets:
+        if not assets_unordered:
             raise ValueError("No uploaded assets found")
+
+        # Preserve original file_ids order so index-based section/asset mapping is correct
+        id_order = {fid: idx for idx, fid in enumerate(file_ids)}
+        assets = sorted(assets_unordered, key=lambda a: id_order.get(a.id, len(file_ids)))
+        found_ids = {asset.id for asset in assets}
+        missing_ids = [file_id for file_id in file_ids if file_id not in found_ids]
+        if missing_ids:
+            raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
 
         asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
         sections = payload.get("sections", [])
@@ -134,6 +148,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
                 content_type=tts_audio.content_type,
                 user_id=job.user_id,
             )
+            stored_keys.append(generated_audio.storage_key)
             part = PodcastPartModel(
                 id=f"{podcast_id}-part-{index}",
                 podcast_id=podcast_id,
@@ -146,9 +161,10 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             db.add(part)
             total_duration_sec += part_duration_sec
 
+            # Update progress without committing — keep the transaction atomic
             job.progress_pct = min(95, 20 + int((index / max(total_parts, 1)) * 70))
             job.updated_at = datetime.now(UTC)
-            db.commit()
+            db.flush()
 
         podcast.total_duration_sec = total_duration_sec
         job.status = "completed"
@@ -160,6 +176,12 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
 
     except Exception as exc:
         db.rollback()
+        # Clean up any audio files already written to storage
+        for key in stored_keys:
+            try:
+                storage.delete(key)
+            except Exception:
+                logger.warning("Cleanup basarisiz, storage key: %s", key)
         failed = db.get(GenerationJobModel, job.id)
         if failed is not None:
             failed.status = "failed"
@@ -232,6 +254,34 @@ def _resolve_auto_chars_per_part(*, format_name: str) -> int:
     if preferred <= 0:
         return settings.script_auto_chars_per_part
     return min(preferred, settings.script_auto_chars_per_part)
+
+
+def reap_stale_processing_jobs(db: Session, *, max_age_minutes: int | None = None) -> int:
+    """Reset jobs stuck in 'processing' for longer than max_age_minutes back to 'failed'.
+
+    Returns the number of reaped jobs.
+    """
+    if max_age_minutes is None:
+        max_age_minutes = settings.worker_stale_job_max_age_minutes
+    cutoff = datetime.now(UTC) - timedelta(minutes=max_age_minutes)
+    result = db.execute(
+        update(GenerationJobModel)
+        .where(
+            GenerationJobModel.status == "processing",
+            GenerationJobModel.updated_at < cutoff,
+        )
+        .values(
+            status="failed",
+            progress_pct=100,
+            error=f"Worker zaman asimi — {max_age_minutes} dakika icerisinde tamamlanamadi",
+            updated_at=datetime.now(UTC),
+        )
+    )
+    reaped = result.rowcount
+    if reaped:
+        db.commit()
+        logger.warning("Stale processing job'lar failed'a cekildi: %d adet", reaped)
+    return reaped
 
 
 def _claim_next_generation_job(db: Session) -> GenerationJobModel | None:

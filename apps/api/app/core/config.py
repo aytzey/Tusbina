@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     script_auto_chars_per_part_qa: int = 2600
     generation_max_parts: int = 500
     tts_provider: str = "piper"
-    tts_fallback_to_dummy: bool = True
+    tts_fallback_to_dummy: bool = False
     tts_max_chars_per_part: int = 5200
     tts_max_chars_per_part_narrative: int = 5200
     tts_max_chars_per_part_summary: int = 3400
@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
     worker_poll_interval_sec: int = 5
+    worker_stale_job_max_age_minutes: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
