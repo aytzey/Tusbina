@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # Generation pipeline
     openrouter_api_key: str = ""
-    openrouter_model: str = "google/gemini-2.0-flash-001"
+    openrouter_model: str = "google/gemini-3-flash-preview"
     openrouter_timeout_sec: int = 45
     script_source_max_chars: int = 12000
     script_pdf_max_pages: int = 1200
