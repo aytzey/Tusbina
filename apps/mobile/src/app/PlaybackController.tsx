@@ -4,12 +4,19 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-au
 import { Track } from "@/domain/models";
 import { patchCoursePartPosition as patchCoursePartPositionApi, patchPodcastState } from "@/services/api";
 import { useCoursesStore, useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
-import { safeAudioPlayerAsyncCall, safeAudioPlayerCall } from "@/utils/audioPlayer";
+import {
+  safeAudioPlayerAsyncCall,
+  safeAudioPlayerCall,
+  shouldAdvanceQueueOnDidJustFinish,
+  shouldIgnoreFinishSoonAfterResume,
+  shouldResetPlaybackFromStaleEnd,
+} from "@/utils/audioPlayer";
 
 const LOCK_SCREEN_OPTIONS = {
   showSeekBackward: true,
   showSeekForward: true
 } as const;
+const PLAYER_DEBUG_ENABLED = process.env.EXPO_PUBLIC_ENABLE_PLAYER_DEBUG === "true";
 
 type LockScreenMetadata = {
   albumTitle?: string;
@@ -98,6 +105,91 @@ export function PlaybackController() {
   const initialSeekTrackRef = useRef<string | null>(null);
   const finishedTrackRef = useRef<string | null>(null);
   const lastPersistMarkerRef = useRef<string | null>(null);
+  const startedTrackRef = useRef<string | null>(null);
+  const deferredPauseRef = useRef(false);
+  const resumeIssuedAtRef = useRef<number | null>(null);
+  const resumePositionRef = useRef(0);
+
+  const logPlayerDebug = useCallback(
+    (event: string, extra: Record<string, unknown> = {}) => {
+      if (!PLAYER_DEBUG_ENABLED) {
+        return;
+      }
+      const payload = {
+        trackId: track?.id ?? null,
+        trackTitle: track?.title ?? null,
+        queueIndex,
+        isPlaying,
+        statusPlaying: audioStatus.playing,
+        didJustFinish: audioStatus.didJustFinish,
+        currentTime: audioStatus.currentTime,
+        duration: audioStatus.duration,
+        positionSec,
+        startedTrackId: startedTrackRef.current,
+        ...extra,
+      };
+      console.log("[player-debug]", event, payload);
+      const debugStore = globalThis as typeof globalThis & {
+        __playerDebugEvents?: { event: string; payload: Record<string, unknown> }[];
+      };
+      debugStore.__playerDebugEvents = [...(debugStore.__playerDebugEvents ?? []), { event, payload }];
+    },
+    [
+      audioStatus.currentTime,
+      audioStatus.didJustFinish,
+      audioStatus.duration,
+      audioStatus.playing,
+      isPlaying,
+      positionSec,
+      queueIndex,
+      track,
+    ]
+  );
+
+  useEffect(() => {
+    if (!PLAYER_DEBUG_ENABLED) {
+      return;
+    }
+
+    const debugStore = globalThis as typeof globalThis & {
+      __playerDebugState?: Record<string, unknown>;
+    };
+
+    debugStore.__playerDebugState = {
+      trackId: track?.id ?? null,
+      queueIndex,
+      intendedIsPlaying: isPlaying,
+      intendedPositionSec: positionSec,
+      pendingSeekSec,
+      playbackRate: rate,
+      hasRemoteAudio,
+      startedTrackId: startedTrackRef.current,
+      resumeIssuedAtMs: resumeIssuedAtRef.current,
+      resumePositionSec: resumePositionRef.current,
+      status: {
+        currentTime: audioStatus.currentTime,
+        didJustFinish: audioStatus.didJustFinish,
+        duration: audioStatus.duration,
+        isBuffering: audioStatus.isBuffering,
+        isLoaded: audioStatus.isLoaded,
+        playing: audioStatus.playing,
+      },
+    };
+  }, [
+    audioStatus.currentTime,
+    audioStatus.didJustFinish,
+    audioStatus.duration,
+    audioStatus.isBuffering,
+    audioStatus.isLoaded,
+    audioStatus.playing,
+    hasRemoteAudio,
+    isPlaying,
+    pendingSeekSec,
+    positionSec,
+    queueIndex,
+    rate,
+    track?.id,
+  ]);
 
   const persistCurrentProgress = useCallback(
     async (trackOverride?: Track | null, positionOverride?: number, queueOverride: Track[] = queue) => {
@@ -182,13 +274,20 @@ export function PlaybackController() {
   useEffect(() => {
     const previousTrack = previousTrackRef.current;
     if (previousTrack && previousTrack.id !== track?.id) {
+      logPlayerDebug("track-change", {
+        fromTrackId: previousTrack.id,
+        toTrackId: track?.id ?? null,
+      });
       void persistCurrentProgress(previousTrack, previousPositionRef.current, previousQueueRef.current);
       initialSeekTrackRef.current = null;
       finishedTrackRef.current = null;
+      deferredPauseRef.current = false;
+      startedTrackRef.current = null;
+      resumeIssuedAtRef.current = null;
     }
     previousTrackRef.current = track;
     previousQueueRef.current = queue;
-  }, [persistCurrentProgress, queue, track]);
+  }, [logPlayerDebug, persistCurrentProgress, queue, track]);
 
   useEffect(() => {
     if (!track) {
@@ -231,6 +330,23 @@ export function PlaybackController() {
   ]);
 
   useEffect(() => {
+    if (!track || !hasRemoteAudio) {
+      deferredPauseRef.current = false;
+      startedTrackRef.current = null;
+      return;
+    }
+
+    const currentTime = Number.isFinite(audioStatus.currentTime) ? audioStatus.currentTime : 0;
+    const withinTrackBounds = currentTime > 0.25 && currentTime < Math.max(track.durationSec - 0.25, 0.25);
+    if (audioStatus.playing || withinTrackBounds || positionSec > 0.25) {
+      startedTrackRef.current = track.id;
+      if (audioStatus.playing) {
+        resumeIssuedAtRef.current = null;
+      }
+    }
+  }, [audioStatus.currentTime, audioStatus.playing, hasRemoteAudio, positionSec, track]);
+
+  useEffect(() => {
     if (!hasRemoteAudio) {
       if (pendingSeekSec !== null) {
         clearPendingSeek();
@@ -254,21 +370,71 @@ export function PlaybackController() {
     }
 
     if (isPlaying) {
-      safeAudioPlayerCall(() => {
+      deferredPauseRef.current = false;
+      void safeAudioPlayerAsyncCall(async () => {
+        resumeIssuedAtRef.current = Date.now();
+        resumePositionRef.current = positionSec;
+        logPlayerDebug("issue-play", {
+          intendedPositionSec: positionSec,
+          statusCurrentTimeSec: audioStatus.currentTime,
+        });
+        const durationSec = audioStatus.duration > 0 ? audioStatus.duration : track?.durationSec ?? 0;
+        if (
+          shouldResetPlaybackFromStaleEnd({
+            durationSec,
+            currentTimeSec: audioStatus.currentTime,
+            intendedPositionSec: positionSec,
+          })
+        ) {
+          await audioPlayer.seekTo(positionSec);
+          finishedTrackRef.current = null;
+          logPlayerDebug("resume-from-stale-end", {
+            intendedPositionSec: positionSec,
+          });
+        }
         audioPlayer.play();
       });
       return;
     }
+
+    if (resumeIssuedAtRef.current !== null && !audioStatus.playing) {
+      deferredPauseRef.current = true;
+      logPlayerDebug("defer-pause-until-play-start", {
+        intendedPositionSec: positionSec,
+        statusCurrentTimeSec: audioStatus.currentTime,
+      });
+      return;
+    }
+
+    deferredPauseRef.current = false;
+    logPlayerDebug("issue-pause", {
+      intendedPositionSec: positionSec,
+      statusCurrentTimeSec: audioStatus.currentTime,
+    });
     safeAudioPlayerCall(() => {
       audioPlayer.pause();
     });
-  }, [audioPlayer, audioStatus.playing, hasRemoteAudio, isPlaying]);
+  }, [
+    audioPlayer,
+    audioStatus.currentTime,
+    audioStatus.duration,
+    audioStatus.playing,
+    hasRemoteAudio,
+    isPlaying,
+    logPlayerDebug,
+    positionSec,
+    track?.durationSec,
+  ]);
 
   useEffect(() => {
     if (!hasRemoteAudio || pendingSeekSec === null || !audioStatus.isLoaded) {
       return;
     }
 
+    logPlayerDebug("issue-seek", {
+      pendingSeekSec,
+      statusCurrentTimeSec: audioStatus.currentTime,
+    });
     let cancelled = false;
     void safeAudioPlayerAsyncCall(() => audioPlayer.seekTo(pendingSeekSec))
       .catch(() => undefined)
@@ -281,7 +447,7 @@ export function PlaybackController() {
     return () => {
       cancelled = true;
     };
-  }, [audioPlayer, audioStatus.isLoaded, clearPendingSeek, hasRemoteAudio, pendingSeekSec]);
+  }, [audioPlayer, audioStatus.currentTime, audioStatus.isLoaded, clearPendingSeek, hasRemoteAudio, logPlayerDebug, pendingSeekSec]);
 
   useEffect(() => {
     if (!track || !hasRemoteAudio || !audioStatus.isLoaded) {
@@ -293,9 +459,13 @@ export function PlaybackController() {
 
     initialSeekTrackRef.current = track.id;
     if (positionSec > 0.5) {
+      logPlayerDebug("issue-initial-seek", {
+        intendedPositionSec: positionSec,
+        statusCurrentTimeSec: audioStatus.currentTime,
+      });
       void safeAudioPlayerAsyncCall(() => audioPlayer.seekTo(positionSec));
     }
-  }, [audioPlayer, audioStatus.isLoaded, hasRemoteAudio, positionSec, track]);
+  }, [audioPlayer, audioStatus.currentTime, audioStatus.isLoaded, hasRemoteAudio, logPlayerDebug, positionSec, track]);
 
   useEffect(() => {
     if (wasPlayingRef.current && !isPlaying) {
@@ -311,7 +481,41 @@ export function PlaybackController() {
       return;
     }
 
-    if (!audioStatus.didJustFinish) {
+    const didTrackActuallyFinish = shouldAdvanceQueueOnDidJustFinish({
+      didJustFinish: audioStatus.didJustFinish,
+      durationSec: audioStatus.duration > 0 ? audioStatus.duration : track.durationSec,
+      currentTimeSec: audioStatus.currentTime,
+      lastKnownPositionSec: Math.max(positionSec, previousPositionRef.current),
+      startedForTrack: startedTrackRef.current === track.id,
+    });
+    const shouldIgnoreFastFinish = shouldIgnoreFinishSoonAfterResume({
+      durationSec: audioStatus.duration > 0 ? audioStatus.duration : track.durationSec,
+      resumePositionSec: resumePositionRef.current,
+      elapsedSinceResumeMs:
+        resumeIssuedAtRef.current === null ? Number.POSITIVE_INFINITY : Date.now() - resumeIssuedAtRef.current,
+    });
+
+    if (audioStatus.didJustFinish) {
+      logPlayerDebug("did-just-finish-signal", {
+        didTrackActuallyFinish,
+        shouldIgnoreFastFinish,
+        lastKnownPositionSec: Math.max(positionSec, previousPositionRef.current),
+      });
+    }
+
+    if (audioStatus.didJustFinish && shouldIgnoreFastFinish) {
+      void safeAudioPlayerAsyncCall(async () => {
+        await audioPlayer.seekTo(resumePositionRef.current);
+        audioPlayer.play();
+      });
+      finishedTrackRef.current = null;
+      logPlayerDebug("ignored-fast-finish-after-resume", {
+        resumePositionSec: resumePositionRef.current,
+      });
+      return;
+    }
+
+    if (!didTrackActuallyFinish) {
       finishedTrackRef.current = null;
       return;
     }
@@ -330,18 +534,24 @@ export function PlaybackController() {
     void flushUsageConsumption();
 
     if (hasNext) {
+      logPlayerDebug("advance-next-after-finish");
       playNext();
       play();
       return;
     }
+    logPlayerDebug("pause-after-finish");
     pause();
   }, [
     audioStatus.didJustFinish,
     audioStatus.duration,
+    audioStatus.currentTime,
+    audioPlayer,
     flushUsageConsumption,
     hasNext,
     hasRemoteAudio,
+    logPlayerDebug,
     pause,
+    positionSec,
     persistCurrentProgress,
     play,
     playNext,

@@ -105,7 +105,11 @@ export function PlayerScreen() {
   const progress = actualDuration > 0 ? (positionSec / actualDuration) * 100 : 0;
   const currentTrackStatus =
     track.sourceType === "ai"
-      ? getPodcastPartStatusLabel(track.partStatus, { isActive: true, isPlaying })
+      ? getPodcastPartStatusLabel(track.partStatus, {
+          hasPlayableAudio: hasRemoteAudio,
+          isActive: true,
+          isPlaying,
+        })
       : null;
 
   const prioritizeAiPart = async (partId: string, podcastId: string) => {
@@ -424,7 +428,11 @@ export function PlayerScreen() {
             const isCompleted = index < queueIndex;
             const statusLabel =
               item.sourceType === "ai"
-                ? getPodcastPartStatusLabel(item.partStatus, { isActive, isPlaying: isActive && isPlaying })
+                ? getPodcastPartStatusLabel(item.partStatus, {
+                    hasPlayableAudio: Boolean(item.audioUrl),
+                    isActive,
+                    isPlaying: isActive && isPlaying,
+                  })
                 : isCompleted
                   ? "Dinlendi"
                   : "Hazır";

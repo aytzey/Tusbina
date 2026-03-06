@@ -15,6 +15,8 @@ import type { Session, User } from "@supabase/supabase-js";
 WebBrowser.maybeCompleteAuthSession();
 
 const redirectTo = makeRedirectUri();
+const DEV_AUTH_BYPASS_ENABLED = process.env.EXPO_PUBLIC_ENABLE_DEV_AUTH_BYPASS === "true";
+const DEV_AUTH_BYPASS_USER_ID = process.env.EXPO_PUBLIC_DEMO_USER_ID ?? "demo-user";
 
 interface AuthState {
   session: Session | null;
@@ -49,6 +51,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   initialize: async () => {
     set({ isLoading: true, error: null });
     try {
+      if (isLocalDevAuthBypassEnabled()) {
+        set({
+          session: null,
+          user: buildDevBypassUser(),
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+          confirmationPending: false,
+          requiresLegalAcceptance: false,
+        });
+        return;
+      }
+
       const { data, error } = await supabase.auth.getSession();
       if (error) {
         throw error;
@@ -497,4 +512,51 @@ function buildNextLegalAcceptance(
 function getUserDisplayName(user: User | null | undefined): string | undefined {
   const value = user?.user_metadata?.display_name;
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function isLocalDevAuthBypassEnabled(): boolean {
+  if (!DEV_AUTH_BYPASS_ENABLED || Platform.OS !== "web") {
+    return false;
+  }
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const host = window.location.hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function buildDevBypassUser(): User {
+  const now = new Date().toISOString();
+
+  return {
+    id: DEV_AUTH_BYPASS_USER_ID,
+    aud: "authenticated",
+    role: "authenticated",
+    email: `${DEV_AUTH_BYPASS_USER_ID}@local.tusbina.test`,
+    email_confirmed_at: now,
+    phone: "",
+    confirmed_at: now,
+    last_sign_in_at: now,
+    app_metadata: {
+      provider: "email",
+      providers: ["email"],
+    },
+    user_metadata: {
+      display_name: "Demo Öğrenci",
+      legal_acceptance: {
+        privacy_policy_version: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
+        terms_of_use_version: LEGAL_DOCUMENT_VERSIONS.termsOfUse,
+        kvkk_notice_version: LEGAL_DOCUMENT_VERSIONS.kvkkNotice,
+        accepted_at: now,
+        marketing_opt_in: false,
+        marketing_consent_version: null,
+        marketing_consent_updated_at: now,
+      },
+    },
+    identities: [],
+    created_at: now,
+    updated_at: now,
+    is_anonymous: false,
+  } as User;
 }

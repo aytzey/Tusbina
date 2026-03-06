@@ -1,4 +1,4 @@
-import { Podcast, PodcastPartStatus, Track } from "@/domain/models";
+import type { Podcast, PodcastPartStatus, Track } from "@/domain/models";
 
 export function buildPodcastQueue(podcast: Podcast): Track[] {
   let absoluteOffsetSec = 0;
@@ -53,9 +53,12 @@ export function resolvePodcastQueueStart(podcast: Podcast): {
 
 export function getPodcastPartStatusLabel(
   status: PodcastPartStatus | undefined,
-  options?: { isActive?: boolean; isPlaying?: boolean }
+  options?: { hasPlayableAudio?: boolean; isActive?: boolean; isPlaying?: boolean }
 ): string {
   if (options?.isActive && options.isPlaying) {
+    if (options.hasPlayableAudio === false) {
+      return status === "processing" ? "Hazırlanıyor" : "Hazır Olunca Başlayacak";
+    }
     return "Dinleniyor";
   }
   if (status === "processing") {
