@@ -7,9 +7,11 @@ import { createJSONStorage, persist } from "zustand/middleware";
 type DownloadablePodcast = Podcast;
 
 interface DownloadsState {
+  ownerUserId: string | null;
   downloads: DownloadablePodcast[];
   downloadingIds: string[];
   error: string | null;
+  bindToUser: (userId: string | null) => Promise<void>;
   isPodcastDownloaded: (podcastId: string) => boolean;
   getDownloadedPodcast: (podcastId: string) => DownloadablePodcast | undefined;
   getOfflinePartsCount: (podcastId: string) => number;
@@ -26,9 +28,33 @@ const DOWNLOAD_ROOT = `${FileSystem.documentDirectory ?? FileSystem.cacheDirecto
 export const useDownloadsStore = create<DownloadsState>()(
   persist(
     (set, get) => ({
+      ownerUserId: null,
       downloads: [],
       downloadingIds: [],
       error: null,
+      bindToUser: async (userId) => {
+        if (!userId) {
+          return;
+        }
+
+        const currentOwner = get().ownerUserId;
+        if (currentOwner === userId) {
+          return;
+        }
+
+        if (currentOwner === null) {
+          set({ ownerUserId: userId, error: null, downloadingIds: [] });
+          return;
+        }
+
+        set({
+          ownerUserId: userId,
+          downloads: [],
+          downloadingIds: [],
+          error: null,
+        });
+        await FileSystem.deleteAsync(DOWNLOAD_ROOT, { idempotent: true });
+      },
       isPodcastDownloaded: (podcastId) => Boolean(get().downloads.find((item) => item.id === podcastId)),
       getDownloadedPodcast: (podcastId) => get().downloads.find((item) => item.id === podcastId),
       getOfflinePartsCount: (podcastId) => {
@@ -139,7 +165,7 @@ export const useDownloadsStore = create<DownloadsState>()(
     {
       name: "tusbina-downloads-store",
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ downloads: state.downloads }),
+      partialize: (state) => ({ ownerUserId: state.ownerUserId, downloads: state.downloads }),
     }
   )
 );

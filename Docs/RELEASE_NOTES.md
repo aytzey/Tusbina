@@ -44,6 +44,7 @@
 - Ses seçimi adımına örnek dinleme eklendi; kullanıcı sesleri seçim öncesinde kısa preview ile karşılaştırabiliyor.
 - Mobil uygulamaya `İndirilenler` alanı eklendi; podcastler cihaz hafızasına alınarak internet olmadan dinlenebiliyor.
 - Oynatıcı ve podcast kütüphanesi, indirilen içerikler için çevrimdışı hazır durumunu gösterecek şekilde güncellendi.
+- İndirilen içerik store'u oturum açan kullanıcıya bağlandı; hesap değişiminde eski kullanıcının offline içerikleri yeni hesaba sızmıyor.
 - Profil sekmesine `Çalışma Araçları` alanı eklendi; günlük dinleme hedefi, ders planı ve kronometre tek yerde yönetilebiliyor.
 - Günlük dinleme süresi artık oynatma sırasında otomatik toplanıyor ve profil özetinde daha okunabilir süre formatında gösteriliyor.
 - `Hesap Ayarları` ekranı eklendi; görünen ad ve temel hesap bilgileri uygulama içinden düzenlenebiliyor.
@@ -65,6 +66,7 @@
 - Mobil lint uyarıları temizlendi.
 - `create_all` ile açılmış eski SQLite veritabanlarında eksik podcast kapak ve `course_parts.audio_url` kolonlarını otomatik ekleyen uyumluluk katmanı eklendi.
 - Auth katmanına HS256 shared-secret fallback doğrulaması eklendi; test ve lokal Supabase senaryoları JWKS bağımlılığı olmadan çalışabiliyor.
+- `PATCH /api/v1/auth/profile` çağrısı artık eksik backend profilini otomatik oluşturuyor; hesap ayarları ekranı ilk senkron gecikmesinde 404'e düşmüyor.
 - Ayrı taşınan `cover_file_id` artık generation worker tarafından doğru resolve ediliyor; mobil upload kontratıyla kapak görseli gerçekten podcast kapağına yansıyor.
 
 ### Doğrulananlar
@@ -73,7 +75,7 @@
 - `npm run mobile:lint` geçti.
 - `npm run mobile:typecheck` geçti.
 - `apps/api` içinde `ruff check .` geçti.
-- `apps/api` içinde tam test seti geçti: `pytest -q` -> `57 passed`
+- `apps/api` içinde tam test seti geçti: `pytest -q` -> `58 passed`
 
 ### Bu Turda Göremeyeceğimiz / Tam Doğrulayamayacağımız Şeyler
 

@@ -21,7 +21,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - Akış ekranları: `Ders Detay`, `Player`, `Premium`, `Quiz`, `İndirilenler`, `Çalışma Araçları`, `Hesap Ayarları`, `Yardım & Destek`, `Hata durumları`
 - State store'ları: `auth`, `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `downloads`, `learningTools`, `quiz`
 - Upload akışı: `expo-document-picker` ile PDF/TXT seçimi, opsiyonel kapak yükleme, ses preview, API upload, otomatik bölümleme, job polling
-- Dinle kütüphanesi: favori/indirilen durumları backend'de kalıcı; çevrimdışı hazır bölümler yerel store ile yönetiliyor
+- Dinle kütüphanesi: favori/indirilen durumları backend'de kalıcı; çevrimdışı hazır bölümler yerel store ile yönetiliyor ve indirilenler aktif kullanıcıya göre izole tutuluyor
 - Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir ve Nginx kökten servis edilebilir
 
 ## API (v1)
@@ -46,7 +46,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - `POST /api/v1/usage/package/add`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/profile`
-- `PATCH /api/v1/auth/profile`
+- `PATCH /api/v1/auth/profile` (profil yoksa auto-create edip günceller)
 
 ## Upload + Generation Mimari Notu
 

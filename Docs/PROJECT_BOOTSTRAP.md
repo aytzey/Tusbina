@@ -38,7 +38,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `coursesStore`: ders listesi + detay
 - `podcastsStore`: podcast listesi + favorite/download/progress local patch
 - `uploadWizardStore`: belge/kapak dosyaları, ses, format, podcast adı
-- `downloadsStore`: çevrimdışı indirilen podcastler ve yerel audio/cover eşlemesi
+- `downloadsStore`: çevrimdışı indirilen podcastler, yerel audio/cover eşlemesi ve kullanıcı bazlı sahiplik temizliği
 - `learningToolsStore`: günlük hedef, ders planı, kronometre
 
 ## 4) API Kontratları
@@ -63,7 +63,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `POST /api/v1/usage/package/add`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/profile`
-- `PATCH /api/v1/auth/profile`
+- `PATCH /api/v1/auth/profile` (profil yoksa auto-create edip günceller)
 
 ## 5) Altyapı
 

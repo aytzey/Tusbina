@@ -30,3 +30,25 @@ def test_auth_enabled_accepts_valid_token(monkeypatch) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["is_premium"] is False
+
+
+def test_auth_profile_patch_creates_missing_profile(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "enable_auth", True)
+    monkeypatch.setattr(settings, "supabase_jwt_secret", "test-secret")
+    monkeypatch.setattr(settings, "supabase_jwt_audience", "authenticated")
+
+    token = jwt.encode(
+        {"sub": "auth-user-profile", "aud": "authenticated", "email": "profile@example.com"},
+        settings.supabase_jwt_secret,
+        algorithm="HS256",
+    )
+    response = client.patch(
+        "/api/v1/auth/profile",
+        json={"display_name": "Profil Kullanıcısı"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == "auth-user-profile"
+    assert payload["email"] == "profile@example.com"
+    assert payload["display_name"] == "Profil Kullanıcısı"

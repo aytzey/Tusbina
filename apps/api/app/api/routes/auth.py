@@ -4,7 +4,7 @@ Auth (signup/login/logout) is handled directly by Supabase on the client.
 These routes manage the backend user profile, verified via JWKS JWT tokens.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -106,7 +106,14 @@ def update_profile(
     """Update the current user's display name or avatar."""
     profile = db.get(UserProfileModel, current_user.user_id)
     if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+        profile = UserProfileModel(
+            id=current_user.user_id,
+            email=current_user.email,
+            display_name=current_user.email.split("@")[0] if current_user.email else "User",
+            created_at=utcnow(),
+        )
+        db.add(profile)
+        db.flush()
 
     if body.display_name is not None:
         profile.display_name = body.display_name

@@ -7,6 +7,7 @@ import { RootNavigator } from "@/navigation";
 import {
   useAuthStore,
   useCoursesStore,
+  useDownloadsStore,
   useLearningToolsStore,
   usePlayerStore,
   usePodcastsStore,
@@ -38,6 +39,19 @@ function useBootstrapData() {
     void loadPodcasts();
     void syncUsage();
   }, [isAuthenticated, loadCourses, loadPodcasts, syncUsage]);
+}
+
+function useDownloadOwnership() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const authUserId = useAuthStore((state) => state.user?.id ?? null);
+  const bindToUser = useDownloadsStore((state) => state.bindToUser);
+
+  useEffect(() => {
+    if (!isAuthenticated || !authUserId) {
+      return;
+    }
+    void bindToUser(authUserId);
+  }, [authUserId, bindToUser, isAuthenticated]);
 }
 
 function usePendingPodcastSync() {
@@ -117,6 +131,7 @@ function useLearningToolsClock() {
 }
 
 export function App() {
+  useDownloadOwnership();
   useBootstrapData();
   usePendingPodcastSync();
   usePlaybackQuotaSync();
