@@ -8,8 +8,7 @@ module.exports = function (api) {
         {
           root: ["./src"],
           alias: {
-            "@": "./src",
-            "zustand/middleware": "zustand/middleware.js"
+            "@": "./src"
           }
         }
       ]
