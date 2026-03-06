@@ -67,7 +67,7 @@ def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | Non
             for part in ordered_parts
         ],
         is_favorite=state.is_favorite if state else False,
-        is_downloaded=state.is_downloaded if state else False,
+        is_downloaded=False,
         progress_sec=state.progress_sec if state else 0,
     )
 
@@ -224,9 +224,6 @@ def update_podcast_state(
 
     if payload.is_favorite is not None:
         state.is_favorite = payload.is_favorite
-    if payload.is_downloaded is not None:
-        state.is_downloaded = payload.is_downloaded
-
     current_progress = state.progress_sec or 0
     if payload.progress_sec is not None:
         current_progress = payload.progress_sec

@@ -51,6 +51,7 @@ export interface Podcast {
   format: PodcastFormat;
   totalDurationSec: number;
   coverImageUrl?: string;
+  remoteCoverImageUrl?: string;
   coverImageSource?: string;
   parts: PodcastPart[];
   isFavorite?: boolean;

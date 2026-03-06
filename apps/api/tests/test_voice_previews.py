@@ -23,6 +23,14 @@ def test_voice_preview_endpoint_returns_audio(monkeypatch) -> None:
     assert response.content == b"preview-bytes"
 
 
+def test_voice_preview_head_probe_returns_ok() -> None:
+    response = client.head("/api/v1/voices/Elif/preview")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content == b""
+
+
 def test_voice_preview_endpoint_rate_limits(monkeypatch) -> None:
     class _PreviewTTS:
         def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:

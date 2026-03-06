@@ -31,6 +31,7 @@ export function mapApiPodcast(podcast: ApiPodcast): Podcast {
     format: podcast.format,
     totalDurationSec: podcast.total_duration_sec,
     coverImageUrl: resolveApiAssetUrl(podcast.cover_image_url),
+    remoteCoverImageUrl: resolveApiAssetUrl(podcast.cover_image_url),
     coverImageSource: podcast.cover_image_source ?? undefined,
     isFavorite: podcast.is_favorite ?? false,
     isDownloaded: false,

@@ -47,10 +47,13 @@
 - İndirilen içerik store'u oturum açan kullanıcıya bağlandı; hesap değişiminde eski kullanıcının offline içerikleri yeni hesaba sızmıyor.
 - Kısmi çevrimdışı kuyruklarda oynatma başlangıcı ve ilerleme kaydı mutlak bölüm ofseti üzerinden düzeltilerek yanlış resume konumları giderildi.
 - İndirilenler ekranındaki süre etiketi artık toplam podcast süresi yerine gerçekten çevrimdışı hazır olan bölüm sürelerini gösteriyor.
+- İndirme durumu cihaz-lokal hale getirildi; favori bilgisi backend'de kalıcı kalırken çevrimdışı kopyalar artık server `is_downloaded` state'ini kirletmiyor.
+- İndirilen bir podcast kaldırıldığında player ve kütüphane state'i lokal `file://` ses/kapak yollarından temizlenip tekrar remote asset URL'lerine dönüyor.
 - Profil sekmesine `Çalışma Araçları` alanı eklendi; günlük dinleme hedefi, ders planı ve kronometre tek yerde yönetilebiliyor.
 - Çalışma araçları store'u kullanıcı bazlı izole edildi; hesap değişiminde günlük hedef, plan ve kronometre durumu çapraz taşınmıyor.
 - Günlük dinleme süresi artık oynatma sırasında otomatik toplanıyor ve profil özetinde daha okunabilir süre formatında gösteriliyor.
 - `Hesap Ayarları` ekranı eklendi; görünen ad ve temel hesap bilgileri uygulama içinden düzenlenebiliyor.
+- Hesap ayarlarında backend profil sync'i başarısız olursa auth metadata rollback deneniyor; rollback de başarısızsa kullanıcıya sapma ihtimali açıkça bildiriliyor.
 - `Yardım & Destek` ekranı eklendi; e-posta, telefon ve doğrudan iletişim sayfası bağlantıları uygulama içine taşındı.
 - Giriş ve kayıt ekranlarına TUSBINA logosu eklendi.
 

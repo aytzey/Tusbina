@@ -58,9 +58,14 @@ def upsert_profile(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create profile on first login, or return existing one."""
+    """Create profile on first login, or update the existing one."""
     profile = db.get(UserProfileModel, current_user.user_id)
     if profile:
+        profile.email = current_user.email
+        if body.display_name is not None:
+            profile.display_name = body.display_name
+        db.commit()
+        db.refresh(profile)
         return _profile_to_response(profile)
 
     display_name = body.display_name or current_user.email.split("@")[0] or "User"

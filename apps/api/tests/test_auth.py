@@ -52,3 +52,34 @@ def test_auth_profile_patch_creates_missing_profile(monkeypatch) -> None:
     assert payload["id"] == "auth-user-profile"
     assert payload["email"] == "profile@example.com"
     assert payload["display_name"] == "Profil Kullanıcısı"
+
+
+def test_auth_profile_post_updates_existing_profile(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "enable_auth", True)
+    monkeypatch.setattr(settings, "supabase_jwt_secret", "test-secret")
+    monkeypatch.setattr(settings, "supabase_jwt_audience", "authenticated")
+
+    token = jwt.encode(
+        {"sub": "auth-user-sync", "aud": "authenticated", "email": "sync@example.com"},
+        settings.supabase_jwt_secret,
+        algorithm="HS256",
+    )
+
+    created = client.post(
+        "/api/v1/auth/profile",
+        json={"display_name": "İlk Ad"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert created.status_code == 200
+    assert created.json()["display_name"] == "İlk Ad"
+
+    updated = client.post(
+        "/api/v1/auth/profile",
+        json={"display_name": "Yeni Ad"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert updated.status_code == 200
+    payload = updated.json()
+    assert payload["id"] == "auth-user-sync"
+    assert payload["email"] == "sync@example.com"
+    assert payload["display_name"] == "Yeni Ad"

@@ -8,7 +8,7 @@ import { RootStackParamList } from "@/navigation/types";
 import { patchPodcastState } from "@/services/api";
 import { useDownloadsStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart } from "@/utils";
+import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart, stripDownloadState } from "@/utils";
 import { EmptyLibraryScreen } from "@/screens/States/EmptyLibraryScreen";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -64,11 +64,7 @@ export function PodcastLibraryScreen() {
   const toggleDownloadState = async (podcast: Podcast) => {
     if (Boolean(podcast.isDownloaded)) {
       await removePodcastDownload(podcast.id);
-      patchPodcastLocalState(podcast.id, { isDownloaded: false });
-      try {
-        const updated = await patchPodcastState(podcast.id, { is_downloaded: false });
-        replacePodcast(updated);
-      } catch {}
+      replacePodcast(stripDownloadState(podcast));
       return;
     }
 
@@ -76,8 +72,6 @@ export function PodcastLibraryScreen() {
       const downloadedPodcast = await downloadPodcast(podcast);
       patchPodcastLocalState(downloadedPodcast.id, { isDownloaded: true });
       replacePodcast(downloadedPodcast);
-      const updated = await patchPodcastState(podcast.id, { is_downloaded: true });
-      replacePodcast(updated);
     } catch (error) {
       Alert.alert(
         "İndirme başarısız",

@@ -88,7 +88,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `profile usage`: `/usage` ve usage action endpointleri ile backend senkronu
   `/usage/consume` endpointi `consumed_sec` ve `limit_reached` döner; limit modal tetikleme buna göre yapılır.
 - `player feedback`: `/feedback` endpointine gönderilir
-- `library flags`: `PUT /podcasts/{id}/state` ile kalıcı
+- `library flags`: favori ve progress `PUT /podcasts/{id}/state` ile kalıcı; indirilen/offline durumu cihaz-lokal store üzerinden yönetilir
 
 ## 7) Sonraki Adımlar
 

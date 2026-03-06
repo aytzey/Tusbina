@@ -5,10 +5,10 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { FeedbackModal, PodcastCover, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { patchPodcastState, prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
+import { prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
 import { useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { formatDuration, formatTimer, getPodcastPartStatusLabel } from "@/utils";
+import { formatDuration, formatTimer, getPodcastPartStatusLabel, stripDownloadState } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 const DraggablePressable = Pressable as unknown as any;
@@ -231,7 +231,7 @@ export function PlayerScreen() {
     try {
       if (currentPodcast.isDownloaded) {
         await removePodcastDownload(currentPodcast.id);
-        const updated = await patchPodcastState(currentPodcast.id, { is_downloaded: false });
+        const updated = stripDownloadState(currentPodcast);
         replacePodcast(updated);
         syncPodcastQueue(updated);
         setFeedbackToast("Çevrimdışı kopya kaldırıldı.");
@@ -239,9 +239,6 @@ export function PlayerScreen() {
         const downloadedPodcast = await downloadPodcast(currentPodcast);
         replacePodcast(downloadedPodcast);
         syncPodcastQueue(downloadedPodcast);
-        const updated = await patchPodcastState(currentPodcast.id, { is_downloaded: true });
-        replacePodcast(updated);
-        syncPodcastQueue(updated);
         setFeedbackToast("Podcast çevrimdışı dinleme için indirildi.");
       }
     } catch (error) {

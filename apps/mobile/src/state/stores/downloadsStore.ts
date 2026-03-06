@@ -122,16 +122,18 @@ export const useDownloadsStore = create<DownloadsState>()(
             })
           );
 
-          let coverImageUrl = podcast.coverImageUrl;
-          if (podcast.coverImageUrl) {
-            const coverExtension = inferFileExtension(podcast.coverImageUrl, "image");
+          const remoteCoverImageUrl = podcast.remoteCoverImageUrl ?? podcast.coverImageUrl;
+          let coverImageUrl = remoteCoverImageUrl;
+          if (remoteCoverImageUrl) {
+            const coverExtension = inferFileExtension(remoteCoverImageUrl, "image");
             const coverTargetPath = `${podcastDir}/cover.${coverExtension}`;
-            coverImageUrl = await downloadIfNeeded(podcast.coverImageUrl, coverTargetPath);
+            coverImageUrl = await downloadIfNeeded(remoteCoverImageUrl, coverTargetPath);
           }
 
           const downloadedPodcast: DownloadablePodcast = {
             ...podcast,
             coverImageUrl,
+            remoteCoverImageUrl,
             isDownloaded: true,
             downloadedAt: new Date().toISOString(),
             parts: nextParts,
@@ -177,11 +179,17 @@ function applyDownloadState(podcast: Podcast, downloads: DownloadablePodcast[]):
   }
 
   const downloadedParts = new Map(downloaded.parts.map((part) => [part.id, part]));
+  const remoteCoverImageUrl =
+    downloaded.remoteCoverImageUrl ??
+    podcast.remoteCoverImageUrl ??
+    (isLocalFileUri(podcast.coverImageUrl) ? undefined : podcast.coverImageUrl);
+
   return {
     ...podcast,
     isDownloaded: true,
     downloadedAt: downloaded.downloadedAt,
     coverImageUrl: downloaded.coverImageUrl ?? podcast.coverImageUrl,
+    remoteCoverImageUrl,
     coverImageSource: downloaded.coverImageSource ?? podcast.coverImageSource,
     parts: podcast.parts.map((part) => {
       const offlinePart = downloadedParts.get(part.id);
@@ -237,4 +245,8 @@ function inferFileExtension(url: string, fallbackType: "audio" | "image"): strin
 
 function sanitizePathSegment(value: string): string {
   return (value || "item").replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+
+function isLocalFileUri(value: string | undefined): boolean {
+  return Boolean(value?.startsWith("file://"));
 }

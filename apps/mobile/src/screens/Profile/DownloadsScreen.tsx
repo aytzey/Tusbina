@@ -3,11 +3,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { usePlayerStore, useDownloadsStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { buildPodcastQueue, formatDuration, resolveTrackQueueStart } from "@/utils";
+import { buildPodcastQueue, formatDuration, resolveTrackQueueStart, stripDownloadState } from "@/utils";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@/navigation/types";
-import { patchPodcastState } from "@/services/api";
 import { usePodcastsStore } from "@/state/stores/podcastsStore";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -42,14 +41,13 @@ export function DownloadsScreen() {
   };
 
   const handleRemove = async (podcastId: string) => {
+    const existing = downloads.find((item) => item.id === podcastId);
     await removePodcastDownload(podcastId);
-    patchPodcastLocalState(podcastId, { isDownloaded: false });
-    try {
-      const updated = await patchPodcastState(podcastId, { is_downloaded: false });
-      replacePodcast(updated);
-    } catch {
-      // Keep local removal even if remote state sync fails.
+    if (existing) {
+      replacePodcast(stripDownloadState(existing));
+      return;
     }
+    patchPodcastLocalState(podcastId, { isDownloaded: false });
   };
 
   if (sortedDownloads.length === 0) {

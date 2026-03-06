@@ -60,7 +60,7 @@ def test_podcast_state_and_usage_actions() -> None:
     assert update_state_response.status_code == 200
     updated = update_state_response.json()
     assert updated["is_favorite"] is True
-    assert updated["is_downloaded"] is True
+    assert updated["is_downloaded"] is False
     assert updated["progress_sec"] == min(123, podcast["total_duration_sec"])
 
     usage_initial = client.get("/api/v1/usage", headers=user_headers)

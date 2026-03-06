@@ -37,7 +37,17 @@ export function AccountSettingsScreen() {
       if (!authUpdated) {
         throw new Error("Kimlik profili güncellenemedi.");
       }
-      await updateMyProfile({ display_name: nextValue });
+      try {
+        await updateMyProfile({ display_name: nextValue });
+      } catch {
+        const reverted = await updateDisplayName(initialDisplayName).catch(() => false);
+        setDisplayName(reverted ? initialDisplayName : nextValue);
+        throw new Error(
+          reverted
+            ? "Profil senkronu tamamlanamadı. Görünen ad geri alındı."
+            : "Profil senkronu tamamlanamadı. Görünen ad farklı kalmış olabilir."
+        );
+      }
       setMessage("Hesap ayarları kaydedildi.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Profil ayarları güncellenemedi.");

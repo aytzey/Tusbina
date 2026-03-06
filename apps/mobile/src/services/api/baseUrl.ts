@@ -61,8 +61,8 @@ export async function resolveReachableApiUrl(path: string): Promise<string> {
   for (const baseUrl of getApiBaseCandidates()) {
     const targetUrl = buildApiUrl(path, baseUrl);
     try {
-      const response = await fetch(targetUrl, { method: "HEAD" });
-      if (!response.ok) {
+      const response = await probeApiUrl(targetUrl);
+      if (!response) {
         continue;
       }
       setActiveApiBaseUrl(baseUrl);
@@ -118,4 +118,23 @@ function normalizeBaseUrl(url: string): string {
 
 function dedupe(values: string[]): string[] {
   return values.filter((value, index) => values.indexOf(value) === index);
+}
+
+async function probeApiUrl(targetUrl: string): Promise<Response | null> {
+  const headResponse = await fetch(targetUrl, {
+    method: "HEAD",
+    cache: "no-store",
+  });
+  if (headResponse.ok) {
+    return headResponse;
+  }
+  if (headResponse.status !== 405 && headResponse.status !== 501) {
+    return null;
+  }
+
+  const getResponse = await fetch(targetUrl, {
+    method: "GET",
+    cache: "no-store",
+  });
+  return getResponse.ok ? getResponse : null;
 }

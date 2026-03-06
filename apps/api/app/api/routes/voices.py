@@ -11,6 +11,15 @@ _PREVIEW_WINDOW_SEC = 5 * 60
 _preview_requests: dict[str, deque[float]] = defaultdict(deque)
 
 
+@router.head("/{voice_name}/preview")
+def preview_voice_head(voice_name: str) -> Response:
+    _preview_text_for_voice(voice_name)
+    return Response(
+        media_type="audio/wav",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @router.get("/{voice_name}/preview")
 def preview_voice(voice_name: str, request: Request) -> Response:
     _enforce_preview_rate_limit(_resolve_preview_client_key(request))
