@@ -1,11 +1,15 @@
 from pathlib import Path
 
-from app.core.config import settings
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.core.database import SessionLocal
+from app.db.models import PodcastPartModel
 from app.main import app
-from app.services.generation import process_next_generation_job
+from app.services.generation import (
+    process_next_generation_job,
+    process_next_podcast_part_generation,
+)
 from app.services.storage import get_storage_client
 
 client = TestClient(app)
@@ -37,7 +41,9 @@ def test_podcast_state_and_usage_actions() -> None:
 
     with SessionLocal() as db:
         processed = process_next_generation_job(db, storage=get_storage_client())
+        generated_audio = process_next_podcast_part_generation(db, storage=get_storage_client())
     assert processed is True
+    assert generated_audio is True
 
     podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
     assert podcasts_response.status_code == 200
@@ -105,6 +111,20 @@ def test_delete_podcast_removes_audio_and_record() -> None:
     with SessionLocal() as db:
         processed = process_next_generation_job(db, storage=get_storage_client())
     assert processed is True
+
+    podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
+    assert podcasts_response.status_code == 200
+    podcasts = podcasts_response.json()
+    podcast = next((item for item in podcasts if item["title"] == "Delete Me"), None)
+    assert podcast is not None
+
+    with SessionLocal() as db:
+        target_part = db.get(PodcastPartModel, podcast["parts"][0]["id"])
+        assert target_part is not None
+        target_part.queue_priority = 10_000
+        db.commit()
+        generated_audio = process_next_podcast_part_generation(db, storage=get_storage_client())
+    assert generated_audio is True
 
     podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
     assert podcasts_response.status_code == 200

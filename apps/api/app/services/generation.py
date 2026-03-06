@@ -115,6 +115,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         current_stage = "payload_loaded"
         payload = job.payload_json
         file_ids = payload.get("file_ids", [])
+        requested_cover_file_id = payload.get("cover_file_id")
         if not file_ids:
             raise ValueError("No file_ids provided for generation")
         _trace_generation(
@@ -126,7 +127,10 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         )
 
         current_stage = "assets_query"
-        assets = _resolve_generation_assets(db, file_ids=file_ids, user_id=job.user_id)
+        asset_ids = list(
+            dict.fromkeys([*file_ids, *([requested_cover_file_id] if requested_cover_file_id else [])])
+        )
+        assets = _resolve_generation_assets(db, file_ids=asset_ids, user_id=job.user_id)
         content_assets = [asset for asset in assets if _asset_can_generate_parts(asset)]
         if not content_assets:
             raise ValueError("Metin içeriği bulunan en az bir PDF veya metin dosyası gerekli.")
@@ -154,7 +158,10 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         )
         format_name = str(payload.get("format", "narrative"))
         selected_voice = str(payload.get("voice", "Elif"))
-        cover_asset = _resolve_cover_asset(assets=assets, requested_cover_file_id=payload.get("cover_file_id"))
+        cover_asset = _resolve_cover_asset(
+            assets=assets,
+            requested_cover_file_id=requested_cover_file_id,
+        )
 
         part_plan = _build_part_plan(
             job_id=job.id,

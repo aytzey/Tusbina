@@ -7,14 +7,26 @@ client = TestClient(app)
 DUMMY_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
 
 
-def test_upload_rejects_non_pdf() -> None:
+def test_upload_rejects_unsupported_extension() -> None:
+    response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("note.exe", b"hello", "application/octet-stream"))],
+        headers={"x-user-id": "upload-user"},
+    )
+    assert response.status_code == 400
+    assert "Desteklenmeyen dosya uzantisi" in response.json()["detail"]
+
+
+def test_upload_accepts_plain_text() -> None:
     response = client.post(
         "/api/v1/upload",
         files=[("files", ("note.txt", b"hello", "text/plain"))],
         headers={"x-user-id": "upload-user"},
     )
-    assert response.status_code == 400
-    assert "Desteklenmeyen dosya uzantisi" in response.json()["detail"]
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert len(payload["file_ids"]) == 1
 
 
 def test_upload_rejects_too_many_files(monkeypatch) -> None:

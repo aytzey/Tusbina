@@ -18,9 +18,8 @@ from sqlalchemy.orm import Session, selectinload
 # Ensure the project root is in the path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from app.core.config import settings
 from app.core.database import SessionLocal
-from app.db.models import CourseModel, CoursePartModel
+from app.db.models import CourseModel
 from app.services.storage import get_storage_client
 from app.services.tts import get_tts_service
 

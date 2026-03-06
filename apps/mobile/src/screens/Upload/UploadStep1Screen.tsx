@@ -13,7 +13,8 @@ import { colors, radius, spacing, typography } from "@/theme";
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const MAX_FILES = 4;
-const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const ALLOWED_COVER_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
 
 export function UploadStep1Screen() {
   const navigation = useNavigation<Navigation>();
@@ -56,9 +57,9 @@ export function UploadStep1Screen() {
     }));
 
     if (oversizedCount > 0 && result.assets.length > remainingSlots) {
-      setWarning(`50 MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
+      setWarning(`25 MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
     } else if (oversizedCount > 0) {
-      setWarning(`50 MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
+      setWarning(`25 MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
     } else if (result.assets.length > remainingSlots) {
       setWarning(`Maksimum ${MAX_FILES} belge destekleniyor. Fazla dosyalar eklenmedi.`);
     } else if (picked.length === 0) {
@@ -86,6 +87,17 @@ export function UploadStep1Screen() {
       return;
     }
 
+    const extension = asset.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!ALLOWED_COVER_EXTENSIONS.has(extension)) {
+      setWarning("Kapak için yalnızca PNG, JPG veya WEBP yükleyebilirsin.");
+      return;
+    }
+
+    if ((asset.size ?? 0) > MAX_FILE_SIZE_BYTES) {
+      setWarning("Kapak görseli 25 MB sınırını aşıyor.");
+      return;
+    }
+
     setCoverImage({
       localId: `cover-${Date.now()}`,
       name: asset.name,
@@ -110,7 +122,7 @@ export function UploadStep1Screen() {
         <Ionicons name="document-text" size={40} color={colors.motivationOrange} />
         <Text style={styles.uploadTitle}>PDF veya metin dosyalarını yükle</Text>
         <Text style={styles.uploadDescription}>
-          Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek.
+          Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek. Her dosya için üst sınır 25 MB.
         </Text>
       </Pressable>
 
@@ -121,7 +133,7 @@ export function UploadStep1Screen() {
         <View style={styles.coverBody}>
           <Text style={styles.coverTitle}>Kapak görseli ekle (opsiyonel)</Text>
           <Text style={styles.coverDescription}>
-            Yüklersen mevcut görsel kullanılır, yüklemezsen sistem otomatik kapak üretir.
+            PNG, JPG veya WEBP yükleyebilirsin. Yüklersen mevcut görsel kullanılır, yüklemezsen sistem otomatik kapak üretir.
           </Text>
         </View>
       </Pressable>

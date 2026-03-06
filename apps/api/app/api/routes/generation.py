@@ -19,6 +19,8 @@ def generate_podcast(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> GeneratePodcastOut:
+    legacy_embedded_cover = bool(payload.cover_file_id and payload.cover_file_id in payload.file_ids)
+    default_planned_parts = max(len(payload.file_ids) - (1 if legacy_embedded_cover else 0), 1)
     logger.info(
         "GEN_REQUEST user_id=%s title=%s format=%s file_count=%d section_count=%d planned_parts=%d",
         current_user.user_id,
@@ -28,12 +30,12 @@ def generate_podcast(
         len(payload.sections),
         len([section for section in payload.sections if section.enabled])
         if payload.sections
-        else max(len(payload.file_ids) - (1 if payload.cover_file_id else 0), 1),
+        else default_planned_parts,
     )
     if payload.sections:
         planned_parts = len([section for section in payload.sections if section.enabled])
     else:
-        planned_parts = max(len(payload.file_ids) - (1 if payload.cover_file_id else 0), 1)
+        planned_parts = default_planned_parts
     if planned_parts > settings.generation_max_parts:
         raise HTTPException(
             status_code=400,

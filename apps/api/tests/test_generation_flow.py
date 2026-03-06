@@ -373,7 +373,9 @@ def test_generate_uses_uploaded_cover_image_when_provided(monkeypatch) -> None:
         headers=user_headers,
     )
     assert upload_response.status_code == 200
-    file_ids = upload_response.json()["file_ids"]
+    uploaded_file_ids = upload_response.json()["file_ids"]
+    file_ids = [uploaded_file_ids[0]]
+    cover_file_id = uploaded_file_ids[1]
 
     generation_response = client.post(
         "/api/v1/generatePodcast",
@@ -382,7 +384,7 @@ def test_generate_uses_uploaded_cover_image_when_provided(monkeypatch) -> None:
             "voice": "Elif",
             "format": "summary",
             "file_ids": file_ids,
-            "cover_file_id": file_ids[1],
+            "cover_file_id": cover_file_id,
             "sections": [],
         },
         headers=user_headers,
@@ -403,6 +405,46 @@ def test_generate_uses_uploaded_cover_image_when_provided(monkeypatch) -> None:
     podcast = podcast_response.json()
     assert podcast["cover_image_source"] == "uploaded"
     assert podcast["cover_image_url"].endswith(".png")
+
+
+def test_generate_supports_legacy_cover_payload_when_cover_is_in_file_ids(monkeypatch) -> None:
+    user_id = f"legacy-cover-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    monkeypatch.setattr(settings, "upload_allowed_extensions", "pdf,png")
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[
+            ("files", ("legacy-source.pdf", DUMMY_PDF, "application/pdf")),
+            ("files", ("legacy-cover.png", TINY_PNG, "image/png")),
+        ],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Legacy Cover Payload",
+            "voice": "Elif",
+            "format": "summary",
+            "file_ids": file_ids,
+            "cover_file_id": file_ids[1],
+            "sections": [],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    with SessionLocal() as db:
+        assert process_next_generation_job(db, storage=get_storage_client()) is True
+
+    status_response = client.get(f"/api/v1/generatePodcast/{job_id}/status", headers=user_headers)
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "completed"
 
 
 def test_generate_builds_generated_cover_when_no_cover_asset_exists() -> None:

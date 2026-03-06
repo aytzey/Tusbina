@@ -27,6 +27,12 @@ _JWKS_TTL_SEC = 6 * 60 * 60  # 6 hours
 
 def _fetch_jwks() -> dict:
     """Fetch JWKS from Supabase's well-known endpoint."""
+    if not settings.supabase_url:
+        logger.error("Supabase URL is not configured for JWKS verification")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication is not configured",
+        )
     url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
     req = Request(url, method="GET")
     try:
@@ -67,10 +73,42 @@ class CurrentUser:
     email: str = ""
 
 
+def _build_current_user(payload: dict) -> CurrentUser:
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing sub"
+        )
+
+    email = payload.get("email", "")
+    return CurrentUser(user_id=str(user_id), email=str(email))
+
+
+def _validate_shared_secret_token(token: str, *, algorithm: str) -> CurrentUser:
+    if not settings.supabase_jwt_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication secret is not configured",
+        )
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=[algorithm],
+            audience=settings.supabase_jwt_audience,
+            options={"verify_aud": bool(settings.supabase_jwt_audience)},
+        )
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        ) from exc
+
+    return _build_current_user(payload)
+
+
 def _validate_supabase_token(token: str) -> CurrentUser:
     """Validate a Supabase JWT using the JWKS public keys."""
-    jwks = _get_jwks()
-
     try:
         # Decode the token header to find the key id (kid)
         unverified_header = jwt.get_unverified_header(token)
@@ -81,6 +119,11 @@ def _validate_supabase_token(token: str) -> CurrentUser:
 
     kid = unverified_header.get("kid")
     algorithm = unverified_header.get("alg", "RS256")
+
+    if algorithm.startswith("HS"):
+        return _validate_shared_secret_token(token, algorithm=algorithm)
+
+    jwks = _get_jwks()
 
     # Find the matching key in JWKS
     rsa_key: dict = {}
@@ -118,14 +161,7 @@ def _validate_supabase_token(token: str) -> CurrentUser:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         ) from exc
 
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing sub"
-        )
-
-    email = payload.get("email", "")
-    return CurrentUser(user_id=str(user_id), email=str(email))
+    return _build_current_user(payload)
 
 
 def get_current_user(

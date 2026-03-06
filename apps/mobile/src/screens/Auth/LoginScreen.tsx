@@ -75,7 +75,7 @@ export function LoginScreen() {
         {/* Logo / Title */}
         <View style={styles.header}>
           <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>TusBina</Text>
+          <Text style={styles.title}>TUSBINA</Text>
           <Text style={styles.subtitle}>Hesabınıza giriş yapın</Text>
         </View>
 

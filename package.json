@@ -11,6 +11,7 @@
     "mobile:android": "npm run android --workspace @tusbina/mobile",
     "mobile:ios": "npm run ios --workspace @tusbina/mobile",
     "mobile:web": "npm run web --workspace @tusbina/mobile",
+    "mobile:export:web": "npm run export:web --workspace @tusbina/mobile",
     "mobile:prebuild:ios": "npm run prebuild:ios --workspace @tusbina/mobile",
     "mobile:devbuild:ios:sim": "npm run devbuild:ios:sim --workspace @tusbina/mobile",
     "mobile:devbuild:ios:device": "npm run devbuild:ios:device --workspace @tusbina/mobile",

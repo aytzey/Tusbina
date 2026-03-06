@@ -26,7 +26,7 @@ except Exception:  # pragma: no cover - import availability is environment-depen
 
 
 class TTSService(Protocol):
-    def synthesize(self, text: str, *, voice: str | None = None) -> "TTSResult": ...
+    def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult: ...
 
 
 @dataclass
@@ -125,7 +125,7 @@ class EdgeTTSService:
 
         try:
             content = asyncio.run(asyncio.wait_for(_synth(), timeout=timeout_sec))
-        except asyncio.TimeoutError as exc:
+        except TimeoutError as exc:
             raise RuntimeError(f"Edge TTS timeout ({timeout_sec}s)") from exc
 
         if len(content) < 128:
@@ -145,7 +145,7 @@ class EdgeTTSService:
 
 
 class HybridTTSService:
-    def __init__(self, *, piper: "PiperTTSService" | None, edge: EdgeTTSService | None) -> None:
+    def __init__(self, *, piper: PiperTTSService | None, edge: EdgeTTSService | None) -> None:
         self.piper = piper
         self.edge = edge
 

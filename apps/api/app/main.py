@@ -2,8 +2,6 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -19,6 +17,8 @@ from app.api.routes.usage import router as usage_router
 from app.api.routes.voices import router as voices_router
 from app.core.config import settings
 from app.services.bootstrap import bootstrap_application
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 app = FastAPI(
     title="TUSBINA API",

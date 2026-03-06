@@ -61,19 +61,19 @@
 
 - `expo-dev-client` eklendi.
 - iOS development build için `eas.json` ve ilgili npm komutları eklendi.
+- Expo web çıktısını `apps/mobile/dist` altında üreten export akışı ve Nginx root fallback servisi eklendi; böylece public domain kökünde uygulama shell'i yayınlanabiliyor.
 - Mobil lint uyarıları temizlendi.
-- `create_all` ile açılmış eski SQLite veritabanlarında eksik podcast kapak kolonlarını otomatik ekleyen uyumluluk katmanı eklendi.
+- `create_all` ile açılmış eski SQLite veritabanlarında eksik podcast kapak ve `course_parts.audio_url` kolonlarını otomatik ekleyen uyumluluk katmanı eklendi.
+- Auth katmanına HS256 shared-secret fallback doğrulaması eklendi; test ve lokal Supabase senaryoları JWKS bağımlılığı olmadan çalışabiliyor.
+- Ayrı taşınan `cover_file_id` artık generation worker tarafından doğru resolve ediliyor; mobil upload kontratıyla kapak görseli gerçekten podcast kapağına yansıyor.
 
 ### Doğrulananlar
 
+- `npm run mobile:export:web` geçti.
 - `npm run mobile:lint` geçti.
 - `npm run mobile:typecheck` geçti.
-- Backend için ilgili testler geçti:
-  - `tests/test_voice_previews.py`
-  - `tests/test_tts.py`
-  - `tests/test_generation_flow.py`
-  - `tests/test_script_generation.py`
-  - `tests/test_migration_bootstrap.py`
+- `apps/api` içinde `ruff check .` geçti.
+- `apps/api` içinde tam test seti geçti: `pytest -q` -> `57 passed`
 
 ### Bu Turda Göremeyeceğimiz / Tam Doğrulayamayacağımız Şeyler
 

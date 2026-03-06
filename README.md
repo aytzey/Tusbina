@@ -18,10 +18,11 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 ## Mobile
 
 - Tablar: `Dersler`, `Yükle`, `Dinle`, `Profil`
-- Akış ekranları: `Ders Detay`, `Player`, `Premium`, `Quiz`, `Hata durumları`
-- State store'ları: `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `quiz`
-- Upload akışı: `expo-document-picker` ile PDF seçimi, API upload, job polling
-- Dinle kütüphanesi: favori/indirilen durumları backend'de kalıcı
+- Akış ekranları: `Ders Detay`, `Player`, `Premium`, `Quiz`, `İndirilenler`, `Çalışma Araçları`, `Hesap Ayarları`, `Yardım & Destek`, `Hata durumları`
+- State store'ları: `auth`, `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `downloads`, `learningTools`, `quiz`
+- Upload akışı: `expo-document-picker` ile PDF/TXT seçimi, opsiyonel kapak yükleme, ses preview, API upload, otomatik bölümleme, job polling
+- Dinle kütüphanesi: favori/indirilen durumları backend'de kalıcı; çevrimdışı hazır bölümler yerel store ile yönetiliyor
+- Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir ve Nginx kökten servis edilebilir
 
 ## API (v1)
 
@@ -32,20 +33,28 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - `GET /api/v1/podcasts`
 - `GET /api/v1/podcasts/{id}`
 - `PUT /api/v1/podcasts/{id}/state`
+- `POST /api/v1/podcasts/{id}/parts/{part_id}/prioritize`
+- `PUT /api/v1/podcasts/{id}/parts/order`
 - `POST /api/v1/upload`
 - `POST /api/v1/generatePodcast`
 - `GET /api/v1/generatePodcast/{job_id}/status`
+- `GET /api/v1/voices/{voice_name}/preview`
 - `POST /api/v1/feedback`
 - `GET /api/v1/usage`
 - `POST /api/v1/usage/consume`
 - `POST /api/v1/usage/premium/activate`
 - `POST /api/v1/usage/package/add`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/profile`
+- `PATCH /api/v1/auth/profile`
 
 ## Upload + Generation Mimari Notu
 
 - `upload` endpointi dosyaları `local` veya `R2` backend'ine yazar.
 - `generatePodcast` endpointi DB'de job oluşturur (`queued`).
-- `app.worker` queued job'ı güvenli şekilde claim eder (`FOR UPDATE SKIP LOCKED`), PDF içeriğinden bölüm metni üretir, TTS sentezi yapar ve job'ı `completed` yapar.
+- Worker önce yüklenen belgeyi otomatik bölümlendirir, bölüm başlıklarını içerikten türetir ve kapak görselini resolve eder; kapak yoksa otomatik SVG cover üretir.
+- `cover_file_id` belge `file_ids` listesinden ayrı taşınabilir; backend bu mobile kontratını doğrudan destekler.
+- `app.worker` queued job'ı güvenli şekilde claim eder (`FOR UPDATE SKIP LOCKED`), PDF/TXT içeriğinden bölüm metni üretir, TTS sentezi yapar ve job'ı `completed` yapar.
 - `OPENROUTER_API_KEY` verilirse script üretimi LLM destekli olur; anahtar yoksa extractive fallback kullanılır.
 
 ## Hızlı Başlangıç
@@ -54,6 +63,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 
 ```bash
 npm install
+npm run mobile:export:web
 npm run mobile:start
 ```
 

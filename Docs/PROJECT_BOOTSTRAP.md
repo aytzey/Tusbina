@@ -21,6 +21,10 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `UploadingScreen`
 - `PodcastLibraryScreen`
 - `ProfileScreen`
+- `DownloadsScreen`
+- `StudyToolsScreen`
+- `AccountSettingsScreen`
+- `SupportScreen`
 - `PremiumScreen`
 - `QuizScreen`
 - `NoInternetScreen`
@@ -29,10 +33,13 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 ## 3) State Store'ları
 
 - `userStore`: kota, premium, limit modal, `/usage` senkronu
+- `authStore`: Supabase session, email/OAuth login, profile sync
 - `playerStore`: track/queue, play/pause, seek, prev/next, rate, bookmark
 - `coursesStore`: ders listesi + detay
 - `podcastsStore`: podcast listesi + favorite/download/progress local patch
-- `uploadWizardStore`: PDF dosyaları, step verileri, reorder
+- `uploadWizardStore`: belge/kapak dosyaları, ses, format, podcast adı
+- `downloadsStore`: çevrimdışı indirilen podcastler ve yerel audio/cover eşlemesi
+- `learningToolsStore`: günlük hedef, ders planı, kronometre
 
 ## 4) API Kontratları
 
@@ -43,14 +50,20 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `GET /api/v1/podcasts`
 - `GET /api/v1/podcasts/{id}`
 - `PUT /api/v1/podcasts/{id}/state`
+- `POST /api/v1/podcasts/{id}/parts/{part_id}/prioritize`
+- `PUT /api/v1/podcasts/{id}/parts/order`
 - `POST /api/v1/upload`
 - `POST /api/v1/generatePodcast`
 - `GET /api/v1/generatePodcast/{job_id}/status`
+- `GET /api/v1/voices/{voice_name}/preview`
 - `POST /api/v1/feedback`
 - `GET /api/v1/usage`
 - `POST /api/v1/usage/consume`
 - `POST /api/v1/usage/premium/activate`
 - `POST /api/v1/usage/package/add`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/profile`
+- `PATCH /api/v1/auth/profile`
 
 ## 5) Altyapı
 
@@ -60,15 +73,17 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
   Runtime modu: `DB_SCHEMA_MODE=alembic` (önerilen), test/local hızlı mod: `DB_SCHEMA_MODE=create_all`
 - Job pipeline: `generation_jobs` tablosu + ayrı worker (`python -m app.worker`)
 - Storage: `local` veya `Cloudflare R2` (`STORAGE_BACKEND`)
-- Reverse proxy: Nginx
-- Local orchestration: Docker Compose (Postgres + Redis + API + Worker + Nginx)
+- Reverse proxy + web shell: Nginx, `/api` ve `/static` proxy'lerken Expo web export çıktısını kökten servis eder
+- Local orchestration: Docker Compose (Postgres + Redis + API + Worker + Nginx + `apps/mobile/dist`)
 
 ## 6) Mock -> Real Durum
 
-- `courses/podcasts`: mobile’da API öncelikli, hata halinde mock fallback
-- `upload/generation`: mobile doğrudan API ile çalışır, Step3 bölüm listesi yüklenen PDF'lerden türetilir; düzenleme/sıralama `sections` olarak worker'a aktarılır
-  Worker katmanı PDF içeriğini okuyup bölüm scripti üretir; `OPENROUTER_API_KEY` varsa LLM destekli script, yoksa extractive fallback kullanılır.
-  Upload tarafında PDF signature/uzantı, dosya sayısı ve dosya boyutu validasyonu backend'de enforce edilir.
+- `courses/podcasts`: mobile’da API öncelikli, hata halinde offline/download fallback
+- `upload/generation`: mobile doğrudan API ile çalışır; Step3 manuel bölüm editörü içermez, worker belgeyi otomatik bölümlendirir ve başlıkları içerikten üretir
+  Voice seçimi öncesi `/voices/{voice}/preview` ile kısa ses örneği dinlenebilir.
+  Kapak görseli `cover_file_id` ile ayrı taşınabilir; kapak yoksa backend otomatik cover üretir.
+  Worker katmanı PDF/TXT içeriğini okuyup bölüm scripti üretir; `OPENROUTER_API_KEY` varsa LLM destekli script, yoksa extractive fallback kullanılır.
+  Upload tarafında uzantı, dosya sayısı ve dosya boyutu validasyonu backend'de enforce edilir; mobile tarafı da 25 MB sınırı ve destekli kapak formatlarıyla hizalanır.
 - `profile usage`: `/usage` ve usage action endpointleri ile backend senkronu
   `/usage/consume` endpointi `consumed_sec` ve `limit_reached` döner; limit modal tetikleme buna göre yapılır.
 - `player feedback`: `/feedback` endpointine gönderilir

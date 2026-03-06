@@ -51,6 +51,11 @@ def init_db() -> None:
 def _ensure_create_all_schema_compat(conn) -> None:  # noqa: ANN001
     inspector = inspect(conn)
     table_names = set(inspector.get_table_names())
+    if "course_parts" in table_names:
+        course_part_columns = {column["name"] for column in inspector.get_columns("course_parts")}
+        if "audio_url" not in course_part_columns:
+            conn.execute(text("ALTER TABLE course_parts ADD COLUMN audio_url VARCHAR(1024)"))
+
     if "podcasts" in table_names:
         podcast_columns = {column["name"] for column in inspector.get_columns("podcasts")}
         podcast_column_definitions = {
