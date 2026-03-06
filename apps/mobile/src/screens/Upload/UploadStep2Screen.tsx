@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -81,6 +81,13 @@ export function UploadStep2Screen() {
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      previewPlayer.pause();
+      previewPlayer.remove();
+    };
+  }, [previewPlayer]);
+
   const handlePreview = async (voiceKey: string) => {
     setPreviewError(null);
 
@@ -90,12 +97,18 @@ export function UploadStep2Screen() {
       return;
     }
 
+    if (previewStatus.playing) {
+      previewPlayer.pause();
+      setPreviewingVoice(null);
+    }
+
     try {
       const previewUrl = await resolveReachableApiUrl(`/voices/${encodeURIComponent(voiceKey)}/preview`);
       previewPlayer.replace(previewUrl);
       previewPlayer.play();
       setPreviewingVoice(voiceKey);
     } catch (error) {
+      setPreviewingVoice(null);
       setPreviewError(error instanceof Error ? error.message : "Ses örneği başlatılamadı.");
     }
   };
@@ -175,7 +188,11 @@ export function UploadStep2Screen() {
       <PrimaryButton
         label="Devam Et → Otomatik Plan"
         disabled={!voice || !format}
-        onPress={() => navigation.navigate("UploadStep3")}
+        onPress={() => {
+          previewPlayer.pause();
+          setPreviewingVoice(null);
+          navigation.navigate("UploadStep3");
+        }}
       />
     </ScreenContainer>
   );

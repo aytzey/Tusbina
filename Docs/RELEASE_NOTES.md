@@ -42,6 +42,7 @@
 #### Kişiselleştirme, çevrimdışı kullanım ve profil alanı
 
 - Ses seçimi adımına örnek dinleme eklendi; kullanıcı sesleri seçim öncesinde kısa preview ile karşılaştırabiliyor.
+- Ses preview akışı başka bir örneğe geçerken önce mevcut sesi durduracak ve ekrandan çıkarken player kaynağını temizleyecek şekilde sıkılaştırıldı; wizard içinde beklenmeyen ses taşmaları azaltıldı.
 - Mobil uygulamaya `İndirilenler` alanı eklendi; podcastler cihaz hafızasına alınarak internet olmadan dinlenebiliyor.
 - Oynatıcı ve podcast kütüphanesi, indirilen içerikler için çevrimdışı hazır durumunu gösterecek şekilde güncellendi.
 - İndirilen içerik store'u oturum açan kullanıcıya bağlandı; hesap değişiminde eski kullanıcının offline içerikleri yeni hesaba sızmıyor.
@@ -55,6 +56,7 @@
 - `Hesap Ayarları` ekranı eklendi; görünen ad ve temel hesap bilgileri uygulama içinden düzenlenebiliyor.
 - Hesap ayarlarında backend profil sync'i başarısız olursa auth metadata rollback deneniyor; rollback de başarısızsa kullanıcıya sapma ihtimali açıkça bildiriliyor.
 - `Yardım & Destek` ekranı eklendi; e-posta, telefon ve doğrudan iletişim sayfası bağlantıları uygulama içine taşındı.
+- `Yardım & Destek` aksiyonları başarısız olduğunda artık sessizce düşmek yerine kullanıcıya açıklayıcı uyarı gösteriyor.
 - Giriş ve kayıt ekranlarına TUSBINA logosu eklendi.
 
 #### İçerik otomasyonu ve görsel katman

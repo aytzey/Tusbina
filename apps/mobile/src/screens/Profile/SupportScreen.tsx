@@ -1,4 +1,4 @@
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { colors, radius, spacing, typography } from "@/theme";
@@ -19,24 +19,40 @@ export function SupportScreen() {
         icon="mail-outline"
         title="E-posta gönder"
         description={SUPPORT_EMAIL}
-        onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=TUSBINA%20Destek`)}
+        onPress={() =>
+          void openSupportUrl(`mailto:${SUPPORT_EMAIL}?subject=TUSBINA%20Destek`, "E-posta uygulaması açılamadı.")
+        }
       />
 
       <ActionCard
         icon="call-outline"
         title="Telefonla ulaş"
         description={SUPPORT_PHONE}
-        onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s+/g, "")}`)}
+        onPress={() =>
+          void openSupportUrl(`tel:${SUPPORT_PHONE.replace(/\s+/g, "")}`, "Telefon bağlantısı açılamadı.")
+        }
       />
 
       <ActionCard
         icon="globe-outline"
         title="İletişim sayfasını aç"
         description="Machinity iletişim formu"
-        onPress={() => void Linking.openURL(SUPPORT_WEBSITE)}
+        onPress={() => void openSupportUrl(SUPPORT_WEBSITE, "İletişim sayfası açılamadı.")}
       />
     </ScreenContainer>
   );
+}
+
+async function openSupportUrl(url: string, fallbackMessage: string) {
+  try {
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      throw new Error("Link unsupported");
+    }
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert("Bağlantı açılamadı", fallbackMessage);
+  }
 }
 
 function ActionCard({
