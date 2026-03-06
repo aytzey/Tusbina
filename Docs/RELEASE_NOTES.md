@@ -79,6 +79,7 @@
 - Ayrı taşınan `cover_file_id` artık generation worker tarafından doğru resolve ediliyor; mobil upload kontratıyla kapak görseli gerçekten podcast kapağına yansıyor.
 - `GET /api/v1/voices/{voice}/preview` endpoint'ine app-level rate limit eklendi; public preview yüzeyi kontrolsüz TTS maliyeti üretmiyor.
 - Mobil auth/profile sync ve voice preview akışı ortak API fallback adaylarını kullanacak şekilde hizalandı; stale base URL senaryolarında giriş sonrası profil sync ve ses preview daha dayanıklı.
+- Auth store, mevcut oturum geri yüklendiğinde ve standart girişte auth metadata'daki görünen adı backend profile'a yeniden senkronlayacak şekilde güçlendirildi; relaunch sonrası display-name drift riski azaldı.
 - Generation status yanıtına `plan_ready`, `audio_ready_parts` ve `audio_total_parts` alanları eklendi; `completed` artık açık biçimde plan hazır anlamında dokümante ediliyor.
 
 ### Doğrulananlar

@@ -52,6 +52,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isLoading: false,
       });
 
+      if (session) {
+        syncProfileToBackend(session.access_token, getUserDisplayName(session.user)).catch(() => {});
+      }
+
       supabase.auth.onAuthStateChange((_event, newSession) => {
         set({
           session: newSession,
@@ -60,7 +64,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         });
         // Sync profile on any new sign-in
         if (newSession) {
-          syncProfileToBackend(newSession.access_token).catch(() => {});
+          syncProfileToBackend(newSession.access_token, getUserDisplayName(newSession.user)).catch(() => {});
         }
       });
     } catch {
@@ -124,7 +128,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       });
 
       if (session) {
-        syncProfileToBackend(session.access_token).catch(() => {});
+        syncProfileToBackend(session.access_token, getUserDisplayName(data.user)).catch(() => {});
       }
 
       return !!session;
@@ -309,4 +313,9 @@ async function syncProfileToBackend(accessToken: string, displayName?: string) {
   }
 
   throw lastError instanceof Error ? lastError : new Error("Profile sync failed");
+}
+
+function getUserDisplayName(user: User | null | undefined): string | undefined {
+  const value = user?.user_metadata?.display_name;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
