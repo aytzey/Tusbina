@@ -39,17 +39,37 @@
 - Web tarafında player bölüm listesi sürükle-bırak ile yeniden sıralanabiliyor; native tarafta taşıma kontrolleri ile aynı sıra backend'e yazılıyor.
 - Podcast listesi ve player kuyruğu, hazır olmayan parçalar sonradan hazır olduğunda store üzerinden otomatik senkronize oluyor.
 
+#### Kişiselleştirme, çevrimdışı kullanım ve profil alanı
+
+- Ses seçimi adımına örnek dinleme eklendi; kullanıcı sesleri seçim öncesinde kısa preview ile karşılaştırabiliyor.
+- Mobil uygulamaya `İndirilenler` alanı eklendi; podcastler cihaz hafızasına alınarak internet olmadan dinlenebiliyor.
+- Oynatıcı ve podcast kütüphanesi, indirilen içerikler için çevrimdışı hazır durumunu gösterecek şekilde güncellendi.
+- Profil sekmesine `Çalışma Araçları` alanı eklendi; günlük dinleme hedefi, ders planı ve kronometre tek yerde yönetilebiliyor.
+- Günlük dinleme süresi artık oynatma sırasında otomatik toplanıyor ve profil özetinde daha okunabilir süre formatında gösteriliyor.
+- `Hesap Ayarları` ekranı eklendi; görünen ad ve temel hesap bilgileri uygulama içinden düzenlenebiliyor.
+- `Yardım & Destek` ekranı eklendi; e-posta, telefon ve doğrudan iletişim sayfası bağlantıları uygulama içine taşındı.
+- Giriş ve kayıt ekranlarına TUSBINA logosu eklendi.
+
+#### İçerik otomasyonu ve görsel katman
+
+- `Bölüm ekle` mantığı upload akışından çıkarıldı; sistem yüklenen belgeyi otomatik bölümlendirip planı kendisi oluşturuyor.
+- Bölüm adları yüklenen içeriğin başlık ve konu yapısından otomatik türetiliyor; kullanıcıya daha anlamlı bir dinleme listesi sunuluyor.
+- Kullanıcı kapak görseli yüklediyse bu görsel podcast kapağı olarak kullanılıyor; yoksa sistem içerikten otomatik kapak üretiyor.
+- Mobil tarafta gerçek kapak görseli varsa kütüphane ve oynatıcıda gösteriliyor; yoksa TUSBINA markalı dinamik fallback artwork üretiliyor.
+
 #### Geliştirme altyapısı
 
 - `expo-dev-client` eklendi.
 - iOS development build için `eas.json` ve ilgili npm komutları eklendi.
 - Mobil lint uyarıları temizlendi.
+- `create_all` ile açılmış eski SQLite veritabanlarında eksik podcast kapak kolonlarını otomatik ekleyen uyumluluk katmanı eklendi.
 
 ### Doğrulananlar
 
 - `npm run mobile:lint` geçti.
 - `npm run mobile:typecheck` geçti.
 - Backend için ilgili testler geçti:
+  - `tests/test_voice_previews.py`
   - `tests/test_tts.py`
   - `tests/test_generation_flow.py`
   - `tests/test_script_generation.py`

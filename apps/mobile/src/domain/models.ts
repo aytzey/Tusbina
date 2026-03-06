@@ -39,6 +39,8 @@ export interface PodcastPart {
   pageRange: string;
   status: PodcastPartStatus;
   audioUrl?: string;
+  remoteAudioUrl?: string;
+  localAudioUrl?: string;
 }
 
 export interface Podcast {
@@ -48,10 +50,13 @@ export interface Podcast {
   voice: string;
   format: PodcastFormat;
   totalDurationSec: number;
+  coverImageUrl?: string;
+  coverImageSource?: string;
   parts: PodcastPart[];
   isFavorite?: boolean;
   isDownloaded?: boolean;
   progressSec?: number;
+  downloadedAt?: string;
 }
 
 export interface Feedback {
@@ -69,10 +74,13 @@ export interface Track {
   durationSec: number;
   sourceType: SourceType;
   audioUrl?: string;
+  remoteAudioUrl?: string;
+  localAudioUrl?: string;
   parentId?: string;
   resumePositionSec?: number;
   voice?: string;
   partStatus?: PodcastPartStatus;
+  coverImageUrl?: string;
 }
 
 export interface UploadFileItem {
@@ -81,4 +89,5 @@ export interface UploadFileItem {
   uri: string;
   mimeType: string;
   size: number;
+  kind?: "document" | "cover";
 }

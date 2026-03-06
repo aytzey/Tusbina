@@ -61,6 +61,8 @@ class PodcastModel(Base):
     voice: Mapped[str] = mapped_column(String(64), nullable=False)
     format: Mapped[str] = mapped_column(String(32), nullable=False)
     total_duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
+    cover_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    cover_image_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     parts: Mapped[list["PodcastPartModel"]] = relationship(

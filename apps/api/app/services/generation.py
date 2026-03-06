@@ -7,6 +7,7 @@ import wave
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from html import escape
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
@@ -126,6 +127,9 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
 
         current_stage = "assets_query"
         assets = _resolve_generation_assets(db, file_ids=file_ids, user_id=job.user_id)
+        content_assets = [asset for asset in assets if _asset_can_generate_parts(asset)]
+        if not content_assets:
+            raise ValueError("Metin içeriği bulunan en az bir PDF veya metin dosyası gerekli.")
         _trace_generation(
             job.id,
             "assets_resolved",
@@ -135,26 +139,27 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
 
         current_stage = "asset_text_extract"
         t_asset = _time.monotonic()
-        asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
+        asset_text_cache = build_asset_text_cache(assets=content_assets, storage=storage)
         _trace_generation(
             job.id,
             "asset_text_ready",
             elapsed_sec=round(_time.monotonic() - t_asset, 2),
-            text_lengths={a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets},
+            text_lengths={a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in content_assets},
         )
         logger.info(
             "Job %s: %d asset, text lengths: %s",
             job.id[:8],
-            len(assets),
-            {a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in assets},
+            len(content_assets),
+            {a.id[:8]: len(asset_text_cache.get(a.id, "")) for a in content_assets},
         )
         format_name = str(payload.get("format", "narrative"))
         selected_voice = str(payload.get("voice", "Elif"))
+        cover_asset = _resolve_cover_asset(assets=assets, requested_cover_file_id=payload.get("cover_file_id"))
 
         part_plan = _build_part_plan(
             job_id=job.id,
             payload=payload,
-            assets=assets,
+            assets=content_assets,
             asset_text_cache=asset_text_cache,
             format_name=format_name,
         )
@@ -173,7 +178,18 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             voice=selected_voice,
             format=payload.get("format", "narrative"),
             total_duration_sec=default_duration_sec * len(part_plan),
+            cover_image_url=None,
+            cover_image_source=None,
         )
+        cover_image = _resolve_or_generate_cover_image(
+            storage=storage,
+            podcast=podcast,
+            part_plan=part_plan,
+            cover_asset=cover_asset,
+            user_id=job.user_id,
+        )
+        podcast.cover_image_url = cover_image["url"]
+        podcast.cover_image_source = cover_image["source"]
         db.add(podcast)
         db.flush()
         planned_parts: list[PodcastPartModel] = []
@@ -272,8 +288,9 @@ def process_next_podcast_part_generation(
         payload = generation_job.payload_json
         file_ids = payload.get("file_ids", [])
         assets = _resolve_generation_assets(db, file_ids=file_ids, user_id=podcast.user_id)
-        asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
-        asset_context_cache = build_asset_context_cache(assets=assets, asset_text_cache=asset_text_cache)
+        content_assets = [asset for asset in assets if _asset_can_generate_parts(asset)]
+        asset_text_cache = build_asset_text_cache(assets=content_assets, storage=storage)
+        asset_context_cache = build_asset_context_cache(assets=content_assets, asset_text_cache=asset_text_cache)
         dialogue_mode = _is_dialogue_mode(format_name=podcast.format, voice_name=podcast.voice)
         total_parts = max(len(podcast.parts), 1)
         current_stage = "script"
@@ -292,7 +309,7 @@ def process_next_podcast_part_generation(
             voice_name=podcast.voice,
             index=max(part.sort_order, 1),
             total=total_parts,
-            assets=assets,
+            assets=content_assets,
             storage=storage,
             asset_text_cache=asset_text_cache,
             asset_context_cache=asset_context_cache,
@@ -439,6 +456,35 @@ def _resolve_generation_assets(db: Session, *, file_ids: list[str], user_id: str
     if missing_ids:
         raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
     return assets
+
+
+def _asset_extension(asset: UploadAssetModel) -> str:
+    return Path(asset.filename or "").suffix.lower().lstrip(".")
+
+
+def _asset_can_generate_parts(asset: UploadAssetModel) -> bool:
+    extension = _asset_extension(asset)
+    content_type = (asset.content_type or "").lower()
+    return extension in {"pdf", "txt", "md"} or "pdf" in content_type or content_type.startswith("text/")
+
+
+def _asset_is_image(asset: UploadAssetModel) -> bool:
+    extension = _asset_extension(asset)
+    content_type = (asset.content_type or "").lower()
+    return extension in {"png", "jpg", "jpeg", "webp", "gif"} or content_type.startswith("image/")
+
+
+def _resolve_cover_asset(
+    *,
+    assets: list[UploadAssetModel],
+    requested_cover_file_id: str | None,
+) -> UploadAssetModel | None:
+    if requested_cover_file_id:
+        requested = next((asset for asset in assets if asset.id == requested_cover_file_id), None)
+        if requested is not None and _asset_is_image(requested):
+            return requested
+
+    return next((asset for asset in assets if _asset_is_image(asset)), None)
 
 
 def _build_part_plan(
@@ -638,6 +684,98 @@ def _build_auto_part_plan(
         ]
 
     return plans
+
+
+def _resolve_or_generate_cover_image(
+    *,
+    storage: StorageClient,
+    podcast: PodcastModel,
+    part_plan: list[_AutoPartPlan],
+    cover_asset: UploadAssetModel | None,
+    user_id: str,
+) -> dict[str, str | None]:
+    if cover_asset is not None:
+        return {"url": cover_asset.public_url, "source": "uploaded"}
+
+    cover_bytes = _build_generated_cover_svg(
+        title=podcast.title,
+        voice=podcast.voice,
+        format_name=podcast.format,
+        lead_part_title=part_plan[0].title if part_plan else None,
+    )
+    stored = storage.save_bytes(
+        filename=f"{podcast.id}-cover.svg",
+        content=cover_bytes,
+        content_type="image/svg+xml",
+        user_id=user_id,
+    )
+    return {"url": stored.public_url, "source": "generated"}
+
+
+def _build_generated_cover_svg(
+    *,
+    title: str,
+    voice: str,
+    format_name: str,
+    lead_part_title: str | None,
+) -> bytes:
+    safe_title = _truncate_cover_text(title or "Yeni Podcast", limit=38)
+    safe_voice = _truncate_cover_text(voice or "Elif", limit=22)
+    safe_format = _truncate_cover_text(_format_label(format_name), limit=18)
+    safe_lead = _truncate_cover_text(lead_part_title or "Akıllı bölümleme", limit=34)
+    initials = _cover_initials(title)
+
+    svg = f"""
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="1080" y2="1120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0D1123"/>
+      <stop offset="0.55" stop-color="#1D2B4A"/>
+      <stop offset="1" stop-color="#3C536D"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="190" y1="170" x2="1010" y2="1040" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BF5F3E"/>
+      <stop offset="1" stop-color="#BD9465"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1200" rx="92" fill="url(#bg)"/>
+  <circle cx="962" cy="254" r="164" fill="url(#accent)" opacity="0.18"/>
+  <circle cx="222" cy="958" r="220" fill="#BF5F3E" opacity="0.11"/>
+  <rect x="116" y="118" width="968" height="964" rx="68" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+  <text x="160" y="220" fill="#BD9465" font-family="Arial, sans-serif" font-size="40" font-weight="700" letter-spacing="10">TUSBINA</text>
+  <rect x="160" y="280" width="244" height="244" rx="56" fill="url(#accent)"/>
+  <text x="282" y="436" text-anchor="middle" fill="#0D1123" font-family="Arial, sans-serif" font-size="110" font-weight="700">{escape(initials)}</text>
+  <text x="160" y="640" fill="#F7F5F2" font-family="Arial, sans-serif" font-size="84" font-weight="700">{escape(safe_title)}</text>
+  <text x="160" y="724" fill="rgba(247,245,242,0.72)" font-family="Arial, sans-serif" font-size="42">{escape(safe_lead)}</text>
+  <rect x="160" y="822" width="230" height="72" rx="36" fill="rgba(191,95,62,0.16)" stroke="rgba(191,95,62,0.36)" stroke-width="2"/>
+  <text x="276" y="867" text-anchor="middle" fill="#F7F5F2" font-family="Arial, sans-serif" font-size="32" font-weight="700">{escape(safe_format)}</text>
+  <text x="160" y="972" fill="#F7F5F2" font-family="Arial, sans-serif" font-size="40" font-weight="600">Ses: {escape(safe_voice)}</text>
+  <text x="160" y="1034" fill="rgba(247,245,242,0.68)" font-family="Arial, sans-serif" font-size="28">Belge içeriğinden otomatik kapak</text>
+</svg>
+""".strip()
+    return svg.encode("utf-8")
+
+
+def _truncate_cover_text(value: str, *, limit: int) -> str:
+    compact = re.sub(r"\s+", " ", (value or "").strip())
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(1, limit - 1)].rstrip() + "…"
+
+
+def _cover_initials(title: str) -> str:
+    tokens = [token[:1].upper() for token in re.split(r"[^A-Za-zÇĞİÖŞÜçğıöşü0-9]+", title or "") if token]
+    joined = "".join(tokens[:2]).strip()
+    return joined or "TS"
+
+
+def _format_label(format_name: str) -> str:
+    normalized = (format_name or "").strip().lower()
+    if normalized == "summary":
+        return "Özet"
+    if normalized == "qa":
+        return "Soru-Cevap"
+    return "Anlatım"
 
 
 def _asset_base_title(filename: str) -> str:

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -48,11 +48,6 @@ export function QuizScreen() {
   const selected = current ? answers[current.id] : undefined;
   const progressPct = questions.length > 0 ? ((safeIndex + 1) / questions.length) * 100 : 0;
   const answeredCount = Object.keys(answers).length;
-
-  const isCorrect = useMemo(() => {
-    if (!current || selected === undefined) return null;
-    return selected === current.correct_index;
-  }, [current, selected]);
 
   // Loading state
   if (loading || generating) {

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { FeedbackModal, ProgressBar, ScreenContainer } from "@/components";
+import { FeedbackModal, PodcastArtwork, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
-import { usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
+import { patchPodcastState, prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
+import { useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer, getPodcastPartStatusLabel } from "@/utils";
 
@@ -37,6 +37,10 @@ export function PlayerScreen() {
   const queueIndex = usePlayerStore((state) => state.queueIndex);
   const podcasts = usePodcastsStore((state) => state.podcasts);
   const replacePodcast = usePodcastsStore((state) => state.replacePodcast);
+  const downloadPodcast = useDownloadsStore((state) => state.downloadPodcast);
+  const removePodcastDownload = useDownloadsStore((state) => state.removePodcastDownload);
+  const downloadingIds = useDownloadsStore((state) => state.downloadingIds);
+  const getDownloadedPodcast = useDownloadsStore((state) => state.getDownloadedPodcast);
 
   const canPlay = useUserStore((state) => state.canPlay);
   const openLimitModal = useUserStore((state) => state.openLimitModal);
@@ -54,11 +58,12 @@ export function PlayerScreen() {
   const currentPodcast = useMemo(
     () =>
       track?.sourceType === "ai" && track.parentId
-        ? podcasts.find((item) => item.id === track.parentId) ?? null
+        ? podcasts.find((item) => item.id === track.parentId) ?? getDownloadedPodcast(track.parentId) ?? null
         : null,
-    [podcasts, track?.parentId, track?.sourceType]
+    [getDownloadedPodcast, podcasts, track?.parentId, track?.sourceType]
   );
   const canReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
+  const isCurrentPodcastDownloading = currentPodcast ? downloadingIds.includes(currentPodcast.id) : false;
 
   useEffect(() => {
     if (!currentPodcast) {
@@ -218,14 +223,43 @@ export function PlayerScreen() {
 
   const isCurrentBookmarked = bookmarks.some((b) => Math.abs(b - Math.floor(positionSec)) <= 2);
 
+  const handleToggleDownload = async () => {
+    if (!currentPodcast) {
+      return;
+    }
+
+    try {
+      if (currentPodcast.isDownloaded) {
+        await removePodcastDownload(currentPodcast.id);
+        const updated = await patchPodcastState(currentPodcast.id, { is_downloaded: false });
+        replacePodcast(updated);
+        syncPodcastQueue(updated);
+        setFeedbackToast("Çevrimdışı kopya kaldırıldı.");
+      } else {
+        const downloadedPodcast = await downloadPodcast(currentPodcast);
+        replacePodcast(downloadedPodcast);
+        syncPodcastQueue(downloadedPodcast);
+        const updated = await patchPodcastState(currentPodcast.id, { is_downloaded: true });
+        replacePodcast(updated);
+        syncPodcastQueue(updated);
+        setFeedbackToast("Podcast çevrimdışı dinleme için indirildi.");
+      }
+    } catch (error) {
+      setFeedbackToast(error instanceof Error ? error.message : "İndirme durumu güncellenemedi.");
+    }
+    setTimeout(() => setFeedbackToast(null), 1800);
+  };
+
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
       {/* --- Cover Art --- */}
       <View style={styles.coverWrapper}>
         <View style={styles.cover}>
-          <View style={styles.iconGlow}>
-            <Ionicons name="headset" size={64} color={colors.motivationOrange} />
-          </View>
+          {track.coverImageUrl && !track.coverImageUrl.endsWith(".svg") ? (
+            <Image source={{ uri: track.coverImageUrl }} style={styles.coverImage} resizeMode="cover" />
+          ) : (
+            <PodcastArtwork title={track.title} subtitle={track.subtitle} voice={track.voice} size={240} />
+          )}
         </View>
         {track.sourceType === "ai" && (
           <View style={styles.aiBadge}>
@@ -326,6 +360,19 @@ export function PlayerScreen() {
         <Pressable style={styles.secondaryBtn} onPress={() => void onShare()}>
           <Ionicons name="share-outline" size={22} color={colors.textSecondary} />
         </Pressable>
+
+        {track.sourceType === "ai" && currentPodcast ? (
+          <Pressable style={styles.secondaryBtn} onPress={() => void handleToggleDownload()} disabled={isCurrentPodcastDownloading}>
+            <Ionicons
+              name={currentPodcast.isDownloaded ? "download" : "download-outline"}
+              size={18}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.secondaryBtnLabel}>
+              {isCurrentPodcastDownloading ? "İndiriliyor" : currentPodcast.isDownloaded ? "İndirildi" : "İndir"}
+            </Text>
+          </Pressable>
+        ) : null}
 
         {track.sourceType === "ai" ? (
           <Pressable style={styles.secondaryBtn} onPress={() => setModalVisible(true)}>
@@ -507,7 +554,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.surfaceNavy,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  coverImage: {
+    width: "100%",
+    height: "100%",
   },
   iconGlow: {
     width: 100,

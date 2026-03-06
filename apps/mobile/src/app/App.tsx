@@ -4,7 +4,14 @@ import { StatusBar } from "expo-status-bar";
 import { PlaybackController } from "@/app/PlaybackController";
 import { QuotaLimitModal } from "@/components";
 import { RootNavigator } from "@/navigation";
-import { useAuthStore, useCoursesStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
+import {
+  useAuthStore,
+  useCoursesStore,
+  useLearningToolsStore,
+  usePlayerStore,
+  usePodcastsStore,
+  useUserStore,
+} from "@/state/stores";
 import { colors } from "@/theme";
 
 const appTheme = {
@@ -61,6 +68,7 @@ function usePlaybackQuotaSync() {
   const pause = usePlayerStore((state) => state.pause);
   const consumeOneSecond = useUserStore((state) => state.consumeOneSecond);
   const flushUsageConsumption = useUserStore((state) => state.flushUsageConsumption);
+  const recordListeningSecond = useLearningToolsStore((state) => state.recordListeningSecond);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -75,13 +83,14 @@ function usePlaybackQuotaSync() {
         void flushUsageConsumption();
         return;
       }
+      recordListeningSecond();
       if (!activeTrack?.audioUrl) {
         tick();
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeTrack?.audioUrl, consumeOneSecond, flushUsageConsumption, isPlaying, pause, tick]);
+  }, [activeTrack?.audioUrl, consumeOneSecond, flushUsageConsumption, isPlaying, pause, recordListeningSecond, tick]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -92,10 +101,26 @@ function usePlaybackQuotaSync() {
   }, [flushUsageConsumption]);
 }
 
+function useLearningToolsClock() {
+  const resetTodayIfNeeded = useLearningToolsStore((state) => state.resetTodayIfNeeded);
+  const tickStopwatch = useLearningToolsStore((state) => state.tickStopwatch);
+
+  useEffect(() => {
+    resetTodayIfNeeded();
+    const interval = setInterval(() => {
+      resetTodayIfNeeded();
+      tickStopwatch();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [resetTodayIfNeeded, tickStopwatch]);
+}
+
 export function App() {
   useBootstrapData();
   usePendingPodcastSync();
   usePlaybackQuotaSync();
+  useLearningToolsClock();
 
   return (
     <NavigationContainer theme={appTheme}>

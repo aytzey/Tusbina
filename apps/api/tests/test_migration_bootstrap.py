@@ -1,10 +1,23 @@
 import sqlite3
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
 from app.core.config import settings
 from app.core.migrations import run_migrations_or_stamp
 
-HEAD_REVISION = "20260306_0005"
+
+def _get_head_revision() -> str:
+    alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"
+    config = Config(str(alembic_ini))
+    script = ScriptDirectory.from_config(config)
+    head = script.get_current_head()
+    assert head is not None
+    return head
+
+
+HEAD_REVISION = _get_head_revision()
 
 
 def _get_db_version(db_path: Path) -> str:

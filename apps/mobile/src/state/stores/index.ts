@@ -1,5 +1,7 @@
 export * from "./authStore";
 export * from "./coursesStore";
+export * from "./downloadsStore";
+export * from "./learningToolsStore";
 export * from "./playerStore";
 export * from "./podcastsStore";
 export * from "./quizStore";

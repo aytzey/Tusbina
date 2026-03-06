@@ -30,6 +30,8 @@ export function mapApiPodcast(podcast: ApiPodcast): Podcast {
     voice: podcast.voice,
     format: podcast.format,
     totalDurationSec: podcast.total_duration_sec,
+    coverImageUrl: resolveApiAssetUrl(podcast.cover_image_url),
+    coverImageSource: podcast.cover_image_source ?? undefined,
     isFavorite: podcast.is_favorite ?? false,
     isDownloaded: podcast.is_downloaded ?? false,
     progressSec: podcast.progress_sec ?? 0,
@@ -40,7 +42,8 @@ export function mapApiPodcast(podcast: ApiPodcast): Podcast {
       durationSec: part.duration_sec,
       pageRange: part.page_range,
       status: part.status,
-      audioUrl: resolveApiAssetUrl(part.audio_url)
+      audioUrl: resolveApiAssetUrl(part.audio_url),
+      remoteAudioUrl: resolveApiAssetUrl(part.audio_url)
     }))
   };
 }

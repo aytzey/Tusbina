@@ -33,6 +33,11 @@ from app.services.tts import TTSResult
 
 client = TestClient(app)
 DUMMY_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+TINY_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff"
+    b"\xff?\x00\x05\xfe\x02\xfeA\x0f\x9b\x98\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -351,6 +356,94 @@ def test_generate_respects_explicit_single_section_without_auto_split(monkeypatc
     podcast = next((item for item in podcasts if item["id"] == status_payload["result_podcast_id"]), None)
     assert podcast is not None
     assert len(podcast["parts"]) == 1
+
+
+def test_generate_uses_uploaded_cover_image_when_provided(monkeypatch) -> None:
+    user_id = f"cover-upload-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    monkeypatch.setattr(settings, "upload_allowed_extensions", "pdf,png")
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[
+            ("files", ("cover-source.pdf", DUMMY_PDF, "application/pdf")),
+            ("files", ("cover-image.png", TINY_PNG, "image/png")),
+        ],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Kapaklı Podcast",
+            "voice": "Elif",
+            "format": "summary",
+            "file_ids": file_ids,
+            "cover_file_id": file_ids[1],
+            "sections": [],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    with SessionLocal() as db:
+        assert process_next_generation_job(db, storage=get_storage_client()) is True
+
+    status_response = client.get(f"/api/v1/generatePodcast/{job_id}/status", headers=user_headers)
+    assert status_response.status_code == 200
+    podcast_id = status_response.json()["result_podcast_id"]
+    assert podcast_id
+
+    podcast_response = client.get(f"/api/v1/podcasts/{podcast_id}", headers=user_headers)
+    assert podcast_response.status_code == 200
+    podcast = podcast_response.json()
+    assert podcast["cover_image_source"] == "uploaded"
+    assert podcast["cover_image_url"].endswith(".png")
+
+
+def test_generate_builds_generated_cover_when_no_cover_asset_exists() -> None:
+    user_id = f"cover-generated-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("generated-cover.pdf", DUMMY_PDF, "application/pdf"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Generated Cover Podcast",
+            "voice": "Ahmet",
+            "format": "narrative",
+            "file_ids": file_ids,
+            "sections": [],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    with SessionLocal() as db:
+        assert process_next_generation_job(db, storage=get_storage_client()) is True
+
+    status_response = client.get(f"/api/v1/generatePodcast/{job_id}/status", headers=user_headers)
+    assert status_response.status_code == 200
+    podcast_id = status_response.json()["result_podcast_id"]
+    assert podcast_id
+
+    podcast_response = client.get(f"/api/v1/podcasts/{podcast_id}", headers=user_headers)
+    assert podcast_response.status_code == 200
+    podcast = podcast_response.json()
+    assert podcast["cover_image_source"] == "generated"
+    assert podcast["cover_image_url"].endswith(".svg")
 
 
 def test_reorder_endpoint_changes_priority_window_for_lazy_tts() -> None:

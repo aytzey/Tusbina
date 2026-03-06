@@ -51,6 +51,18 @@ def init_db() -> None:
 def _ensure_create_all_schema_compat(conn) -> None:  # noqa: ANN001
     inspector = inspect(conn)
     table_names = set(inspector.get_table_names())
+    if "podcasts" in table_names:
+        podcast_columns = {column["name"] for column in inspector.get_columns("podcasts")}
+        podcast_column_definitions = {
+            "cover_image_url": "VARCHAR(1024)",
+            "cover_image_source": "VARCHAR(32)",
+        }
+
+        for column_name, definition in podcast_column_definitions.items():
+            if column_name in podcast_columns:
+                continue
+            conn.execute(text(f"ALTER TABLE podcasts ADD COLUMN {column_name} {definition}"))
+
     if "podcast_parts" not in table_names:
         return
 

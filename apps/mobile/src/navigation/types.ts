@@ -18,6 +18,10 @@ export type RootStackParamList = {
   Uploading: undefined;
   Premium: undefined;
   Quiz: { podcastId: string };
+  Downloads: undefined;
+  StudyTools: undefined;
+  AccountSettings: undefined;
+  Support: undefined;
   GeneralError: undefined;
   NoInternet: undefined;
 };

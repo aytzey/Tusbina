@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Text, TextInput, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,37 +12,21 @@ type Navigation = NativeStackNavigationProp<RootStackParamList>;
 export function UploadStep3Screen() {
   const navigation = useNavigation<Navigation>();
   const files = useUploadWizardStore((state) => state.files);
+  const coverImage = useUploadWizardStore((state) => state.coverImage);
   const voice = useUploadWizardStore((state) => state.voice);
   const format = useUploadWizardStore((state) => state.format);
-  const sections = useUploadWizardStore((state) => state.sections);
   const podcastName = useUploadWizardStore((state) => state.podcastName);
-  const addSection = useUploadWizardStore((state) => state.addSection);
-  const removeSection = useUploadWizardStore((state) => state.removeSection);
-  const setSectionTitle = useUploadWizardStore((state) => state.setSectionTitle);
-  const toggleSection = useUploadWizardStore((state) => state.toggleSection);
-  const moveSectionUp = useUploadWizardStore((state) => state.moveSectionUp);
-  const moveSectionDown = useUploadWizardStore((state) => state.moveSectionDown);
   const setPodcastName = useUploadWizardStore((state) => state.setPodcastName);
 
-  const enabledSections = useMemo(
-    () => sections.filter((section) => section.enabled),
-    [sections]
-  );
-  const validEnabledSections = useMemo(
-    () => enabledSections.filter((section) => section.title.trim().length > 0),
-    [enabledSections]
-  );
-
-  const totalEstimatedMinutes = enabledSections.length * 8;
+  const estimatedParts = Math.max(files.length * 3, 3);
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
       <Text style={styles.title}>Önizleme ve Oluştur</Text>
-      <WizardProgress label="Önizleme" step={3} totalSteps={3} />
+      <WizardProgress label="Otomatik plan" step={3} totalSteps={3} />
 
-      {/* Podcast Name Input */}
       <View style={styles.nameSection}>
-        <Text style={styles.inputLabel}>Podcast Adı (Otomatik Üretildi)</Text>
+        <Text style={styles.inputLabel}>Podcast adı</Text>
         <TextInput
           placeholder="Podcast adı"
           placeholderTextColor={colors.textSecondary}
@@ -53,139 +36,50 @@ export function UploadStep3Screen() {
         />
       </View>
 
-      {/* Section List */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Bölüm Listesi</Text>
-        <Pressable style={styles.addSectionButton} onPress={addSection}>
-          <Ionicons name="add" size={16} color={colors.motivationOrange} />
-          <Text style={styles.addSectionText}>Bölüm Ekle</Text>
-        </Pressable>
-      </View>
-      {sections.length === 0 ? (
-        <Text style={styles.emptySections}>Bölüm listesi için önce PDF ekle.</Text>
-      ) : (
-        <View style={styles.sectionList}>
-          {sections.map((section, index) => {
-            const pageStart = index * 14 + 1;
-            const pageEnd = pageStart + 13;
-            return (
-              <View key={section.id} style={styles.sectionItem}>
-                {/* Drag handle */}
-                <View style={styles.dragHandle}>
-                  <Pressable
-                    onPress={() => moveSectionUp(section.id)}
-                    disabled={index === 0}
-                    hitSlop={4}
-                  >
-                    <Ionicons
-                      name="chevron-up"
-                      size={16}
-                      color={index === 0 ? "rgba(255,255,255,0.15)" : colors.textSecondary}
-                    />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => moveSectionDown(section.id)}
-                    disabled={index === sections.length - 1}
-                    hitSlop={4}
-                  >
-                    <Ionicons
-                      name="chevron-down"
-                      size={16}
-                      color={
-                        index === sections.length - 1
-                          ? "rgba(255,255,255,0.15)"
-                          : colors.textSecondary
-                      }
-                    />
-                  </Pressable>
-                </View>
-
-                {/* Number Badge */}
-                <View
-                  style={[
-                    styles.numberBadge,
-                    section.enabled
-                      ? styles.numberBadgeEnabled
-                      : styles.numberBadgeDisabled
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.numberBadgeText,
-                      section.enabled
-                        ? styles.numberBadgeTextEnabled
-                        : styles.numberBadgeTextDisabled
-                    ]}
-                  >
-                    {index + 1}
-                  </Text>
-                </View>
-
-                {/* Title + Meta */}
-                <View style={styles.sectionContent}>
-                  <TextInput
-                    style={[
-                      styles.sectionInput,
-                      !section.enabled && styles.sectionDisabled
-                    ]}
-                    placeholder="Bölüm adı"
-                    placeholderTextColor={colors.textSecondary}
-                    value={section.title}
-                    onChangeText={(value) => setSectionTitle(section.id, value)}
-                  />
-                  <Text style={styles.sectionMeta}>
-                    ~8 dk - Sayfa {pageStart}-{pageEnd}
-                  </Text>
-                </View>
-
-                {/* Toggle */}
-                <Switch
-                  value={section.enabled}
-                  onValueChange={() => toggleSection(section.id)}
-                  trackColor={{
-                    false: "rgba(255,255,255,0.12)",
-                    true: colors.motivationOrange
-                  }}
-                  thumbColor={colors.textPrimary}
-                />
-                {!section.sourceFileLocalId ? (
-                  <Pressable
-                    style={styles.removeSectionButton}
-                    hitSlop={8}
-                    onPress={() => removeSection(section.id)}
-                  >
-                    <Ionicons name="trash-outline" size={16} color={colors.textSecondary} />
-                  </Pressable>
-                ) : null}
-              </View>
-            );
-          })}
+      <View style={styles.infoCard}>
+        <View style={styles.infoHeader}>
+          <Ionicons name="sparkles-outline" size={18} color={colors.motivationOrange} />
+          <Text style={styles.infoTitle}>Sistem neleri otomatik yapacak?</Text>
         </View>
-      )}
-
-      {enabledSections.length > 0 && validEnabledSections.length === 0 ? (
-        <Text style={styles.warningText}>
-          Aktif bölüm başlıkları boş olamaz.
+        <Text style={styles.infoText}>
+          Belge başlıklarını tarayıp konu bazlı bölümleme oluşturacak, bölüm isimlerini içerikten türetecek ve hazırsa
+          kapak görselini kullanacak. Görsel yoksa podcast için otomatik kapak üretilecek.
         </Text>
-      ) : null}
+      </View>
 
-      {/* Summary Bar */}
-      <View style={styles.summaryBar}>
-        <Text style={styles.summaryText}>
-          {enabledSections.length} Bölüm | ~{totalEstimatedMinutes}dk |{" "}
-          {voice ?? "-"}
-        </Text>
+      <View style={styles.summaryGrid}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Belge sayısı</Text>
+          <Text style={styles.summaryValue}>{files.length}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Tahmini bölüm</Text>
+          <Text style={styles.summaryValue}>~{estimatedParts}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Ses</Text>
+          <Text style={styles.summaryValueSmall}>{voice ?? "-"}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Kapak</Text>
+          <Text style={styles.summaryValueSmall}>{coverImage ? "Yüklendi" : "Otomatik"}</Text>
+        </View>
+      </View>
+
+      <View style={styles.fileList}>
+        {files.map((file) => (
+          <View key={file.localId} style={styles.fileRow}>
+            <Ionicons name="document-text-outline" size={18} color={colors.motivationOrange} />
+            <Text style={styles.fileName} numberOfLines={1}>
+              {file.name}
+            </Text>
+          </View>
+        ))}
       </View>
 
       <PrimaryButton
         label="Podcast Oluştur"
-        disabled={
-          !podcastName.trim() ||
-          validEnabledSections.length === 0 ||
-          files.length === 0 ||
-          !voice ||
-          !format
-        }
+        disabled={!podcastName.trim() || files.length === 0 || !voice || !format}
         onPress={() => navigation.navigate("Uploading")}
       />
     </ScreenContainer>
@@ -197,20 +91,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
-    gap: spacing.md
+    gap: spacing.md,
   },
   title: {
     ...typography.title,
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
-
-  /* Podcast Name */
   nameSection: {
-    gap: spacing.xs
+    gap: spacing.xs,
   },
   inputLabel: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
   },
   input: {
     height: 48,
@@ -220,131 +112,71 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.surfaceNavy,
-    ...typography.body
+    ...typography.body,
   },
-
-  /* Section List */
-  sectionTitle: {
-    ...typography.h2,
-    color: colors.textPrimary
+  infoCard: {
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceNavy,
+    padding: spacing.lg,
+    gap: spacing.sm,
   },
-  sectionHeader: {
+  infoHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between"
+    gap: spacing.sm,
   },
-  addSectionButton: {
+  infoTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  infoText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  summaryGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.sm,
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  summaryCard: {
+    width: "48%",
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.motivationOrange,
-    backgroundColor: "rgba(191,95,62,0.08)"
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceNavy,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
-  addSectionText: {
+  summaryLabel: {
     ...typography.caption,
-    color: colors.motivationOrange,
-    fontWeight: "700"
+    color: colors.textSecondary,
   },
-  emptySections: {
-    ...typography.caption,
-    color: colors.textSecondary
+  summaryValue: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "800",
+    color: colors.textPrimary,
   },
-  sectionList: {
-    gap: spacing.sm
+  summaryValueSmall: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
   },
-  sectionItem: {
+  fileList: {
+    gap: spacing.sm,
+  },
+  fileRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceNavy,
     padding: spacing.md,
-    gap: spacing.sm
   },
-
-  /* Drag Handle */
-  dragHandle: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: -4
-  },
-
-  /* Number Badge */
-  numberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  numberBadgeEnabled: {
-    backgroundColor: colors.motivationOrange
-  },
-  numberBadgeDisabled: {
-    backgroundColor: "rgba(255,255,255,0.1)"
-  },
-  numberBadgeText: {
-    fontSize: 13,
-    fontWeight: "700"
-  },
-  numberBadgeTextEnabled: {
-    color: colors.textPrimary
-  },
-  numberBadgeTextDisabled: {
-    color: colors.textSecondary
-  },
-
-  /* Section Content */
-  sectionContent: {
-    flex: 1,
-    gap: 2
-  },
-  sectionInput: {
-    height: 32,
-    borderRadius: radius.sm,
+  fileName: {
+    ...typography.body,
     color: colors.textPrimary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 0,
-    ...typography.body,
-    fontWeight: "600"
+    flex: 1,
   },
-  sectionDisabled: {
-    color: colors.textSecondary,
-    opacity: 0.6
-  },
-  sectionMeta: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm
-  },
-  removeSectionButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-
-  /* Warning */
-  warningText: {
-    ...typography.caption,
-    color: colors.premiumGold
-  },
-
-  /* Summary Bar */
-  summaryBar: {
-    backgroundColor: colors.surfaceNavy,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    alignItems: "center"
-  },
-  summaryText: {
-    ...typography.body,
-    color: colors.motivationOrange,
-    fontWeight: "700"
-  }
 });

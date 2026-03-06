@@ -14,6 +14,10 @@ import { UploadStep3Screen } from "@/screens/Upload/UploadStep3Screen";
 import { UploadingScreen } from "@/screens/Upload/UploadingScreen";
 import { PremiumScreen } from "@/screens/Premium/PremiumScreen";
 import { QuizScreen } from "@/screens/Quiz/QuizScreen";
+import { DownloadsScreen } from "@/screens/Profile/DownloadsScreen";
+import { StudyToolsScreen } from "@/screens/Profile/StudyToolsScreen";
+import { AccountSettingsScreen } from "@/screens/Profile/AccountSettingsScreen";
+import { SupportScreen } from "@/screens/Profile/SupportScreen";
 import { GeneralErrorScreen } from "@/screens/States/GeneralErrorScreen";
 import { NoInternetScreen } from "@/screens/States/NoInternetScreen";
 
@@ -49,14 +53,18 @@ export function RootNavigator() {
         <>
           <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
           <Stack.Screen name="CourseDetail" component={CourseDetailScreen} options={{ title: "Ders Detay" }} />
-          <Stack.Screen name="Player" component={PlayerScreen} options={{ title: "Simdi Dinleniyor" }} />
+          <Stack.Screen name="Player" component={PlayerScreen} options={{ title: "Şimdi Dinleniyor" }} />
           <Stack.Screen name="UploadStep2" component={UploadStep2Screen} options={{ title: "Ses ve Format" }} />
-          <Stack.Screen name="UploadStep3" component={UploadStep3Screen} options={{ title: "Onizleme" }} />
-          <Stack.Screen name="Uploading" component={UploadingScreen} options={{ title: "Hazirlaniyor" }} />
+          <Stack.Screen name="UploadStep3" component={UploadStep3Screen} options={{ title: "Önizleme" }} />
+          <Stack.Screen name="Uploading" component={UploadingScreen} options={{ title: "Hazırlanıyor" }} />
           <Stack.Screen name="Premium" component={PremiumScreen} options={{ title: "Premium" }} />
           <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: "Soru-Cevap" }} />
-          <Stack.Screen name="GeneralError" component={GeneralErrorScreen} options={{ title: "Bir Hata Olustu" }} />
-          <Stack.Screen name="NoInternet" component={NoInternetScreen} options={{ title: "Baglanti Yok" }} />
+          <Stack.Screen name="Downloads" component={DownloadsScreen} options={{ title: "İndirilenler" }} />
+          <Stack.Screen name="StudyTools" component={StudyToolsScreen} options={{ title: "Çalışma Araçları" }} />
+          <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} options={{ title: "Hesap Ayarları" }} />
+          <Stack.Screen name="Support" component={SupportScreen} options={{ title: "Yardım & Destek" }} />
+          <Stack.Screen name="GeneralError" component={GeneralErrorScreen} options={{ title: "Bir Hata Oluştu" }} />
+          <Stack.Screen name="NoInternet" component={NoInternetScreen} options={{ title: "Bağlantı Yok" }} />
         </>
       ) : (
         <>

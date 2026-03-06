@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -73,9 +74,9 @@ export function LoginScreen() {
       >
         {/* Logo / Title */}
         <View style={styles.header}>
-          <Ionicons name="school-outline" size={64} color={colors.motivationOrange} />
+          <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>TusBina</Text>
-          <Text style={styles.subtitle}>Hesabiniza giris yapin</Text>
+          <Text style={styles.subtitle}>Hesabınıza giriş yapın</Text>
         </View>
 
         {/* Social login */}
@@ -120,7 +121,7 @@ export function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Sifre</Text>
+            <Text style={styles.label}>Şifre</Text>
             <View style={styles.passwordRow}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
@@ -159,16 +160,16 @@ export function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.textPrimary} />
             ) : (
-              <Text style={styles.buttonLabel}>Giris Yap</Text>
+            <Text style={styles.buttonLabel}>Giriş Yap</Text>
             )}
           </Pressable>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Hesabiniz yok mu?</Text>
+          <Text style={styles.footerText}>Hesabınız yok mu?</Text>
           <Pressable onPress={() => navigation.navigate("Register")}>
-            <Text style={styles.footerLink}> Kayit Ol</Text>
+            <Text style={styles.footerLink}> Kayıt Ol</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -180,6 +181,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center" },
   inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.xl },
   header: { alignItems: "center", gap: spacing.sm },
+  logo: { width: 150, height: 100 },
   title: { ...typography.title, color: colors.textPrimary, fontSize: 32 },
   subtitle: { ...typography.body, color: colors.textSecondary },
   socialRow: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },

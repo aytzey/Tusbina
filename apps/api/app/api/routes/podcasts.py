@@ -52,6 +52,8 @@ def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | Non
         voice=podcast.voice,
         format=podcast.format,
         total_duration_sec=podcast.total_duration_sec,
+        cover_image_url=_resolve_audio_url(podcast.cover_image_url),
+        cover_image_source=podcast.cover_image_source,
         parts=[
             PodcastPart(
                 id=part.id,
@@ -70,15 +72,15 @@ def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | Non
     )
 
 
-def _storage_key_from_audio_url(audio_url: str | None) -> str | None:
-    if not audio_url:
+def _storage_key_from_public_url(public_url: str | None) -> str | None:
+    if not public_url:
         return None
 
-    if audio_url.startswith("/static/uploads/"):
-        return audio_url.removeprefix("/static/uploads/")
+    if public_url.startswith("/static/uploads/"):
+        return public_url.removeprefix("/static/uploads/")
 
-    if audio_url.startswith("http://") or audio_url.startswith("https://"):
-        parsed = urlsplit(audio_url)
+    if public_url.startswith("http://") or public_url.startswith("https://"):
+        parsed = urlsplit(public_url)
         path = parsed.path or ""
 
         static_prefix = "/static/uploads/"
@@ -88,8 +90,8 @@ def _storage_key_from_audio_url(audio_url: str | None) -> str | None:
 
         if settings.r2_public_base_url:
             public_base = settings.r2_public_base_url.rstrip("/")
-            if audio_url.startswith(public_base + "/"):
-                return audio_url.removeprefix(public_base + "/") or None
+            if public_url.startswith(public_base + "/"):
+                return public_url.removeprefix(public_base + "/") or None
         elif settings.r2_bucket:
             bucket_prefix = f"/{settings.r2_bucket}/"
             if bucket_prefix in path:
@@ -97,8 +99,8 @@ def _storage_key_from_audio_url(audio_url: str | None) -> str | None:
                 return tail or None
         return None
 
-    if "/" in audio_url and not audio_url.startswith("file://"):
-        return audio_url.lstrip("/")
+    if "/" in public_url and not public_url.startswith("file://"):
+        return public_url.lstrip("/")
 
     return None
 
@@ -260,7 +262,7 @@ def delete_podcast(
     storage = get_storage_client()
     deleted_files = 0
     for part in podcast.parts:
-        storage_key = _storage_key_from_audio_url(part.audio_url)
+        storage_key = _storage_key_from_public_url(part.audio_url)
         if not storage_key:
             continue
         try:
@@ -268,6 +270,14 @@ def delete_podcast(
             deleted_files += 1
         except Exception:
             # Deleting DB records is more important; orphan files can be reaped later.
+            pass
+
+    cover_storage_key = _storage_key_from_public_url(podcast.cover_image_url)
+    if cover_storage_key:
+        try:
+            storage.delete(cover_storage_key)
+            deleted_files += 1
+        except Exception:
             pass
 
     db.execute(

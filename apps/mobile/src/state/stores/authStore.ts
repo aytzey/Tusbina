@@ -23,6 +23,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<boolean>;
   signInWithGoogle: () => Promise<boolean>;
   signInWithApple: () => Promise<boolean>;
+  updateDisplayName: (displayName: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   clearError: () => void;
   getAccessToken: () => string | null;
@@ -219,6 +220,27 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         return false;
       }
       set({ isLoading: false, error: message });
+      return false;
+    }
+  },
+
+  updateDisplayName: async (displayName) => {
+    set({ error: null });
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { display_name: displayName },
+      });
+      if (error) {
+        throw error;
+      }
+
+      set((state) => ({
+        user: data.user ?? state.user,
+      }));
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Profil güncellenemedi";
+      set({ error: message });
       return false;
     }
   },

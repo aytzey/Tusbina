@@ -26,12 +26,14 @@ def generate_podcast(
         payload.format,
         len(payload.file_ids),
         len(payload.sections),
-        len([section for section in payload.sections if section.enabled]) if payload.sections else len(payload.file_ids),
+        len([section for section in payload.sections if section.enabled])
+        if payload.sections
+        else max(len(payload.file_ids) - (1 if payload.cover_file_id else 0), 1),
     )
     if payload.sections:
         planned_parts = len([section for section in payload.sections if section.enabled])
     else:
-        planned_parts = len(payload.file_ids)
+        planned_parts = max(len(payload.file_ids) - (1 if payload.cover_file_id else 0), 1)
     if planned_parts > settings.generation_max_parts:
         raise HTTPException(
             status_code=400,

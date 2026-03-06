@@ -37,24 +37,24 @@ export function UploadingScreen() {
   const setQueue = usePlayerStore((state) => state.setQueue);
 
   const files = useUploadWizardStore((state) => state.files);
+  const coverImage = useUploadWizardStore((state) => state.coverImage);
   const voice = useUploadWizardStore((state) => state.voice);
   const format = useUploadWizardStore((state) => state.format);
   const podcastName = useUploadWizardStore((state) => state.podcastName);
-  const sections = useUploadWizardStore((state) => state.sections);
   const setUploadedFileIds = useUploadWizardStore((state) => state.setUploadedFileIds);
   const resetWizard = useUploadWizardStore((state) => state.resetWizard);
 
   const [phase, setPhase] = useState<UploadPhase>("uploading");
   const [progress, setProgress] = useState(5);
-  const [statusText, setStatusText] = useState("Dosyalar hazırlanıyor...");
+  const [statusText, setStatusText] = useState("Kaynak dosyaları hazırlanıyor...");
   const [error, setError] = useState<string | null>(null);
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [planningJobId, setPlanningJobId] = useState<string | null>(null);
   const seededPriorityPodcastId = useRef<string | null>(null);
 
-  const validSections = useMemo(
-    () => sections.filter((section) => section.enabled && section.title.trim().length > 0),
-    [sections]
+  const uploadItems = useMemo(
+    () => (coverImage ? [...files, coverImage] : files),
+    [coverImage, files]
   );
 
   const canStart = useMemo(
@@ -62,9 +62,8 @@ export function UploadingScreen() {
       files.length > 0 &&
       voice !== null &&
       format !== null &&
-      podcastName.trim().length > 0 &&
-      validSections.length > 0,
-    [files, voice, format, podcastName, validSections.length]
+      podcastName.trim().length > 0,
+    [files, voice, format, podcastName]
   );
 
   const partSummary = useMemo(() => (podcast ? getPodcastPartSummary(podcast) : null), [podcast]);
@@ -82,7 +81,7 @@ export function UploadingScreen() {
       return;
     }
     if (!canStart || voice === null || format === null) {
-      setError("Wizard bilgileri eksik. Lütfen adımları yeniden tamamla.");
+      setError("Yükleme bilgileri eksik. Lütfen adımları yeniden tamamla.");
       return;
     }
 
@@ -91,38 +90,37 @@ export function UploadingScreen() {
     const run = async () => {
       try {
         setPhase("uploading");
-        setStatusText("PDF dosyaları yükleniyor...");
-        const uploadResult = await uploadPdfFiles(files);
+        setStatusText("Kaynak dosyaları yükleniyor...");
+        const uploadResult = await uploadPdfFiles(uploadItems);
         if (cancelled) {
           return;
         }
 
-        setUploadedFileIds(uploadResult.file_ids);
-        setProgress(30);
-
         const uploadedIdByLocalId = new Map<string, string>();
-        files.forEach((file, index) => {
+        uploadItems.forEach((file, index) => {
           const uploadedId = uploadResult.file_ids[index];
           if (uploadedId) {
             uploadedIdByLocalId.set(file.localId, uploadedId);
           }
         });
 
+        const uploadedDocumentIds = files
+          .map((file) => uploadedIdByLocalId.get(file.localId))
+          .filter((value): value is string => Boolean(value));
+        const coverFileId = coverImage ? uploadedIdByLocalId.get(coverImage.localId) ?? null : null;
+
+        setUploadedFileIds(uploadedDocumentIds);
+        setProgress(30);
+
         setPhase("planning");
-        setStatusText("Önce bölüm planı çıkarılıyor. Hazır olan parçalar burada anında görünecek.");
+        setStatusText("Önce belge otomatik bölümleniyor ve bölüm adları hazırlanıyor. Hazır olan parçalar burada anında görünecek.");
         const job = await requestPodcastGeneration({
           title: podcastName,
           voice,
           format: format as PodcastFormat,
-          file_ids: uploadResult.file_ids,
-          sections: validSections.map((section) => ({
-            id: section.id,
-            title: section.title,
-            enabled: section.enabled,
-            source_file_id: section.sourceFileLocalId
-              ? uploadedIdByLocalId.get(section.sourceFileLocalId)
-              : undefined
-          }))
+          file_ids: uploadedDocumentIds,
+          cover_file_id: coverFileId ?? undefined,
+          sections: []
         });
         setPlanningJobId(job.job_id);
 
@@ -209,8 +207,9 @@ export function UploadingScreen() {
     refreshPodcast,
     replacePodcast,
     resetWizard,
+    coverImage,
     setUploadedFileIds,
-    validSections,
+    uploadItems,
     voice
   ]);
 

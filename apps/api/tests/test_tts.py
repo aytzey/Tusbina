@@ -32,6 +32,31 @@ def test_piper_synthesize_raises_on_timeout(monkeypatch) -> None:
         service.synthesize("TUSBINA timeout testi")
 
 
+def test_piper_synthesize_skips_postprocess_pitch_shift_by_default(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(settings, "piper_enable_postprocess_pitch_shift", False)
+    monkeypatch.setattr(settings, "piper_voice_pitch_semitones_elif", 4.0)
+    monkeypatch.setattr(settings, "piper_model_path_elif", str(tmp_path / "elif.onnx"))
+    monkeypatch.setattr(settings, "piper_model_config_path_elif", str(tmp_path / "elif.onnx.json"))
+    monkeypatch.setattr(settings, "piper_model_url_elif", "")
+    monkeypatch.setattr(settings, "piper_model_config_url_elif", "")
+
+    service = PiperTTSService()
+    monkeypatch.setattr(service, "ensure_ready", lambda: "/usr/bin/piper")
+    monkeypatch.setattr(service, "_ensure_model_files_for_spec", lambda _spec: None)
+    raw_audio = tts_module._build_sine_wav(duration_sec=1, frequency=440)
+
+    def _fake_run(cmd, *, safe_text, timeout_sec):  # noqa: ANN001
+        output_path = Path(cmd[cmd.index("--output_file") + 1])
+        output_path.write_bytes(raw_audio)
+        return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+    monkeypatch.setattr(service, "_run_piper_command", _fake_run)
+
+    result = service.synthesize("Test metni", voice="Elif")
+
+    assert result.content == raw_audio
+
+
 def test_voice_profiles_differ_for_mobile_voice_options() -> None:
     base = PiperTTSService._resolve_voice_profile_static("Elif")
     ahmet = PiperTTSService._resolve_voice_profile_static("Ahmet")

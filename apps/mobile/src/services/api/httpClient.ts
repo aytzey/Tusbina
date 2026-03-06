@@ -49,6 +49,11 @@ export function resolveApiAssetUrl(rawUrl: string | null | undefined): string | 
   }
 }
 
+export function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${activeApiBaseUrl}${normalizedPath}`;
+}
+
 export function isNetworkApiError(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 0;
 }
@@ -123,7 +128,6 @@ function getApiBaseCandidates(): string[] {
   }
 
   const fallbackBases = buildWebFallbackBaseUrls();
-  const host = window.location.hostname;
   const ordered = [API_BASE_URL, ...fallbackBases];
   return dedupe(ordered);
 }
@@ -136,13 +140,13 @@ function buildWebFallbackBaseUrls(): string[] {
     const apiPath = configured.pathname.replace(/\/+$/, "") || "/api/v1";
     const port = configured.port || "8090";
     const protocol = window.location.protocol === "https:" ? "https" : "http";
-    const host = window.location.hostname;
+    const currentHost = window.location.hostname;
 
-    fallbacks.push(`${protocol}://${host}:${port}${apiPath}`);
-    if (host !== "127.0.0.1") {
+    fallbacks.push(`${protocol}://${currentHost}:${port}${apiPath}`);
+    if (currentHost !== "127.0.0.1") {
       fallbacks.push(`http://127.0.0.1:${port}${apiPath}`);
     }
-    if (host !== "localhost") {
+    if (currentHost !== "localhost") {
       fallbacks.push(`http://localhost:${port}${apiPath}`);
     }
   } catch {

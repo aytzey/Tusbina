@@ -251,7 +251,8 @@ class PiperTTSService:
             content = Path(tmp.name).read_bytes()
             if len(content) < 64:
                 raise RuntimeError("Piper cikti dosyasi beklenenden kisa")
-            content = _apply_voice_signature(content, voice=voice, semitones=voice_profile.pitch_semitones)
+            if settings.piper_enable_postprocess_pitch_shift:
+                content = _apply_voice_signature(content, voice=voice, semitones=voice_profile.pitch_semitones)
         logger.info(
             "TTS_PIPER_SYNTH_DONE voice=%s chars=%d bytes=%d",
             voice or "default",

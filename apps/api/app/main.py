@@ -16,6 +16,7 @@ from app.api.routes.podcasts import router as podcasts_router
 from app.api.routes.quiz import router as quiz_router
 from app.api.routes.upload import router as upload_router
 from app.api.routes.usage import router as usage_router
+from app.api.routes.voices import router as voices_router
 from app.core.config import settings
 from app.services.bootstrap import bootstrap_application
 
@@ -61,3 +62,4 @@ app.include_router(generation_router, prefix="/api/v1")
 app.include_router(feedback_router, prefix="/api/v1")
 app.include_router(usage_router, prefix="/api/v1")
 app.include_router(quiz_router, prefix="/api/v1")
+app.include_router(voices_router, prefix="/api/v1")

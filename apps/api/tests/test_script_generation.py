@@ -115,6 +115,14 @@ def test_build_part_script_uses_format_specific_limits(monkeypatch) -> None:
     assert len(narrative_script) > len(summary_script)
 
 
+def test_trim_script_to_boundary_avoids_mid_sentence_cut() -> None:
+    script = "Ilk cumle. Ikinci cumle tamamlandi. Ucuncu cumle yarim kalacak"
+
+    trimmed = script_generation._trim_script_to_boundary(script, target_limit=48)
+
+    assert trimmed == "Ilk cumle. Ikinci cumle tamamlandi."
+
+
 def test_extract_text_from_pdf_stops_at_char_budget(monkeypatch) -> None:
     class _FakePage:
         def __init__(self, text: str) -> None:

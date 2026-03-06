@@ -3,6 +3,7 @@ export * from "./feedbackApi";
 export * from "./httpClient";
 export * from "./mappers";
 export * from "./podcastsApi";
+export * from "./profileApi";
 export * from "./types";
 export * from "./quizApi";
 export * from "./usageApi";

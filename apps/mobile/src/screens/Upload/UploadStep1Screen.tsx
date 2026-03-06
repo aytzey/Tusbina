@@ -18,23 +18,25 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 export function UploadStep1Screen() {
   const navigation = useNavigation<Navigation>();
   const files = useUploadWizardStore((state) => state.files);
+  const coverImage = useUploadWizardStore((state) => state.coverImage);
   const addFiles = useUploadWizardStore((state) => state.addFiles);
   const removeFile = useUploadWizardStore((state) => state.removeFile);
+  const setCoverImage = useUploadWizardStore((state) => state.setCoverImage);
   const [warning, setWarning] = useState<string | null>(null);
 
   const canAddMore = files.length < MAX_FILES;
   const remainingSlots = useMemo(() => Math.max(MAX_FILES - files.length, 0), [files.length]);
 
-  const pickPdfFiles = async () => {
+  const pickSourceFiles = async () => {
     if (!canAddMore) {
-      setWarning(`En fazla ${MAX_FILES} PDF ekleyebilirsin.`);
+      setWarning(`En fazla ${MAX_FILES} belge ekleyebilirsin.`);
       return;
     }
 
     const result = await DocumentPicker.getDocumentAsync({
-      type: "application/pdf",
+      type: ["application/pdf", "text/plain"],
       multiple: true,
-      copyToCacheDirectory: true
+      copyToCacheDirectory: true,
     });
 
     if (result.canceled) {
@@ -49,22 +51,49 @@ export function UploadStep1Screen() {
       name: asset.name,
       uri: asset.uri,
       mimeType: asset.mimeType ?? "application/pdf",
-      size: asset.size ?? 0
+      size: asset.size ?? 0,
+      kind: "document",
     }));
 
     if (oversizedCount > 0 && result.assets.length > remainingSlots) {
-      setWarning(`50MB üzeri ${oversizedCount} dosya ve limit dışı dosyalar eklenmedi.`);
+      setWarning(`50 MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
     } else if (oversizedCount > 0) {
-      setWarning(`50MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
+      setWarning(`50 MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
     } else if (result.assets.length > remainingSlots) {
-      setWarning(`Maksimum ${MAX_FILES} dosya destekleniyor. Fazla dosyalar eklenmedi.`);
+      setWarning(`Maksimum ${MAX_FILES} belge destekleniyor. Fazla dosyalar eklenmedi.`);
     } else if (picked.length === 0) {
-      setWarning("Geçerli PDF bulunamadı.");
+      setWarning("Geçerli bir PDF veya metin dosyası seçilmedi.");
     } else {
       setWarning(null);
     }
 
     addFiles(picked);
+  };
+
+  const pickCoverImage = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "image/*",
+      multiple: false,
+      copyToCacheDirectory: true,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    if (!asset) {
+      return;
+    }
+
+    setCoverImage({
+      localId: `cover-${Date.now()}`,
+      name: asset.name,
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? "image/png",
+      size: asset.size ?? 0,
+      kind: "cover",
+    });
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -75,31 +104,53 @@ export function UploadStep1Screen() {
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
       <Text style={styles.title}>Kaynak Yükle</Text>
-      <WizardProgress label="Dosya Seç" step={1} totalSteps={3} />
+      <WizardProgress label="Belge Seç" step={1} totalSteps={3} />
 
-      {/* Upload Zone */}
-      <Pressable style={styles.uploadArea} onPress={() => void pickPdfFiles()}>
+      <Pressable style={styles.uploadArea} onPress={() => void pickSourceFiles()}>
         <Ionicons name="document-text" size={40} color={colors.motivationOrange} />
-        <Text style={styles.uploadTitle}>PDF dosyalarınızı yükleyin</Text>
+        <Text style={styles.uploadTitle}>PDF veya metin dosyalarını yükle</Text>
         <Text style={styles.uploadDescription}>
-          Birden fazla dosya seçebilirsiniz · Maks 50 MB (Demo)
+          Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek.
         </Text>
       </Pressable>
 
+      <Pressable style={styles.coverArea} onPress={() => void pickCoverImage()}>
+        <View style={styles.coverBadge}>
+          <Ionicons name="image-outline" size={18} color={colors.premiumGold} />
+        </View>
+        <View style={styles.coverBody}>
+          <Text style={styles.coverTitle}>Kapak görseli ekle (opsiyonel)</Text>
+          <Text style={styles.coverDescription}>
+            Yüklersen mevcut görsel kullanılır, yüklemezsen sistem otomatik kapak üretir.
+          </Text>
+        </View>
+      </Pressable>
+
+      {coverImage ? (
+        <View style={styles.coverSelectedRow}>
+          <View style={styles.coverMeta}>
+            <Text style={styles.coverSelectedLabel}>Seçilen kapak</Text>
+            <Text style={styles.coverSelectedName} numberOfLines={1}>
+              {coverImage.name}
+            </Text>
+          </View>
+          <Pressable style={styles.removeBtn} onPress={() => setCoverImage(null)}>
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+      ) : null}
+
       {warning ? <Text style={styles.warning}>{warning}</Text> : null}
 
-      {/* File List */}
       {files.length > 0 && (
         <View style={styles.fileSection}>
           <View style={styles.fileListHeader}>
-            <Text style={styles.fileListTitle}>
-              Yüklenen Dosyalar ({files.length})
-            </Text>
-            {canAddMore && (
-              <Pressable onPress={() => void pickPdfFiles()}>
+            <Text style={styles.fileListTitle}>Belgeler ({files.length})</Text>
+            {canAddMore ? (
+              <Pressable onPress={() => void pickSourceFiles()}>
                 <Text style={styles.addMore}>+ Ekle</Text>
               </Pressable>
-            )}
+            ) : null}
           </View>
 
           <View style={styles.list}>
@@ -117,11 +168,7 @@ export function UploadStep1Screen() {
                   </Text>
                   <Text style={styles.fileSize}>{formatFileSize(file.size)}</Text>
                 </View>
-                <Pressable
-                  style={styles.removeBtn}
-                  onPress={() => removeFile(file.localId)}
-                  hitSlop={8}
-                >
+                <Pressable style={styles.removeBtn} onPress={() => removeFile(file.localId)} hitSlop={8}>
                   <Ionicons name="close" size={18} color={colors.textSecondary} />
                 </Pressable>
               </View>
@@ -144,14 +191,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
-    gap: spacing.md
+    gap: spacing.md,
   },
   title: {
     ...typography.title,
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
-
-  /* Upload Zone */
   uploadArea: {
     borderWidth: 2,
     borderStyle: "dashed",
@@ -160,71 +205,119 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   uploadTitle: {
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: "600",
-    marginTop: spacing.xs
+    marginTop: spacing.xs,
+    textAlign: "center",
   },
   uploadDescription: {
     ...typography.caption,
     color: colors.textSecondary,
-    textAlign: "center"
+    textAlign: "center",
   },
-
-  /* Warning */
+  coverArea: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceNavy,
+    padding: spacing.md,
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
+  },
+  coverBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(189,148,101,0.14)",
+  },
+  coverBody: {
+    flex: 1,
+    gap: 2,
+  },
+  coverTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  coverDescription: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  coverSelectedRow: {
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceNavy,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  coverMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  coverSelectedLabel: {
+    ...typography.caption,
+    color: colors.premiumGold,
+    fontWeight: "700",
+  },
+  coverSelectedName: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
   warning: {
     ...typography.caption,
-    color: colors.premiumGold
+    color: colors.premiumGold,
   },
-
-  /* File Section */
   fileSection: {
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   fileListHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
   },
   fileListTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700"
+    fontWeight: "700",
   },
   addMore: {
     ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "700"
+    fontWeight: "700",
   },
-
-  /* File Row */
   list: {
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   fileRow: {
     borderRadius: radius.md,
     backgroundColor: colors.surfaceNavy,
     padding: spacing.md,
     flexDirection: "row",
-    alignItems: "center"
+    alignItems: "center",
   },
   fileIcon: {
-    marginRight: spacing.md
+    marginRight: spacing.md,
   },
   fileMeta: {
     flex: 1,
-    gap: 2
+    gap: 2,
   },
   fileName: {
     ...typography.body,
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   fileSize: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
   },
   removeBtn: {
     width: 28,
@@ -233,6 +326,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: spacing.sm
-  }
+    marginLeft: spacing.sm,
+  },
 });

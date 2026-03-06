@@ -1,13 +1,13 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { useUserStore, useAuthStore } from "@/state/stores";
+import { useAuthStore, useDownloadsStore, useLearningToolsStore, useUserStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { formatDuration } from "@/utils";
+import { formatDuration, formatTimer } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -22,27 +22,12 @@ function MenuItem({ icon, label, onPress, danger = false }: MenuItemProps) {
   return (
     <Pressable style={styles.menuItem} onPress={onPress}>
       <View style={styles.menuLeft}>
-        <Ionicons
-          name={icon}
-          size={20}
-          color={danger ? colors.danger : colors.textSecondary}
-        />
-        <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>
-          {label}
-        </Text>
+        <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.textSecondary} />
+        <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>{label}</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
     </Pressable>
   );
-}
-
-function formatHours(totalSeconds: number): string {
-  const hours = totalSeconds / 3600;
-  if (hours >= 1) {
-    return `${hours.toFixed(1).replace(/\.0$/, "")}s`;
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  return `${minutes}dk`;
 }
 
 export function ProfileScreen() {
@@ -50,41 +35,44 @@ export function ProfileScreen() {
   const user = useUserStore((state) => state.user);
   const usageLoading = useUserStore((state) => state.usageLoading);
   const usageError = useUserStore((state) => state.usageError);
-  const addExtraPackage = useUserStore((state) => state.addExtraPackage);
+  const syncUsage = useUserStore((state) => state.syncUsage);
   const signOut = useAuthStore((state) => state.signOut);
   const authUser = useAuthStore((state) => state.user);
-  const syncUsage = useUserStore((state) => state.syncUsage);
+  const downloads = useDownloadsStore((state) => state.downloads);
+  const dailyGoalMin = useLearningToolsStore((state) => state.dailyGoalMin);
+  const todayListenedSec = useLearningToolsStore((state) => state.todayListenedSec);
+  const studyPlan = useLearningToolsStore((state) => state.studyPlan);
+  const stopwatchSec = useLearningToolsStore((state) => state.stopwatchSec);
+  const resetTodayIfNeeded = useLearningToolsStore((state) => state.resetTodayIfNeeded);
 
   useFocusEffect(
     useCallback(() => {
+      resetTodayIfNeeded();
       void syncUsage();
-    }, [syncUsage])
+    }, [resetTodayIfNeeded, syncUsage])
   );
 
   const used = user.monthlyUsedSec;
   const quota = user.monthlyListenQuotaSec;
   const remaining = Math.max(0, quota - used);
   const usageProgress = quota > 0 ? (used / quota) * 100 : 0;
-
-  const usedHours = (used / 3600).toFixed(1).replace(/\.0$/, "");
-  const quotaHours = (quota / 3600).toFixed(0);
-  const remainingHours = Math.floor(remaining / 3600);
-  const remainingMinutes = Math.floor((remaining % 3600) / 60);
+  const dailyGoalSec = dailyGoalMin * 60;
+  const dailyProgress = Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100));
+  const displayName = useMemo(
+    () => authUser?.user_metadata?.display_name || user.name,
+    [authUser?.user_metadata?.display_name, user.name]
+  );
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      {/* Header */}
       <Text style={styles.title}>Profil</Text>
 
-      {/* Avatar + Name + Badge */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarCircle}>
           <Ionicons name="person-outline" size={36} color={colors.textPrimary} />
         </View>
 
-        <Text style={styles.userName}>
-          {authUser?.user_metadata?.display_name || user.name}
-        </Text>
+        <Text style={styles.userName}>{displayName}</Text>
 
         <View style={styles.badgeRow}>
           <Ionicons
@@ -92,80 +80,65 @@ export function ProfileScreen() {
             size={16}
             color={user.isPremium ? colors.premiumGold : colors.textSecondary}
           />
-          <Text
-            style={[
-              styles.badgeText,
-              { color: user.isPremium ? colors.premiumGold : colors.textSecondary }
-            ]}
-          >
-            {user.isPremium ? "Premium Üye" : "Demo"}
+          <Text style={[styles.badgeText, { color: user.isPremium ? colors.premiumGold : colors.textSecondary }]}>
+            {user.isPremium ? "Premium Üye" : "Standart"}
           </Text>
         </View>
       </View>
 
-      {/* Stat Cards */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.motivationOrange }]}>
-            {formatHours(used)}
-          </Text>
-          <Text style={styles.statLabel}>Dinleme</Text>
+          <Text style={[styles.statValue, { color: colors.motivationOrange }]}>{formatDuration(used)}</Text>
+          <Text style={styles.statLabel}>Bu ay dinlenen</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.textPrimary }]}>12</Text>
-          <Text style={styles.statLabel}>Ders</Text>
+          <Text style={[styles.statValue, { color: colors.success }]}>{downloads.length}</Text>
+          <Text style={styles.statLabel}>İndirilen podcast</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.success }]}>
-            {formatHours(remaining)}
-          </Text>
-          <Text style={styles.statLabel}>Kalan</Text>
+          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{dailyGoalMin} dk</Text>
+          <Text style={styles.statLabel}>Günlük hedef</Text>
         </View>
       </View>
 
-      {/* Monthly Usage */}
       <View style={styles.usageCard}>
         <View style={styles.usageHeader}>
-          <Text style={styles.usageSectionTitle}>Aylık Kullanım</Text>
+          <Text style={styles.usageSectionTitle}>Aylık kullanım</Text>
           <Text style={styles.usageValue}>
-            {usedHours}s / {quotaHours}s
+            {formatDuration(used)} / {formatDuration(quota)}
           </Text>
         </View>
         <ProgressBar progress={usageProgress} />
-        <Text style={styles.usageSubtitle}>
-          Bu ay {remainingHours} saat {remainingMinutes} dakika dinleme hakkınız kaldı
-        </Text>
-        {usageLoading ? (
-          <Text style={styles.info}>Güncelleniyor...</Text>
-        ) : null}
+        <Text style={styles.usageSubtitle}>Kalan dinleme hakkın: {formatDuration(remaining)}</Text>
+        {usageLoading ? <Text style={styles.info}>Kullanım bilgisi güncelleniyor...</Text> : null}
         {usageError ? <Text style={styles.error}>{usageError}</Text> : null}
       </View>
 
-      {/* Menu Items */}
+      <Pressable style={styles.toolsCard} onPress={() => navigation.navigate("StudyTools")}>
+        <View style={styles.toolsHeader}>
+          <Text style={styles.toolsTitle}>Çalışma araçları</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </View>
+        <Text style={styles.toolsMeta}>
+          Günlük hedef: {formatDuration(todayListenedSec)} / {dailyGoalMin} dk
+        </Text>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${dailyProgress}%` as const }]} />
+        </View>
+        <Text style={styles.toolsSubline}>Kronometre: {formatTimer(stopwatchSec)}</Text>
+        <Text style={styles.planPreview} numberOfLines={2}>
+          {studyPlan}
+        </Text>
+      </Pressable>
+
       <View style={styles.menuSection}>
-        <MenuItem
-          icon="settings-outline"
-          label="Hesap Ayarları"
-          onPress={() => {}}
-        />
-        <MenuItem
-          icon="download-outline"
-          label="İndirilenler"
-          onPress={() => {}}
-        />
-        <MenuItem
-          icon="card-outline"
-          label="Abonelik Yönetimi"
-          onPress={() => navigation.navigate("Premium")}
-        />
-        <MenuItem
-          icon="help-circle-outline"
-          label="Yardım & Destek"
-          onPress={() => {}}
-        />
+        <MenuItem icon="settings-outline" label="Hesap Ayarları" onPress={() => navigation.navigate("AccountSettings")} />
+        <MenuItem icon="download-outline" label="İndirilenler" onPress={() => navigation.navigate("Downloads")} />
+        <MenuItem icon="timer-outline" label="Çalışma Araçları" onPress={() => navigation.navigate("StudyTools")} />
+        <MenuItem icon="card-outline" label="Abonelik Yönetimi" onPress={() => navigation.navigate("Premium")} />
+        <MenuItem icon="help-circle-outline" label="Yardım & Destek" onPress={() => navigation.navigate("Support")} />
       </View>
 
-      {/* Auth info */}
       {authUser?.email ? (
         <View style={styles.emailRow}>
           <Ionicons name="mail-outline" size={16} color={colors.textSecondary} />
@@ -173,13 +146,7 @@ export function ProfileScreen() {
         </View>
       ) : null}
 
-      {/* Logout */}
-      <MenuItem
-        icon="log-out-outline"
-        label="Cikis Yap"
-        onPress={signOut}
-        danger
-      />
+      <MenuItem icon="log-out-outline" label="Çıkış Yap" onPress={signOut} danger />
     </ScreenContainer>
   );
 }
@@ -189,18 +156,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
-    gap: spacing.lg
+    gap: spacing.lg,
   },
   title: {
     ...typography.title,
     color: colors.textPrimary,
-    textAlign: "center"
+    textAlign: "center",
   },
-
-  /* Profile Header */
   profileHeader: {
     alignItems: "center",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   avatarCircle: {
     width: 80,
@@ -208,83 +173,120 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   userName: {
     ...typography.h2,
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   badgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs
+    gap: spacing.xs,
   },
   badgeText: {
     ...typography.caption,
-    fontWeight: "600"
+    fontWeight: "600",
   },
-
-  /* Stat Cards */
   statsRow: {
     flexDirection: "row",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   statCard: {
     flex: 1,
     backgroundColor: colors.surfaceNavy,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     alignItems: "center",
-    gap: spacing.xs
+    gap: spacing.xs,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: "700",
-    lineHeight: 26
+    textAlign: "center",
   },
   statLabel: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    textAlign: "center",
   },
-
-  /* Usage Card */
   usageCard: {
     backgroundColor: colors.surfaceNavy,
     borderRadius: radius.md,
     padding: spacing.lg,
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   usageHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
+    gap: spacing.md,
   },
   usageSectionTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700"
+    fontWeight: "700",
   },
   usageValue: {
     ...typography.body,
     color: colors.motivationOrange,
-    fontWeight: "700"
+    fontWeight: "700",
   },
   usageSubtitle: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
   },
   info: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
   },
   error: {
     ...typography.caption,
-    color: colors.danger
+    color: colors.danger,
   },
-
-  /* Menu */
+  toolsCard: {
+    backgroundColor: colors.surfaceNavy,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  toolsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  toolsTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  toolsMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.motivationOrange,
+  },
+  toolsSubline: {
+    ...typography.caption,
+    color: colors.premiumGold,
+    fontWeight: "700",
+  },
+  planPreview: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
   menuSection: {
-    gap: 1
+    gap: spacing.xs,
   },
   menuItem: {
     flexDirection: "row",
@@ -294,29 +296,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: 14,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm
   },
   menuLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md
+    gap: spacing.md,
   },
   menuLabel: {
     ...typography.body,
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   dangerLabel: {
-    color: colors.danger
+    color: colors.danger,
   },
   emailRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    paddingVertical: spacing.sm
+    paddingVertical: spacing.sm,
   },
   emailText: {
     ...typography.caption,
-    color: colors.textSecondary
-  }
+    color: colors.textSecondary,
+  },
 });

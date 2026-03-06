@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     storage_backend: str = "local"  # local | r2
     local_upload_dir: str = "data/uploads"
     public_upload_base_url: str = "http://localhost:8000/static/uploads"
-    upload_allowed_extensions: str = "pdf"
+    upload_allowed_extensions: str = "pdf,png,jpg,jpeg,webp,txt"
     upload_max_files: int = 5
     upload_max_file_size_mb: int = 25
     upload_validate_pdf_signature: bool = True

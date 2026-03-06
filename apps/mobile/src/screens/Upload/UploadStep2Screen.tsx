@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { PrimaryButton, ScreenContainer, WizardProgress } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useUploadWizardStore } from "@/state/stores";
 import { PodcastFormat } from "@/domain/models";
+import { buildApiUrl } from "@/services/api";
 import { colors, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -19,39 +22,39 @@ interface VoiceOption {
 const voiceOptions: VoiceOption[] = [
   {
     key: "Elif",
-    label: "Elif - Öğretici",
-    subtitle: "Sıcak, samimi ve anlaşılır bir kadın sesi"
+    label: "Elif · Öğretici",
+    subtitle: "Sıcak, samimi ve anlaşılır bir kadın sesi",
   },
   {
     key: "Ahmet",
-    label: "Ahmet - Profesyonel",
-    subtitle: "Güvenilir, net ve akademik bir erkek sesi"
+    label: "Ahmet · Profesyonel",
+    subtitle: "Güvenilir, net ve akademik bir erkek sesi",
   },
   {
     key: "Zeynep",
-    label: "Zeynep - Enerjik",
-    subtitle: "Canlı, dinamik ve motive eden bir kadın sesi"
+    label: "Zeynep · Enerjik",
+    subtitle: "Canlı, motive eden ve tempolu bir anlatım",
   },
   {
     key: "Diyalog",
-    label: "Diyalog - Elif & Ahmet",
-    subtitle: "İki kişi arasında soru-cevap formatı"
+    label: "Diyalog · Elif & Ahmet",
+    subtitle: "İki kişi arasında soru-cevap akışı",
   },
   {
     key: "Emel Neural",
-    label: "Emel Neural - Gerçekçi",
-    subtitle: "Neural Türkçe model, doğal vurgu ve akıcı anlatım"
+    label: "Emel Neural · Gerçekçi",
+    subtitle: "Daha doğal vurgu ve akıcı anlatım",
   },
   {
     key: "Ahmet Neural",
-    label: "Ahmet Neural - Derin Ton",
-    subtitle: "Neural Türkçe model, daha tok ve net erkek sesi"
+    label: "Ahmet Neural · Derin Ton",
+    subtitle: "Daha tok ve net erkek sesi",
   },
   {
     key: "Diyalog Neural",
-    label: "Diyalog Neural - Emel & Ahmet",
-    subtitle: "Neural kadın/erkek ikili diyalog akışı"
-  }
+    label: "Diyalog Neural · Emel & Ahmet",
+    subtitle: "Neural kadın/erkek ikili diyalog akışı",
+  },
 ];
 
 interface FormatOption {
@@ -63,7 +66,7 @@ interface FormatOption {
 const formatOptions: FormatOption[] = [
   { key: "narrative", label: "Anlatım", icon: "book-outline" },
   { key: "summary", label: "Özet", icon: "list-outline" },
-  { key: "qa", label: "Soru-Cevap", icon: "help-circle-outline" }
+  { key: "qa", label: "Soru-Cevap", icon: "help-circle-outline" },
 ];
 
 export function UploadStep2Screen() {
@@ -73,16 +76,43 @@ export function UploadStep2Screen() {
   const setVoice = useUploadWizardStore((state) => state.setVoice);
   const setFormat = useUploadWizardStore((state) => state.setFormat);
 
+  const previewPlayer = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true });
+  const previewStatus = useAudioPlayerStatus(previewPlayer);
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const handlePreview = (voiceKey: string) => {
+    setPreviewError(null);
+
+    if (previewingVoice === voiceKey && previewStatus.playing) {
+      previewPlayer.pause();
+      setPreviewingVoice(null);
+      return;
+    }
+
+    try {
+      previewPlayer.replace(buildApiUrl(`/voices/${encodeURIComponent(voiceKey)}/preview`));
+      previewPlayer.play();
+      setPreviewingVoice(voiceKey);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : "Ses örneği başlatılamadı.");
+    }
+  };
+
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      <Text style={styles.title}>Ses & Format Seçimi</Text>
+      <Text style={styles.title}>Ses ve Format Seçimi</Text>
       <WizardProgress label="Ses ve Format" step={2} totalSteps={3} />
 
-      {/* Voice Selection */}
-      <Text style={styles.sectionTitle}>Seslendirici Seçin</Text>
+      <Text style={styles.sectionTitle}>Seslendirici seçin</Text>
+      <Text style={styles.sectionDescription}>
+        Her sesin kısa örneğini dinleyerek sana en uygun anlatımı seçebilirsin.
+      </Text>
+
       <View style={styles.voiceGroup}>
         {voiceOptions.map((option) => {
           const isSelected = voice === option.key;
+          const isPreviewing = previewingVoice === option.key && previewStatus.playing;
           return (
             <Pressable
               key={option.key}
@@ -90,12 +120,7 @@ export function UploadStep2Screen() {
               onPress={() => setVoice(option.key)}
             >
               <View style={styles.voiceLeft}>
-                <View
-                  style={[
-                    styles.voiceIconWrap,
-                    isSelected && styles.voiceIconWrapSelected
-                  ]}
-                >
+                <View style={[styles.voiceIconWrap, isSelected && styles.voiceIconWrapSelected]}>
                   <Ionicons
                     name="mic"
                     size={20}
@@ -107,11 +132,15 @@ export function UploadStep2Screen() {
                   <Text style={styles.voiceSubtitle}>{option.subtitle}</Text>
                 </View>
               </View>
-              <Pressable hitSlop={8}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => handlePreview(option.key)}
+                style={styles.previewButton}
+              >
                 <Ionicons
-                  name="play-circle-outline"
-                  size={28}
-                  color={isSelected ? colors.motivationOrange : colors.textSecondary}
+                  name={isPreviewing ? "pause-circle" : "play-circle-outline"}
+                  size={30}
+                  color={isSelected || isPreviewing ? colors.motivationOrange : colors.textSecondary}
                 />
               </Pressable>
             </Pressable>
@@ -119,8 +148,9 @@ export function UploadStep2Screen() {
         })}
       </View>
 
-      {/* Format Selection */}
-      <Text style={styles.sectionTitle}>İçerik Formatı</Text>
+      {previewError ? <Text style={styles.warning}>{previewError}</Text> : null}
+
+      <Text style={styles.sectionTitle}>İçerik formatı</Text>
       <View style={styles.formatRow}>
         {formatOptions.map((item) => {
           const isSelected = format === item.key;
@@ -135,21 +165,14 @@ export function UploadStep2Screen() {
                 size={24}
                 color={isSelected ? colors.textPrimary : colors.textSecondary}
               />
-              <Text
-                style={[
-                  styles.formatLabel,
-                  isSelected && styles.formatLabelSelected
-                ]}
-              >
-                {item.label}
-              </Text>
+              <Text style={[styles.formatLabel, isSelected && styles.formatLabelSelected]}>{item.label}</Text>
             </Pressable>
           );
         })}
       </View>
 
       <PrimaryButton
-        label="Devam Et → Önizleme"
+        label="Devam Et → Otomatik Plan"
         disabled={!voice || !format}
         onPress={() => navigation.navigate("UploadStep3")}
       />
@@ -162,21 +185,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
-    gap: spacing.md
+    gap: spacing.md,
   },
   title: {
     ...typography.title,
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   sectionTitle: {
     ...typography.h2,
     color: colors.textPrimary,
-    marginTop: spacing.sm
+    marginTop: spacing.sm,
   },
-
-  /* Voice Options */
+  sectionDescription: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
   voiceGroup: {
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   voiceOption: {
     flexDirection: "row",
@@ -186,17 +211,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: colors.surfaceNavy,
-    padding: spacing.md
+    padding: spacing.md,
   },
   voiceOptionSelected: {
     borderColor: colors.motivationOrange,
-    backgroundColor: "rgba(191,95,62,0.12)"
+    backgroundColor: "rgba(191,95,62,0.12)",
   },
   voiceLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    gap: spacing.md
+    gap: spacing.md,
   },
   voiceIconWrap: {
     width: 40,
@@ -204,29 +229,34 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   voiceIconWrapSelected: {
-    backgroundColor: "rgba(191,95,62,0.2)"
+    backgroundColor: "rgba(191,95,62,0.2)",
   },
   voiceText: {
     flex: 1,
-    gap: 2
+    gap: 2,
   },
   voiceLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "600"
+    fontWeight: "600",
   },
   voiceSubtitle: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
   },
-
-  /* Format Cards */
+  previewButton: {
+    paddingLeft: spacing.sm,
+  },
+  warning: {
+    ...typography.caption,
+    color: colors.premiumGold,
+  },
   formatRow: {
     flexDirection: "row",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   formatCard: {
     flex: 1,
@@ -236,18 +266,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceNavy,
     paddingVertical: spacing.lg,
     alignItems: "center",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   formatCardSelected: {
     borderColor: colors.motivationOrange,
-    backgroundColor: colors.motivationOrange
+    backgroundColor: colors.motivationOrange,
   },
   formatLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "600"
+    fontWeight: "600",
   },
   formatLabelSelected: {
-    color: colors.textPrimary
-  }
+    color: colors.textPrimary,
+  },
 });

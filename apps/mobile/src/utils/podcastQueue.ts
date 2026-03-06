@@ -7,10 +7,13 @@ export function buildPodcastQueue(podcast: Podcast): Track[] {
     subtitle: podcast.title,
     durationSec: part.durationSec,
     sourceType: "ai",
-    audioUrl: part.audioUrl,
+    audioUrl: part.localAudioUrl ?? part.audioUrl,
+    remoteAudioUrl: part.remoteAudioUrl ?? part.audioUrl,
+    localAudioUrl: part.localAudioUrl,
     parentId: podcast.id,
     voice: podcast.voice,
-    partStatus: part.status
+    partStatus: part.status,
+    coverImageUrl: podcast.coverImageUrl
   }));
 }
 

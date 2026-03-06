@@ -35,6 +35,8 @@ export interface ApiPodcast {
   voice: string;
   format: "narrative" | "summary" | "qa";
   total_duration_sec: number;
+  cover_image_url?: string | null;
+  cover_image_source?: string | null;
   parts: ApiPodcastPart[];
   is_favorite?: boolean;
   is_downloaded?: boolean;
@@ -75,6 +77,7 @@ export interface ApiGenerateRequest {
   voice: string;
   format: "narrative" | "summary" | "qa";
   file_ids: string[];
+  cover_file_id?: string;
   sections?: {
     id: string;
     title: string;
@@ -126,4 +129,17 @@ export interface ApiQuizGenerateRequest {
   podcast_id: string;
   part_id?: string;
   question_count?: number;
+}
+
+export interface ApiProfile {
+  id: string;
+  email: string;
+  display_name: string;
+  avatar_url?: string | null;
+  created_at: string;
+}
+
+export interface ApiProfileUpdateRequest {
+  display_name?: string;
+  avatar_url?: string;
 }

@@ -139,9 +139,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           title: part.title,
           subtitle: podcast.title,
           durationSec: part.durationSec,
-          audioUrl: part.audioUrl,
+          audioUrl: part.localAudioUrl ?? part.audioUrl,
+          remoteAudioUrl: part.remoteAudioUrl ?? part.audioUrl,
+          localAudioUrl: part.localAudioUrl,
           partStatus: part.status,
-          voice: podcast.voice
+          voice: podcast.voice,
+          coverImageUrl: podcast.coverImageUrl,
         };
       });
 

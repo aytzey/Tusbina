@@ -56,7 +56,7 @@ def build_part_script(
         dialogue_mode=dialogue_mode,
     )
     if llm_script:
-        return llm_script[:target_limit].strip()
+        return _trim_script_to_boundary(llm_script, target_limit=target_limit)
 
     return _generate_fallback_script(
         source_text=source_text,
@@ -68,6 +68,28 @@ def build_part_script(
         target_limit=target_limit,
         dialogue_mode=dialogue_mode,
     )
+
+
+def _trim_script_to_boundary(script: str, *, target_limit: int) -> str:
+    cleaned = script.strip()
+    if len(cleaned) <= target_limit:
+        return cleaned
+
+    candidate = cleaned[:target_limit].rstrip()
+    for marker in (". ", "! ", "? ", ".\n", "!\n", "?\n", ".\"", "!\"", "?\""):
+        boundary = candidate.rfind(marker)
+        if boundary >= int(target_limit * 0.6):
+            return candidate[: boundary + 1].strip()
+
+    newline_boundary = candidate.rfind("\n")
+    if newline_boundary >= int(target_limit * 0.6):
+        return candidate[:newline_boundary].strip()
+
+    word_boundary = candidate.rfind(" ")
+    if word_boundary > 0:
+        return candidate[:word_boundary].rstrip(",:;-").strip()
+
+    return candidate
 
 
 def build_asset_text_cache(*, assets: list[UploadAssetModel], storage: StorageClient) -> dict[str, str]:

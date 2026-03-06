@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -78,13 +79,13 @@ export function RegisterScreen() {
           <Ionicons name="mail-outline" size={64} color={colors.motivationOrange} />
           <Text style={styles.confirmTitle}>E-postanizi kontrol edin</Text>
           <Text style={styles.confirmText}>
-            {email} adresine bir onay baglantisi gonderdik. Hesabinizi aktif etmek icin e-postadaki baglantiya tiklayin.
+            {email} adresine bir onay bağlantısı gönderdik. Hesabını aktif etmek için e-postadaki bağlantıya tıkla.
           </Text>
           <Pressable
             onPress={() => navigation.navigate("Login")}
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           >
-            <Text style={styles.buttonLabel}>Giris Sayfasina Don</Text>
+            <Text style={styles.buttonLabel}>Giriş Sayfasına Dön</Text>
           </Pressable>
         </View>
       </ScreenContainer>
@@ -99,8 +100,9 @@ export function RegisterScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Kayit Ol</Text>
-          <Text style={styles.subtitle}>Yeni hesap olusturun</Text>
+          <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Kayıt Ol</Text>
+          <Text style={styles.subtitle}>Yeni hesabını oluştur</Text>
         </View>
 
         {/* Social login */}
@@ -130,10 +132,10 @@ export function RegisterScreen() {
         {/* Form */}
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Isim</Text>
+            <Text style={styles.label}>İsim</Text>
             <TextInput
               style={styles.input}
-              placeholder="Adiniz"
+              placeholder="Adınız"
               placeholderTextColor={colors.textSecondary}
               autoCapitalize="words"
               value={displayName}
@@ -158,11 +160,11 @@ export function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Sifre</Text>
+            <Text style={styles.label}>Şifre</Text>
             <View style={styles.passwordRow}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
-                placeholder="En az 6 karakter"
+              placeholder="En az 6 karakter"
                 placeholderTextColor={colors.textSecondary}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
@@ -197,16 +199,16 @@ export function RegisterScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.textPrimary} />
             ) : (
-              <Text style={styles.buttonLabel}>Kayit Ol</Text>
+              <Text style={styles.buttonLabel}>Kayıt Ol</Text>
             )}
           </Pressable>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Zaten hesabiniz var mi?</Text>
+          <Text style={styles.footerText}>Zaten hesabın var mı?</Text>
           <Pressable onPress={() => navigation.navigate("Login")}>
-            <Text style={styles.footerLink}> Giris Yap</Text>
+            <Text style={styles.footerLink}> Giriş Yap</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -218,6 +220,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center" },
   inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.xl },
   header: { alignItems: "center", gap: spacing.sm },
+  logo: { width: 150, height: 100 },
   title: { ...typography.title, color: colors.textPrimary, fontSize: 28 },
   subtitle: { ...typography.body, color: colors.textSecondary },
   socialRow: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },
