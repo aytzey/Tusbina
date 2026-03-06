@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/state/stores/authStore";
+import { supabase } from "@/services/supabase";
 import {
   API_BASE_URL,
   buildApiUrl,
@@ -33,29 +34,33 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const { headers = {}, userId = DEFAULT_USER_ID, isJson = true, body, ...init } = options;
   const candidateBaseUrls = getApiBaseCandidates();
   let lastNetworkMessage = "Network request failed";
-
-  // Build auth headers: prefer Bearer token, fall back to x-user-id
-  const authHeaders: Record<string, string> = {};
   const accessToken = useAuthStore.getState().getAccessToken();
-  if (accessToken) {
-    authHeaders["Authorization"] = `Bearer ${accessToken}`;
-  } else {
-    authHeaders["x-user-id"] = userId;
-  }
 
   for (const baseUrl of candidateBaseUrls) {
     try {
-      const response = await fetch(`${baseUrl}${path}`, {
+      let response = await fetch(`${baseUrl}${path}`, {
         ...init,
-        headers: {
-          ...(isJson ? { "Content-Type": "application/json" } : {}),
-          ...authHeaders,
-          ...headers
-        },
+        headers: buildRequestHeaders({ accessToken, headers, isJson, userId }),
         body
       });
-      const text = await response.text();
-      const payload = text ? safeJsonParse(text) : null;
+
+      if (response.status === 401 && accessToken) {
+        const refreshedToken = await refreshAccessToken(accessToken);
+        if (refreshedToken) {
+          response = await fetch(`${baseUrl}${path}`, {
+            ...init,
+            headers: buildRequestHeaders({
+              accessToken: refreshedToken,
+              headers,
+              isJson,
+              userId,
+            }),
+            body,
+          });
+        }
+      }
+
+      const payload = await readResponsePayload(response);
 
       if (!response.ok) {
         throw new ApiError(response.status, payload);
@@ -85,3 +90,68 @@ function safeJsonParse(raw: string): unknown {
 }
 
 export { API_BASE_URL, buildApiUrl, resolveApiAssetUrl };
+
+function buildRequestHeaders({
+  accessToken,
+  headers,
+  isJson,
+  userId,
+}: {
+  accessToken: string | null;
+  headers: Record<string, string>;
+  isJson: boolean;
+  userId: string;
+}): Record<string, string> {
+  const authHeaders: Record<string, string> = {};
+  if (accessToken) {
+    authHeaders.Authorization = `Bearer ${accessToken}`;
+  } else {
+    authHeaders["x-user-id"] = userId;
+  }
+
+  return {
+    ...(isJson ? { "Content-Type": "application/json" } : {}),
+    ...authHeaders,
+    ...headers,
+  };
+}
+
+async function readResponsePayload(response: Response): Promise<unknown> {
+  const text = await response.text();
+  return text ? safeJsonParse(text) : null;
+}
+
+async function refreshAccessToken(staleToken: string): Promise<string | null> {
+  try {
+    const current = await supabase.auth.getSession();
+    const session = current.data.session;
+    if (session?.access_token && session.access_token !== staleToken) {
+      syncAuthStoreSession(session);
+      return session.access_token;
+    }
+  } catch {
+    // Fall through to an explicit refresh.
+  }
+
+  try {
+    const refreshed = await supabase.auth.refreshSession();
+    const session = refreshed.data.session;
+    if (session?.access_token) {
+      syncAuthStoreSession(session);
+      return session.access_token;
+    }
+  } catch {
+    // Surface the original 401 to the caller.
+  }
+
+  return null;
+}
+
+function syncAuthStoreSession(session: NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>) {
+  useAuthStore.setState({
+    session,
+    user: session.user,
+    isAuthenticated: true,
+    error: null,
+  });
+}

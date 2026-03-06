@@ -30,6 +30,8 @@ const STATUS_POLL_INTERVAL_MS = 1500;
 const PODCAST_POLL_INTERVAL_MS = 2500;
 const STATUS_MAX_POLLS = 320;
 const QUEUED_WARNING_POLLS = 20;
+const PLANNED_PODCAST_FETCH_RETRIES = 6;
+const PLANNED_PODCAST_FETCH_RETRY_MS = 900;
 
 export function UploadingScreen() {
   const navigation = useNavigation<Navigation>();
@@ -151,7 +153,11 @@ export function UploadingScreen() {
             continue;
           }
 
-          const plannedPodcast = await refreshPodcast(status.result_podcast_id);
+          const plannedPodcast = await loadPlannedPodcastWithRetry({
+            cancelled: () => cancelled,
+            podcastId: status.result_podcast_id,
+            refreshPodcast,
+          });
           if (!plannedPodcast) {
             throw new Error("Plan hazırlandı ancak içerik listesi yüklenemedi.");
           }
@@ -359,6 +365,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+async function loadPlannedPodcastWithRetry({
+  cancelled,
+  podcastId,
+  refreshPodcast,
+}: {
+  cancelled: () => boolean;
+  podcastId: string;
+  refreshPodcast: (podcastId: string) => Promise<Podcast | null>;
+}): Promise<Podcast | null> {
+  for (let attempt = 0; attempt < PLANNED_PODCAST_FETCH_RETRIES; attempt += 1) {
+    const plannedPodcast = await refreshPodcast(podcastId);
+    if (plannedPodcast) {
+      return plannedPodcast;
+    }
+    if (cancelled()) {
+      return null;
+    }
+    await sleep(PLANNED_PODCAST_FETCH_RETRY_MS);
+  }
+
+  return null;
 }
 
 function getJobStatusText(
