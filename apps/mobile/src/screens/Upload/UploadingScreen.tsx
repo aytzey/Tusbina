@@ -15,14 +15,13 @@ import {
 } from "@/services/api";
 import { usePlayerStore, usePodcastsStore, useUploadWizardStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-const LOGO = require("../../../assets/logo.png");
-
 import {
   buildPodcastQueue,
   getPodcastPartStatusLabel,
   getPodcastPartSummary,
   resolvePodcastQueueStart,
 } from "@/utils";
+const LOGO = require("../../../assets/logo.png");
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 type UploadPhase = "uploading" | "planning" | "tracking";
@@ -200,7 +199,6 @@ export function UploadingScreen() {
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- planningJobId tracked via ref to avoid cancelling the polling loop
   }, [
     canStart,
     files,
