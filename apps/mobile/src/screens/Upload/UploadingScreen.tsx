@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { PrimaryButton, ProgressBar, ScreenContainer } from "@/components";
@@ -15,6 +15,8 @@ import {
 } from "@/services/api";
 import { usePlayerStore, usePodcastsStore, useUploadWizardStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
+const LOGO = require("../../../assets/logo.png");
+
 import {
   buildPodcastQueue,
   getPodcastPartStatusLabel,
@@ -50,6 +52,7 @@ export function UploadingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [planningJobId, setPlanningJobId] = useState<string | null>(null);
+  const planningJobIdRef = useRef<string | null>(null);
   const seededPriorityPodcastId = useRef<string | null>(null);
 
   const uploadItems = useMemo(
@@ -77,7 +80,7 @@ export function UploadingScreen() {
   );
 
   useEffect(() => {
-    if (podcast || planningJobId) {
+    if (podcast || planningJobIdRef.current) {
       return;
     }
     if (!canStart || voice === null || format === null) {
@@ -122,6 +125,7 @@ export function UploadingScreen() {
           cover_file_id: coverFileId ?? undefined,
           sections: []
         });
+        planningJobIdRef.current = job.job_id;
         setPlanningJobId(job.job_id);
 
         let attempts = 0;
@@ -196,13 +200,13 @@ export function UploadingScreen() {
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- planningJobId tracked via ref to avoid cancelling the polling loop
   }, [
     canStart,
     files,
     format,
     navigation,
     podcastName,
-    planningJobId,
     podcast,
     refreshPodcast,
     replacePodcast,
@@ -273,6 +277,7 @@ export function UploadingScreen() {
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
+      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>{podcast ? "Planın hazır" : "İçeriğin hazırlanıyor..."}</Text>
       <Text style={styles.subtitle}>{error ?? statusText}</Text>
       {phase === "tracking" ? (
@@ -422,6 +427,11 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.lg,
     gap: spacing.md
+  },
+  logo: {
+    width: 240,
+    height: 240,
+    alignSelf: "center"
   },
   title: {
     ...typography.title,
