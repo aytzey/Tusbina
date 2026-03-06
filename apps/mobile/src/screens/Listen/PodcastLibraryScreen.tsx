@@ -8,7 +8,7 @@ import { RootStackParamList } from "@/navigation/types";
 import { patchPodcastState } from "@/services/api";
 import { usePlayerStore, usePodcastsStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { formatDuration } from "@/utils";
+import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart } from "@/utils";
 import { EmptyLibraryScreen } from "@/screens/States/EmptyLibraryScreen";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -150,46 +150,13 @@ export function PodcastLibraryScreen() {
               <Pressable
                 style={styles.card}
                 onPress={() => {
-                  const playableParts = item.parts.filter(
-                    (part): part is typeof part & { audioUrl: string } => part.status === "ready" && Boolean(part.audioUrl)
-                  );
-
-                  if (playableParts.length === 0) {
+                  if (item.parts.length === 0) {
                     return;
                   }
 
-                  const queue = playableParts.map((part) => ({
-                    id: part.id,
-                    title: part.title,
-                    subtitle: item.title,
-                    durationSec: part.durationSec,
-                    sourceType: "ai" as const,
-                    audioUrl: part.audioUrl,
-                    parentId: item.id,
-                    voice: item.voice
-                  }));
-
-                  const absoluteProgress = Math.max(item.progressSec ?? 0, 0);
-                  let remaining = absoluteProgress;
-                  let startIndex = 0;
-                  let startPosition = 0;
-
-                  for (let idx = 0; idx < playableParts.length; idx += 1) {
-                    const part = playableParts[idx];
-                    if (remaining < part.durationSec) {
-                      startIndex = idx;
-                      startPosition = remaining;
-                      break;
-                    }
-
-                    remaining -= part.durationSec;
-                    if (idx === playableParts.length - 1) {
-                      startIndex = idx;
-                      startPosition = Math.min(part.durationSec, remaining);
-                    }
-                  }
-
-                  setQueue(queue, startIndex, startPosition);
+                  const queue = buildPodcastQueue(item);
+                  const { startIndex, startPositionSec } = resolvePodcastQueueStart(item);
+                  setQueue(queue, startIndex, startPositionSec);
                   navigation.navigate("Player", { trackId: queue[startIndex].id, sourceType: "ai" });
                 }}
               >

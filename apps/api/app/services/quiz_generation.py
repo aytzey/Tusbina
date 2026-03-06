@@ -215,10 +215,13 @@ def _collect_source_text(
 
 
 def _get_ordered_podcast_parts(db: Session, *, podcast_id: str) -> list[PodcastPartModel]:
-    rows = db.execute(
-        select(PodcastPartModel).where(PodcastPartModel.podcast_id == podcast_id)
-    ).scalars().all()
-    return sorted(rows, key=lambda part: _part_sort_key(part.id, part.title))
+    return list(
+        db.execute(
+            select(PodcastPartModel)
+            .where(PodcastPartModel.podcast_id == podcast_id)
+            .order_by(PodcastPartModel.sort_order.asc(), PodcastPartModel.id.asc())
+        ).scalars().all()
+    )
 
 
 def _build_part_prefix(*, parts: list[PodcastPartModel], target_part: PodcastPartModel | None) -> str:
@@ -235,20 +238,6 @@ def _resolve_part_position(*, parts: list[PodcastPartModel], target_part_id: str
         if part.id == target_part_id:
             return idx
     return 1
-
-
-def _part_sort_key(part_id: str, part_title: str) -> tuple[int, str]:
-    id_match = re.search(r"-part-(\d+)$", part_id or "")
-    if id_match:
-        return (int(id_match.group(1)), part_id)
-
-    title_match = re.search(r"\b(\d+)\b", part_title or "")
-    if title_match:
-        return (int(title_match.group(1)), part_id)
-
-    return (10**9, part_id)
-
-
 def _slice_text_for_part(text: str, *, index: int, total: int) -> str:
     compact = re.sub(r"\s+", " ", text).strip()
     if not compact:

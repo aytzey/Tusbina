@@ -24,7 +24,7 @@ export interface ApiPodcastPart {
   title: string;
   duration_sec: number;
   page_range: string;
-  status: "ready" | "queued" | "failed";
+  status: "ready" | "queued" | "processing" | "failed";
   audio_url?: string | null;
 }
 
@@ -79,6 +79,7 @@ export interface ApiGenerateRequest {
     id: string;
     title: string;
     enabled: boolean;
+    source_file_id?: string;
   }[];
 }
 
@@ -93,6 +94,10 @@ export interface ApiGenerateStatus {
   progress_pct: number;
   result_podcast_id?: string | null;
   error?: string | null;
+}
+
+export interface ApiPodcastPartOrderPayload {
+  part_ids: string[];
 }
 
 export interface ApiDeletePodcastResponse {

@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     script_auto_chars_per_part_qa: int = 2600
     generation_target_max_parts: int = 120
     generation_max_parts: int = 500
+    generation_priority_window: int = 3
     tts_provider: str = "hybrid"  # hybrid | piper | edge | dummy
     tts_fallback_to_dummy: bool = False
     tts_max_chars_per_part: int = 5200
@@ -87,13 +88,16 @@ class Settings(BaseSettings):
     piper_speed_multiplier: float = 1.15
     piper_voice_arda_length_scale: float = 1.08
     piper_voice_selin_length_scale: float = 1.16
-    piper_voice_pitch_semitones_elif: float = 0.8
-    piper_voice_pitch_semitones_ahmet: float = -3.2
-    piper_voice_pitch_semitones_zeynep: float = 3.5
+    piper_voice_pitch_semitones_elif: float = 0.0
+    piper_voice_pitch_semitones_ahmet: float = 0.0
+    piper_voice_pitch_semitones_zeynep: float = 0.0
+    piper_enable_postprocess_pitch_shift: bool = False
     piper_synthesize_timeout_sec: int = 180
     piper_synthesize_retries: int = 2
     piper_synthesize_retry_backoff_sec: float = 0.6
     piper_dialogue_parallel_workers: int = 2
+    piper_dialogue_gap_ms: int = 45
+    piper_dialogue_edge_fade_ms: int = 18
     piper_prewarm_voices: str = "Elif,Ahmet,Zeynep"
     piper_model_path_elif: str = ""
     piper_model_config_path_elif: str = ""

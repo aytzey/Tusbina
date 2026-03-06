@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { Ionicons } from "@expo/vector-icons";
 import { FeedbackModal, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { patchCoursePartPosition as patchCoursePartPositionApi, patchPodcastState, submitFeedback } from "@/services/api";
-import { useCoursesStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
+import { prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
+import { usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { formatDuration, formatTimer } from "@/utils";
+import { formatDuration, formatTimer, getPodcastPartStatusLabel } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+const DraggablePressable = Pressable as unknown as any;
 
 export function PlayerScreen() {
   const navigation = useNavigation<Navigation>();
@@ -19,177 +19,74 @@ export function PlayerScreen() {
   const isPlaying = usePlayerStore((state) => state.isPlaying);
   const positionSec = usePlayerStore((state) => state.positionSec);
   const rate = usePlayerStore((state) => state.rate);
+  const playbackDurationSec = usePlayerStore((state) => state.playbackDurationSec);
+  const isPlaybackBuffering = usePlayerStore((state) => state.isBuffering);
+  const isPlaybackLoaded = usePlayerStore((state) => state.isLoaded);
   const play = usePlayerStore((state) => state.play);
   const pause = usePlayerStore((state) => state.pause);
   const playPrevious = usePlayerStore((state) => state.playPrevious);
   const playNext = usePlayerStore((state) => state.playNext);
+  const selectQueueIndex = usePlayerStore((state) => state.selectQueueIndex);
+  const syncPodcastQueue = usePlayerStore((state) => state.syncPodcastQueue);
   const seekTo = usePlayerStore((state) => state.seekTo);
-  const setPosition = usePlayerStore((state) => state.setPosition);
   const cycleRate = usePlayerStore((state) => state.cycleRate);
   const addBookmarkAtCurrent = usePlayerStore((state) => state.addBookmarkAtCurrent);
   const removeBookmark = usePlayerStore((state) => state.removeBookmark);
   const bookmarksByTrack = usePlayerStore((state) => state.bookmarksByTrack);
   const queue = usePlayerStore((state) => state.queue);
   const queueIndex = usePlayerStore((state) => state.queueIndex);
-
-  const patchPodcastLocalState = usePodcastsStore((state) => state.patchPodcastLocalState);
+  const podcasts = usePodcastsStore((state) => state.podcasts);
   const replacePodcast = usePodcastsStore((state) => state.replacePodcast);
-  const patchCoursePartPositionLocal = useCoursesStore((state) => state.patchCoursePartPosition);
-  const replaceCourse = useCoursesStore((state) => state.replaceCourse);
 
   const canPlay = useUserStore((state) => state.canPlay);
   const openLimitModal = useUserStore((state) => state.openLimitModal);
-  const flushUsageConsumption = useUserStore((state) => state.flushUsageConsumption);
 
   const hasPrevious = queueIndex > 0;
   const hasNext = queueIndex < queue.length - 1;
   const bookmarks = track ? bookmarksByTrack[track.id] ?? [] : [];
   const [modalVisible, setModalVisible] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
-  const beforeSec = queue.slice(0, queueIndex).reduce((sum, item) => sum + item.durationSec, 0);
-  const totalProgressSec = Math.floor(beforeSec + positionSec);
-  const remoteAudioSource = track?.audioUrl ?? null;
+  const [draggedPartId, setDraggedPartId] = useState<string | null>(null);
   const hasRemoteAudio = Boolean(track?.audioUrl);
-  const audioPlayer = useAudioPlayer(remoteAudioSource, {
-    updateInterval: 200
-  });
-  const audioStatus = useAudioPlayerStatus(audioPlayer);
-  const isBuffering = hasRemoteAudio && audioStatus.isBuffering;
-  const isAudioLoading = hasRemoteAudio && !audioStatus.isLoaded;
-
-  const persistCurrentProgress = useCallback(async () => {
-    if (!track) {
-      return;
-    }
-
-    const currentSec = Math.floor(positionSec);
-    if (track.sourceType === "course" && track.parentId) {
-      patchCoursePartPositionLocal(track.parentId, track.id, currentSec);
-      try {
-        const updatedCourse = await patchCoursePartPositionApi(track.parentId, track.id, currentSec);
-        replaceCourse(updatedCourse);
-      } catch {
-        // Keep local position if API sync fails; next load will reconcile.
-      }
-      return;
-    }
-
-    if (track.sourceType === "ai" && track.parentId) {
-      patchPodcastLocalState(track.parentId, { progressSec: totalProgressSec });
-
-      try {
-        const updated = await patchPodcastState(track.parentId, { progress_sec: totalProgressSec });
-        replacePodcast(updated);
-      } catch {
-        // Keep local progress if API sync fails; next refresh will reconcile.
-      }
-    }
-  }, [patchCoursePartPositionLocal, patchPodcastLocalState, positionSec, replaceCourse, replacePodcast, totalProgressSec, track]);
-
-  const wasPlayingRef = useRef(false);
-  useEffect(() => {
-    if (wasPlayingRef.current && !isPlaying) {
-      void persistCurrentProgress();
-      void flushUsageConsumption();
-    }
-    wasPlayingRef.current = isPlaying;
-  }, [flushUsageConsumption, isPlaying, persistCurrentProgress]);
+  const isBuffering = hasRemoteAudio && isPlaybackBuffering;
+  const isAudioLoading = hasRemoteAudio && !isPlaybackLoaded;
+  const prioritizeMarkerRef = useRef<string | null>(null);
+  const currentPodcast = useMemo(
+    () =>
+      track?.sourceType === "ai" && track.parentId
+        ? podcasts.find((item) => item.id === track.parentId) ?? null
+        : null,
+    [podcasts, track?.parentId, track?.sourceType]
+  );
+  const canReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
 
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      allowsRecording: false,
-      interruptionMode: "duckOthers",
-      shouldPlayInBackground: true,
-      shouldRouteThroughEarpiece: false
-    });
-  }, []);
+    if (!currentPodcast) {
+      return;
+    }
+    syncPodcastQueue(currentPodcast);
+  }, [currentPodcast, syncPodcastQueue]);
 
   useEffect(() => {
-    if (!hasRemoteAudio) {
+    if (!track || track.sourceType !== "ai" || !track.parentId || track.partStatus === "ready") {
       return;
     }
 
-    audioPlayer.setPlaybackRate(rate);
-  }, [audioPlayer, hasRemoteAudio, rate]);
-
-  useEffect(() => {
-    if (!hasRemoteAudio) {
+    const marker = `${track.parentId}:${track.id}:${track.partStatus}`;
+    if (prioritizeMarkerRef.current === marker) {
       return;
     }
+    prioritizeMarkerRef.current = marker;
 
-    if (isPlaying) {
-      audioPlayer.play();
-      return;
-    }
-    audioPlayer.pause();
-  }, [audioPlayer, hasRemoteAudio, isPlaying]);
-
-  useEffect(() => {
-    if (!hasRemoteAudio || !audioStatus.isLoaded || !Number.isFinite(audioStatus.currentTime)) {
-      return;
-    }
-    setPosition(audioStatus.currentTime);
-  }, [audioStatus.currentTime, audioStatus.isLoaded, hasRemoteAudio, setPosition]);
-
-  const initialSeekTrackRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!track || !hasRemoteAudio || !audioStatus.isLoaded) {
-      return;
-    }
-    if (initialSeekTrackRef.current === track.id) {
-      return;
-    }
-
-    initialSeekTrackRef.current = track.id;
-    if (positionSec > 0.5) {
-      void audioPlayer.seekTo(positionSec);
-    }
-  }, [audioPlayer, audioStatus.isLoaded, hasRemoteAudio, positionSec, track]);
-
-  const autoAdvancedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (hasRemoteAudio || !track || !hasNext || positionSec < track.durationSec) {
-      autoAdvancedRef.current = null;
-      return;
-    }
-
-    const marker = `${track.id}:${Math.floor(positionSec)}`;
-    if (autoAdvancedRef.current === marker) {
-      return;
-    }
-    autoAdvancedRef.current = marker;
-
-    void persistCurrentProgress();
-    playNext();
-    play();
-  }, [hasNext, hasRemoteAudio, persistCurrentProgress, play, playNext, positionSec, track]);
-
-  const audioFinishedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!track || !hasRemoteAudio) {
-      audioFinishedRef.current = null;
-      return;
-    }
-
-    if (!audioStatus.didJustFinish) {
-      audioFinishedRef.current = null;
-      return;
-    }
-
-    if (audioFinishedRef.current === track.id) {
-      return;
-    }
-    audioFinishedRef.current = track.id;
-
-    void persistCurrentProgress();
-    if (hasNext) {
-      playNext();
-      play();
-      return;
-    }
-    pause();
-  }, [audioStatus.didJustFinish, hasNext, hasRemoteAudio, pause, persistCurrentProgress, play, playNext, track]);
+    void prioritizePodcastPart(track.parentId, track.id)
+      .then((updatedPodcast) => {
+        replacePodcast(updatedPodcast);
+        syncPodcastQueue(updatedPodcast);
+      })
+      .catch(() => {
+        // Best-effort background prioritization. The queue still updates on polling.
+      });
+  }, [replacePodcast, syncPodcastQueue, track]);
 
   if (!track) {
     return (
@@ -199,13 +96,65 @@ export function PlayerScreen() {
     );
   }
 
-  const actualDuration =
-    hasRemoteAudio && audioStatus.isLoaded && audioStatus.duration > 0
-      ? audioStatus.duration
-      : track.durationSec;
+  const actualDuration = playbackDurationSec > 0 ? playbackDurationSec : track.durationSec;
   const progress = actualDuration > 0 ? (positionSec / actualDuration) * 100 : 0;
+  const currentTrackStatus =
+    track.sourceType === "ai"
+      ? getPodcastPartStatusLabel(track.partStatus, { isActive: true, isPlaying })
+      : null;
+
+  const prioritizeAiPart = async (partId: string, podcastId: string) => {
+    if (!podcastId) {
+      return;
+    }
+
+    try {
+      const updatedPodcast = await prioritizePodcastPart(podcastId, partId);
+      replacePodcast(updatedPodcast);
+      syncPodcastQueue(updatedPodcast);
+      setFeedbackToast("Bölüm öne alındı. Hazır olduğunda hemen dinleyebilirsin.");
+      setTimeout(() => setFeedbackToast(null), 1800);
+    } catch {
+      setFeedbackToast("Bölüm sırası güncellenemedi.");
+      setTimeout(() => setFeedbackToast(null), 1800);
+    }
+  };
+
+  const handleSelectQueueItem = (index: number) => {
+    const selected = queue[index];
+    if (!selected) {
+      return;
+    }
+
+    selectQueueIndex(index, 0);
+    if (selected.sourceType === "ai" && !selected.audioUrl && selected.parentId) {
+      void prioritizeAiPart(selected.id, selected.parentId);
+    }
+  };
+
+  const handleReorderQueue = async (nextIds: string[]) => {
+    if (!currentPodcast) {
+      return;
+    }
+
+    try {
+      const updatedPodcast = await reorderPodcastParts(currentPodcast.id, { part_ids: nextIds });
+      replacePodcast(updatedPodcast);
+      syncPodcastQueue(updatedPodcast);
+    } catch {
+      setFeedbackToast("Bölüm sırası kaydedilemedi.");
+      setTimeout(() => setFeedbackToast(null), 1800);
+    }
+  };
 
   const onTogglePlay = () => {
+    if (!hasRemoteAudio) {
+      if (track.sourceType === "ai" && track.parentId) {
+        void prioritizeAiPart(track.id, track.parentId);
+      }
+      return;
+    }
+
     if (isPlaying) {
       pause();
       return;
@@ -219,22 +168,13 @@ export function PlayerScreen() {
     play();
   };
 
-  const onPrevious = () => {
-    void persistCurrentProgress();
-    playPrevious();
-  };
+  const onPrevious = () => playPrevious();
 
-  const onNext = () => {
-    void persistCurrentProgress();
-    playNext();
-  };
+  const onNext = () => playNext();
 
   const onSeek = (seconds: number) => {
     const bounded = Math.min(Math.max(seconds, 0), actualDuration);
     seekTo(bounded);
-    if (hasRemoteAudio && audioStatus.isLoaded) {
-      void audioPlayer.seekTo(bounded);
-    }
   };
 
   const onToggleBookmark = () => {
@@ -301,8 +241,9 @@ export function PlayerScreen() {
       {track.sourceType === "ai" && track.voice ? (
         <Text style={styles.voiceInfo}>Seslendiren: {track.voice}</Text>
       ) : null}
+      {currentTrackStatus ? <Text style={styles.trackStatus}>{currentTrackStatus}</Text> : null}
       {!track.audioUrl ? (
-        <Text style={styles.mutedInfo}>Ses dosyası henüz hazır değil.</Text>
+        <Text style={styles.mutedInfo}>Bu bölüm hazır değil. Sıraya alındı ve hazır olur olmaz oynatılabilir.</Text>
       ) : isAudioLoading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color={colors.motivationOrange} />
@@ -342,7 +283,11 @@ export function PlayerScreen() {
           <Ionicons name="play-skip-back" size={28} color={colors.textPrimary} />
         </Pressable>
 
-        <Pressable style={styles.playButton} onPress={onTogglePlay} disabled={isAudioLoading}>
+        <Pressable
+          style={[styles.playButton, !hasRemoteAudio && styles.playButtonQueued]}
+          onPress={onTogglePlay}
+          disabled={isAudioLoading}
+        >
           {isBuffering && isPlaying ? (
             <ActivityIndicator size={28} color={colors.textPrimary} />
           ) : (
@@ -426,25 +371,45 @@ export function PlayerScreen() {
           {queue.map((item, index) => {
             const isActive = index === queueIndex;
             const isCompleted = index < queueIndex;
+            const statusLabel =
+              item.sourceType === "ai"
+                ? getPodcastPartStatusLabel(item.partStatus, { isActive, isPlaying: isActive && isPlaying })
+                : isCompleted
+                  ? "Dinlendi"
+                  : "Hazır";
+            const canMoveUp = currentPodcast !== null && index > 0;
+            const canMoveDown = currentPodcast !== null && index < queue.length - 1;
+            const nextIdsUp =
+              canMoveUp ? moveItem(queue.map((queueItem) => queueItem.id), index, index - 1) : null;
+            const nextIdsDown =
+              canMoveDown ? moveItem(queue.map((queueItem) => queueItem.id), index, index + 1) : null;
+            const queueItemProps =
+              canReorderQueue && item.sourceType === "ai"
+                ? {
+                    draggable: true,
+                    onDragStart: () => setDraggedPartId(item.id),
+                    onDragOver: (event: { preventDefault?: () => void }) => event.preventDefault?.(),
+                    onDrop: () => {
+                      if (!draggedPartId || draggedPartId === item.id) {
+                        return;
+                      }
+                      const draggedIndex = queue.findIndex((queueItem) => queueItem.id === draggedPartId);
+                      if (draggedIndex < 0) {
+                        return;
+                      }
+                      void handleReorderQueue(moveItem(queue.map((queueItem) => queueItem.id), draggedIndex, index));
+                      setDraggedPartId(null);
+                    },
+                    onDragEnd: () => setDraggedPartId(null)
+                  }
+                : {};
 
             return (
-              <Pressable
+              <DraggablePressable
                 key={item.id}
                 style={[styles.queueItem, isActive && styles.queueItemActive]}
-                onPress={() => {
-                  if (index !== queueIndex) {
-                    void persistCurrentProgress();
-                    if (index < queueIndex) {
-                      for (let i = 0; i < queueIndex - index; i++) {
-                        playPrevious();
-                      }
-                    } else {
-                      for (let i = 0; i < index - queueIndex; i++) {
-                        playNext();
-                      }
-                    }
-                  }
-                }}
+                onPress={() => handleSelectQueueItem(index)}
+                {...queueItemProps}
               >
                 <View style={styles.queueIndex}>
                   {isCompleted ? (
@@ -462,12 +427,45 @@ export function PlayerScreen() {
                   >
                     {item.title}
                   </Text>
-                  <Text style={styles.queueItemDuration}>{formatDuration(item.durationSec)}</Text>
+                  <View style={styles.queueMetaRow}>
+                    <Text style={styles.queueItemDuration}>{formatDuration(item.durationSec)}</Text>
+                    <Text style={[styles.queueStatusLabel, isActive && styles.queueStatusLabelActive]}>{statusLabel}</Text>
+                  </View>
                 </View>
-                {isActive && (
-                  <Ionicons name="volume-high" size={16} color={colors.motivationOrange} />
-                )}
-              </Pressable>
+                <View style={styles.queueRightCol}>
+                  {currentPodcast ? (
+                    Platform.OS === "web" ? (
+                      <Ionicons name="reorder-three-outline" size={18} color={colors.textSecondary} />
+                    ) : (
+                      <View style={styles.queueMoveColumn}>
+                        <Pressable
+                          disabled={!canMoveUp}
+                          onPress={() => nextIdsUp && void handleReorderQueue(nextIdsUp)}
+                          hitSlop={6}
+                        >
+                          <Ionicons
+                            name="chevron-up"
+                            size={16}
+                            color={canMoveUp ? colors.textSecondary : "rgba(255,255,255,0.15)"}
+                          />
+                        </Pressable>
+                        <Pressable
+                          disabled={!canMoveDown}
+                          onPress={() => nextIdsDown && void handleReorderQueue(nextIdsDown)}
+                          hitSlop={6}
+                        >
+                          <Ionicons
+                            name="chevron-down"
+                            size={16}
+                            color={canMoveDown ? colors.textSecondary : "rgba(255,255,255,0.15)"}
+                          />
+                        </Pressable>
+                      </View>
+                    )
+                  ) : null}
+                  {isActive ? <Ionicons name="volume-high" size={16} color={colors.motivationOrange} /> : null}
+                </View>
+              </DraggablePressable>
             );
           })}
         </View>
@@ -476,6 +474,13 @@ export function PlayerScreen() {
       <FeedbackModal visible={modalVisible} onClose={() => setModalVisible(false)} onSubmit={handleFeedbackSubmit} />
     </ScreenContainer>
   );
+}
+
+function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const clone = [...items];
+  const [item] = clone.splice(fromIndex, 1);
+  clone.splice(toIndex, 0, item);
+  return clone;
 }
 
 const styles = StyleSheet.create({
@@ -545,6 +550,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center"
   },
+  trackStatus: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    textAlign: "center",
+    fontWeight: "700"
+  },
   mutedInfo: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -598,6 +609,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center"
+  },
+  playButtonQueued: {
+    opacity: 0.72
   },
   controlDisabled: {
     opacity: 0.35
@@ -722,5 +736,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     color: colors.textSecondary
+  },
+  queueMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm
+  },
+  queueStatusLabel: {
+    ...typography.caption,
+    color: colors.textSecondary
+  },
+  queueStatusLabelActive: {
+    color: colors.motivationOrange,
+    fontWeight: "700"
+  },
+  queueRightCol: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs
+  },
+  queueMoveColumn: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: -4
   }
 });

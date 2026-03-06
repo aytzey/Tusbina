@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
+import { PlaybackController } from "@/app/PlaybackController";
 import { QuotaLimitModal } from "@/components";
 import { RootNavigator } from "@/navigation";
 import { useAuthStore, useCoursesStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
@@ -30,6 +31,27 @@ function useBootstrapData() {
     void loadPodcasts();
     void syncUsage();
   }, [isAuthenticated, loadCourses, loadPodcasts, syncUsage]);
+}
+
+function usePendingPodcastSync() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const podcasts = usePodcastsStore((state) => state.podcasts);
+  const loadPodcasts = usePodcastsStore((state) => state.loadPodcasts);
+  const hasPendingParts = podcasts.some((podcast) =>
+    podcast.parts.some((part) => part.status === "queued" || part.status === "processing")
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasPendingParts) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      void loadPodcasts();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [hasPendingParts, isAuthenticated, loadPodcasts]);
 }
 
 function usePlaybackQuotaSync() {
@@ -72,11 +94,13 @@ function usePlaybackQuotaSync() {
 
 export function App() {
   useBootstrapData();
+  usePendingPodcastSync();
   usePlaybackQuotaSync();
 
   return (
     <NavigationContainer theme={appTheme}>
       <StatusBar style="light" />
+      <PlaybackController />
       <RootNavigator />
       <QuotaLimitModal />
     </NavigationContainer>

@@ -64,7 +64,10 @@ class PodcastModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     parts: Mapped[list["PodcastPartModel"]] = relationship(
-        back_populates="podcast", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="podcast",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="PodcastPartModel.sort_order.asc()",
     )
 
 
@@ -77,7 +80,13 @@ class PodcastPartModel(Base):
     duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
     page_range: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    queue_priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_asset_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_slice_index: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    source_slice_total: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     audio_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     podcast: Mapped[PodcastModel] = relationship(back_populates="parts")
 

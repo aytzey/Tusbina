@@ -5,7 +5,12 @@ import time
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.services.bootstrap import bootstrap_application
-from app.services.generation import process_next_generation_job, reap_stale_processing_jobs
+from app.services.generation import (
+    process_next_generation_job,
+    process_next_podcast_part_generation,
+    reap_stale_processing_jobs,
+    reap_stale_processing_parts,
+)
 from app.services.storage import get_storage_client
 from app.services.tts import get_tts_service
 
@@ -21,6 +26,8 @@ def _run_reaper_loop(stop_event: threading.Event) -> None:
         try:
             with SessionLocal() as db:
                 reap_stale_processing_jobs(db, max_age_minutes=settings.worker_stale_job_max_age_minutes)
+            with SessionLocal() as db:
+                reap_stale_processing_parts(db, max_age_minutes=settings.worker_stale_job_max_age_minutes)
         except Exception:
             logger.exception("Generation reaper failed")
         stop_event.wait(settings.worker_reap_interval_sec)
@@ -67,6 +74,9 @@ def run_worker() -> None:
     while True:
         with SessionLocal() as db:
             processed = process_next_generation_job(db, storage=storage, tts=tts)
+        if not processed:
+            with SessionLocal() as db:
+                processed = process_next_podcast_part_generation(db, storage=storage, tts=tts)
         if not processed:
             time.sleep(settings.worker_poll_interval_sec)
 

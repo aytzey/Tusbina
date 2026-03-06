@@ -15,3 +15,17 @@ export interface GeneratePodcastResponse {
   job_id: string;
   status: "queued";
 }
+
+export type PodcastPartStatus = "ready" | "queued" | "processing" | "failed";
+
+export interface GeneratePodcastStatusResponse {
+  job_id: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  progress_pct: number;
+  result_podcast_id?: string | null;
+  error?: string | null;
+}
+
+export interface PodcastPartOrderPayload {
+  part_ids: string[];
+}

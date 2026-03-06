@@ -11,6 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
+import numpy as np
 from sqlalchemy import Select, select, update
 from sqlalchemy.orm import Session
 
@@ -53,7 +54,7 @@ _HEADING_KEYWORD_RE = re.compile(
 @dataclass(frozen=True)
 class _AutoPartPlan:
     title: str
-    asset_id: str
+    asset_id: str | None
     asset_part_index: int
     asset_part_total: int
 
@@ -100,15 +101,13 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
     if job is None:
         return False
 
-    tts_service = tts or get_tts_service()
     job_started_at = _time.monotonic()
     current_stage = "claimed"
-    stored_keys: list[str] = []
     _trace_generation(
         job.id,
         "claimed",
         user_id=job.user_id,
-        tts_service=tts_service.__class__.__name__,
+        mode="plan_only",
     )
 
     try:
@@ -126,37 +125,17 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         )
 
         current_stage = "assets_query"
-        assets_unordered = list(
-            db.execute(
-                select(UploadAssetModel).where(
-                    UploadAssetModel.id.in_(file_ids),
-                    UploadAssetModel.user_id == job.user_id,
-                )
-            ).scalars().all()
-        )
-
-        if not assets_unordered:
-            raise ValueError("No uploaded assets found")
-
-        # Preserve original file_ids order so index-based section/asset mapping is correct
-        id_order = {fid: idx for idx, fid in enumerate(file_ids)}
-        assets = sorted(assets_unordered, key=lambda a: id_order.get(a.id, len(file_ids)))
-        found_ids = {asset.id for asset in assets}
-        missing_ids = [file_id for file_id in file_ids if file_id not in found_ids]
-        if missing_ids:
-            raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
+        assets = _resolve_generation_assets(db, file_ids=file_ids, user_id=job.user_id)
         _trace_generation(
             job.id,
             "assets_resolved",
             asset_count=len(assets),
-            missing_count=len(missing_ids),
             asset_ids=[asset.id[:8] for asset in assets],
         )
 
         current_stage = "asset_text_extract"
         t_asset = _time.monotonic()
         asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
-        asset_context_cache = build_asset_context_cache(assets=assets, asset_text_cache=asset_text_cache)
         _trace_generation(
             job.id,
             "asset_text_ready",
@@ -171,44 +150,17 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         )
         format_name = str(payload.get("format", "narrative"))
         selected_voice = str(payload.get("voice", "Elif"))
-        dialogue_mode = _is_dialogue_mode(format_name=format_name, voice_name=selected_voice)
 
-        sections = payload.get("sections", [])
-        enabled_sections = [section for section in sections if section.get("enabled", True)]
-        if sections and not enabled_sections:
-            raise ValueError("All sections are disabled")
-        section_titles = [section.get("title", "").strip() for section in enabled_sections if section.get("title")]
-        use_auto_plan = not section_titles
-        if section_titles and _sections_look_like_defaults(section_titles=section_titles, assets=assets):
-            use_auto_plan = True
-            _trace_generation(
-                job.id,
-                "part_plan_override_defaults",
-                reason="sections_match_file_defaults",
-                section_count=len(section_titles),
-            )
-
-        auto_part_plan: list[_AutoPartPlan] | None = None
-        if not use_auto_plan:
-            # If client explicitly sends sections, always honor that exact plan.
-            part_titles = section_titles
-            _trace_generation(job.id, "part_plan_manual_sections", part_count=len(part_titles))
-        else:
-            auto_part_plan = _build_auto_part_plan(
-                assets=assets,
-                asset_text_cache=asset_text_cache,
-                format_name=format_name,
-            )
-            part_titles = [entry.title for entry in auto_part_plan]
-            _trace_generation(
-                job.id,
-                "part_plan_auto",
-                part_count=len(part_titles),
-                sample_titles=part_titles[:6],
-            )
-        if len(part_titles) > settings.generation_max_parts:
+        part_plan = _build_part_plan(
+            job_id=job.id,
+            payload=payload,
+            assets=assets,
+            asset_text_cache=asset_text_cache,
+            format_name=format_name,
+        )
+        if len(part_plan) > settings.generation_max_parts:
             raise ValueError(
-                f"Part limiti asildi: {len(part_titles)} > {settings.generation_max_parts}"
+                f"Part limiti asildi: {len(part_plan)} > {settings.generation_max_parts}"
             )
 
         default_duration_sec = FORMAT_PART_DURATION_SEC.get(format_name, 420)
@@ -220,128 +172,37 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             source_type="ai",
             voice=selected_voice,
             format=payload.get("format", "narrative"),
-            total_duration_sec=0,
+            total_duration_sec=default_duration_sec * len(part_plan),
         )
         db.add(podcast)
-
         db.flush()
-
-        total_parts = len(part_titles)
-        logger.info("Job %s: %d parts, titles=%s", job.id[:8], total_parts, part_titles[:5])
-        total_duration_sec = 0
-        for index, part_title in enumerate(part_titles, start=1):
-            plan_entry = auto_part_plan[index - 1] if auto_part_plan and index <= len(auto_part_plan) else None
-            current_stage = f"part_{index}_script"
-            _trace_generation(
-                job.id,
-                "part_start",
-                part=index,
-                total_parts=total_parts,
-                title=part_title,
-                tts_service=tts_service.__class__.__name__,
-                source_asset=(plan_entry.asset_id[:8] if plan_entry else None),
-                source_slice_index=(plan_entry.asset_part_index if plan_entry else index),
-                source_slice_total=(plan_entry.asset_part_total if plan_entry else total_parts),
+        planned_parts: list[PodcastPartModel] = []
+        for index, plan_entry in enumerate(part_plan, start=1):
+            planned_parts.append(
+                PodcastPartModel(
+                    id=f"{podcast_id}-part-{index}",
+                    podcast_id=podcast_id,
+                    title=plan_entry.title,
+                    duration_sec=default_duration_sec,
+                    page_range=f"s{plan_entry.asset_part_index}/{max(plan_entry.asset_part_total, 1)}",
+                    status="queued",
+                    sort_order=index,
+                    queue_priority=0,
+                    source_asset_id=plan_entry.asset_id,
+                    source_slice_index=max(plan_entry.asset_part_index, 1),
+                    source_slice_total=max(plan_entry.asset_part_total, 1),
+                    audio_url=None,
+                )
             )
-            _heartbeat_processing_job(job.id, primary_db=db)
-            t0 = _time.monotonic()
-            script = build_part_script(
-                part_title=part_title,
-                format_name=format_name,
-                voice_name=selected_voice,
-                index=index,
-                total=total_parts,
-                assets=assets,
-                storage=storage,
-                asset_text_cache=asset_text_cache,
-                asset_context_cache=asset_context_cache,
-                preferred_asset_id=plan_entry.asset_id if plan_entry else None,
-                source_slice_index=plan_entry.asset_part_index if plan_entry else None,
-                source_slice_total=plan_entry.asset_part_total if plan_entry else None,
-                dialogue_mode=dialogue_mode,
-            )
-            t_script = _time.monotonic() - t0
-            _trace_generation(
-                job.id,
-                "part_script_done",
-                part=index,
-                elapsed_sec=round(t_script, 2),
-                script_chars=len(script),
-                dialogue_mode=dialogue_mode,
-            )
-            logger.info(
-                "Job %s part %d/%d: script done (%.1fs, %d chars)",
-                job.id[:8],
-                index,
-                total_parts,
-                t_script,
-                len(script),
-            )
-
-            current_stage = f"part_{index}_tts"
-            _heartbeat_processing_job(job.id, primary_db=db)
-            t1 = _time.monotonic()
-            tts_audio = _synthesize_part_audio(
-                tts_service=tts_service,
-                script=script,
-                selected_voice=selected_voice,
-                dialogue_mode=dialogue_mode,
-            )
-            t_tts = _time.monotonic() - t1
-            _trace_generation(
-                job.id,
-                "part_tts_done",
-                part=index,
-                elapsed_sec=round(t_tts, 2),
-                audio_bytes=len(tts_audio.content),
-                extension=tts_audio.extension,
-                dialogue_mode=dialogue_mode,
-            )
-            logger.info(
-                "Job %s part %d/%d: TTS done (%.1fs, %d bytes)",
-                job.id[:8],
-                index,
-                total_parts,
-                t_tts,
-                len(tts_audio.content),
-            )
-            part_duration_sec = (
-                _duration_from_audio_bytes(tts_audio.content, extension=tts_audio.extension) or default_duration_sec
-            )
-
-            generated_audio = storage.save_bytes(
-                filename=f"{podcast_id}-part-{index}.{tts_audio.extension}",
-                content=tts_audio.content,
-                content_type=tts_audio.content_type,
-                user_id=job.user_id,
-            )
-            stored_keys.append(generated_audio.storage_key)
-            current_stage = f"part_{index}_db_save"
-            part = PodcastPartModel(
-                id=f"{podcast_id}-part-{index}",
+        db.add_all(planned_parts)
+        if planned_parts:
+            db.flush()
+            prioritize_podcast_part_window(
+                db,
                 podcast_id=podcast_id,
-                title=f"Bölüm {index}: {part_title}",
-                duration_sec=part_duration_sec,
-                page_range=f"s{index}",
-                status="ready",
-                audio_url=generated_audio.public_url,
+                part_id=planned_parts[0].id,
+                commit=False,
             )
-            db.add(part)
-            total_duration_sec += part_duration_sec
-            _trace_generation(
-                job.id,
-                "part_saved",
-                part=index,
-                duration_sec=part_duration_sec,
-                storage_key=generated_audio.storage_key,
-            )
-
-            # Update progress in a separate connection so the poll endpoint sees it
-            # without breaking the main atomic transaction
-            new_pct = min(95, 20 + int((index / max(total_parts, 1)) * 70))
-            _heartbeat_processing_job(job.id, progress_pct=new_pct, primary_db=db)
-
-        podcast.total_duration_sec = total_duration_sec
         job.status = "completed"
         job.progress_pct = 100
         job.result_podcast_id = podcast_id
@@ -350,10 +211,11 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
         _trace_generation(
             job.id,
             "completed",
-            total_parts=total_parts,
-            total_duration_sec=total_duration_sec,
+            total_parts=len(part_plan),
+            total_duration_sec=podcast.total_duration_sec,
             elapsed_sec=round(_time.monotonic() - job_started_at, 2),
             podcast_id=podcast_id,
+            planned_only=True,
         )
         return True
 
@@ -366,12 +228,6 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             elapsed_sec=round(_time.monotonic() - job_started_at, 2),
             error=str(exc),
         )
-        # Clean up any audio files already written to storage
-        for key in stored_keys:
-            try:
-                storage.delete(key)
-            except Exception:
-                logger.warning("Cleanup basarisiz, storage key: %s", key)
         failed = db.get(GenerationJobModel, job.id)
         if failed is not None:
             failed.status = "failed"
@@ -380,6 +236,343 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             failed.updated_at = datetime.now(UTC)
             db.commit()
         return True
+
+
+def process_next_podcast_part_generation(
+    db: Session,
+    *,
+    storage: StorageClient,
+    tts: TTSService | None = None,
+) -> bool:
+    part = _claim_next_podcast_part(db)
+    if part is None:
+        return False
+
+    tts_service = tts or get_tts_service()
+    started_at = _time.monotonic()
+    current_stage = "claimed"
+    stored_key: str | None = None
+    try:
+        podcast = db.get(PodcastModel, part.podcast_id)
+        if podcast is None:
+            raise ValueError("Podcast not found for queued part")
+
+        generation_job = db.execute(
+            select(GenerationJobModel)
+            .where(
+                GenerationJobModel.user_id == podcast.user_id,
+                GenerationJobModel.result_podcast_id == podcast.id,
+            )
+            .order_by(GenerationJobModel.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if generation_job is None:
+            raise ValueError("Generation payload not found for podcast")
+
+        payload = generation_job.payload_json
+        file_ids = payload.get("file_ids", [])
+        assets = _resolve_generation_assets(db, file_ids=file_ids, user_id=podcast.user_id)
+        asset_text_cache = build_asset_text_cache(assets=assets, storage=storage)
+        asset_context_cache = build_asset_context_cache(assets=assets, asset_text_cache=asset_text_cache)
+        dialogue_mode = _is_dialogue_mode(format_name=podcast.format, voice_name=podcast.voice)
+        total_parts = max(len(podcast.parts), 1)
+        current_stage = "script"
+        _trace_generation(
+            part.id,
+            "part_start",
+            podcast_id=podcast.id,
+            part_id=part.id,
+            sort_order=part.sort_order,
+            total_parts=total_parts,
+            title=part.title,
+        )
+        script = build_part_script(
+            part_title=part.title,
+            format_name=podcast.format,
+            voice_name=podcast.voice,
+            index=max(part.sort_order, 1),
+            total=total_parts,
+            assets=assets,
+            storage=storage,
+            asset_text_cache=asset_text_cache,
+            asset_context_cache=asset_context_cache,
+            preferred_asset_id=part.source_asset_id,
+            source_slice_index=part.source_slice_index,
+            source_slice_total=part.source_slice_total,
+            dialogue_mode=dialogue_mode,
+        )
+        current_stage = "tts"
+        tts_audio = _synthesize_part_audio(
+            tts_service=tts_service,
+            script=script,
+            selected_voice=podcast.voice,
+            dialogue_mode=dialogue_mode,
+        )
+        default_duration_sec = FORMAT_PART_DURATION_SEC.get(podcast.format, 420)
+        part_duration_sec = _duration_from_audio_bytes(tts_audio.content, extension=tts_audio.extension) or default_duration_sec
+        generated_audio = storage.save_bytes(
+            filename=f"{podcast.id}-part-{part.sort_order}.{tts_audio.extension}",
+            content=tts_audio.content,
+            content_type=tts_audio.content_type,
+            user_id=podcast.user_id,
+        )
+        stored_key = generated_audio.storage_key
+        previous_duration_sec = part.duration_sec
+        part.duration_sec = part_duration_sec
+        part.audio_url = generated_audio.public_url
+        part.status = "ready"
+        part.queue_priority = 0
+        part.updated_at = datetime.now(UTC)
+        podcast.total_duration_sec = max(0, podcast.total_duration_sec - previous_duration_sec + part_duration_sec)
+        db.commit()
+        _trace_generation(
+            part.id,
+            "part_completed",
+            podcast_id=podcast.id,
+            part_id=part.id,
+            duration_sec=part_duration_sec,
+            elapsed_sec=round(_time.monotonic() - started_at, 2),
+        )
+        return True
+    except Exception as exc:
+        db.rollback()
+        if stored_key is not None:
+            try:
+                storage.delete(stored_key)
+            except Exception:
+                logger.warning("Cleanup basarisiz, storage key: %s", stored_key)
+        failed_part = db.get(PodcastPartModel, part.id)
+        if failed_part is not None:
+            failed_part.status = "failed"
+            failed_part.queue_priority = 0
+            failed_part.updated_at = datetime.now(UTC)
+            db.commit()
+        _trace_generation(
+            part.id,
+            "part_failed",
+            failed_stage=current_stage,
+            elapsed_sec=round(_time.monotonic() - started_at, 2),
+            error=str(exc),
+        )
+        return True
+
+
+def prioritize_podcast_part_window(
+    db: Session,
+    *,
+    podcast_id: str,
+    part_id: str,
+    commit: bool = True,
+) -> None:
+    parts = _load_podcast_parts(db, podcast_id=podcast_id)
+    if not parts:
+        raise ValueError("Podcast has no parts")
+
+    anchor_index = next((index for index, part in enumerate(parts) if part.id == part_id), None)
+    if anchor_index is None:
+        raise ValueError("Podcast part not found")
+
+    for part in parts:
+        if part.status in {"queued", "failed"}:
+            part.queue_priority = 0
+
+    window_size = max(1, int(settings.generation_priority_window))
+    priority_value = 1000
+    ordered_candidates = parts[anchor_index:] + parts[:anchor_index]
+    for part in ordered_candidates:
+        if part.status == "ready":
+            continue
+        if part.status == "failed":
+            part.status = "queued"
+            part.audio_url = None
+        if part.status in {"queued", "processing"}:
+            part.queue_priority = priority_value
+            priority_value -= 1
+            if 1000 - priority_value >= window_size:
+                break
+
+    if commit:
+        db.commit()
+
+
+def reorder_podcast_parts(
+    db: Session,
+    *,
+    podcast_id: str,
+    part_ids: list[str],
+    commit: bool = True,
+) -> None:
+    parts = _load_podcast_parts(db, podcast_id=podcast_id)
+    if not parts:
+        raise ValueError("Podcast has no parts")
+
+    current_ids = [part.id for part in parts]
+    if len(current_ids) != len(part_ids) or set(current_ids) != set(part_ids):
+        raise ValueError("Part order payload is invalid")
+
+    parts_by_id = {part.id: part for part in parts}
+    for index, current_id in enumerate(part_ids, start=1):
+        parts_by_id[current_id].sort_order = index
+
+    anchor_part_id = next((part_id for part_id in part_ids if parts_by_id[part_id].status != "ready"), part_ids[0])
+    prioritize_podcast_part_window(db, podcast_id=podcast_id, part_id=anchor_part_id, commit=False)
+    if commit:
+        db.commit()
+
+
+def _resolve_generation_assets(db: Session, *, file_ids: list[str], user_id: str) -> list[UploadAssetModel]:
+    assets_unordered = list(
+        db.execute(
+            select(UploadAssetModel).where(
+                UploadAssetModel.id.in_(file_ids),
+                UploadAssetModel.user_id == user_id,
+            )
+        ).scalars().all()
+    )
+    if not assets_unordered:
+        raise ValueError("No uploaded assets found")
+
+    id_order = {fid: idx for idx, fid in enumerate(file_ids)}
+    assets = sorted(assets_unordered, key=lambda asset: id_order.get(asset.id, len(file_ids)))
+    found_ids = {asset.id for asset in assets}
+    missing_ids = [file_id for file_id in file_ids if file_id not in found_ids]
+    if missing_ids:
+        raise ValueError(f"Some uploaded assets were not found: {', '.join(missing_ids[:3])}")
+    return assets
+
+
+def _build_part_plan(
+    *,
+    job_id: str,
+    payload: dict,
+    assets: list[UploadAssetModel],
+    asset_text_cache: dict[str, str],
+    format_name: str,
+) -> list[_AutoPartPlan]:
+    sections = payload.get("sections", [])
+    enabled_sections = [section for section in sections if section.get("enabled", True)]
+    if sections and not enabled_sections:
+        raise ValueError("All sections are disabled")
+
+    section_titles = [section.get("title", "").strip() for section in enabled_sections if section.get("title")]
+    use_auto_plan = not section_titles
+    if section_titles and _sections_look_like_defaults(section_titles=section_titles, assets=assets):
+        use_auto_plan = True
+        _trace_generation(
+            job_id,
+            "part_plan_override_defaults",
+            reason="sections_match_file_defaults",
+            section_count=len(section_titles),
+        )
+
+    if use_auto_plan:
+        auto_part_plan = _build_auto_part_plan(
+            assets=assets,
+            asset_text_cache=asset_text_cache,
+            format_name=format_name,
+        )
+        _trace_generation(
+            job_id,
+            "part_plan_auto",
+            part_count=len(auto_part_plan),
+            sample_titles=[entry.title for entry in auto_part_plan[:6]],
+        )
+        return auto_part_plan
+
+    manual_plan = _build_manual_part_plan(enabled_sections=enabled_sections, assets=assets)
+    _trace_generation(job_id, "part_plan_manual_sections", part_count=len(manual_plan))
+    return manual_plan
+
+
+def _build_manual_part_plan(
+    *,
+    enabled_sections: list[dict],
+    assets: list[UploadAssetModel],
+) -> list[_AutoPartPlan]:
+    if not enabled_sections:
+        return []
+
+    valid_asset_ids = {asset.id for asset in assets}
+    assigned_asset_ids: list[str | None] = []
+    for index, section in enumerate(enabled_sections):
+        source_file_id = section.get("source_file_id")
+        if source_file_id in valid_asset_ids:
+            assigned_asset_ids.append(str(source_file_id))
+            continue
+        fallback_asset = assets[min(index, len(assets) - 1)] if assets else None
+        assigned_asset_ids.append(fallback_asset.id if fallback_asset else None)
+
+    total_by_asset: dict[str, int] = {}
+    for asset_id in assigned_asset_ids:
+        if asset_id is None:
+            continue
+        total_by_asset[asset_id] = total_by_asset.get(asset_id, 0) + 1
+
+    seen_by_asset: dict[str, int] = {}
+    total_parts = len(enabled_sections)
+    plan: list[_AutoPartPlan] = []
+    for index, section in enumerate(enabled_sections, start=1):
+        asset_id = assigned_asset_ids[index - 1]
+        if asset_id is None:
+            plan.append(
+                _AutoPartPlan(
+                    title=section.get("title", "").strip(),
+                    asset_id=None,
+                    asset_part_index=index,
+                    asset_part_total=total_parts,
+                )
+            )
+            continue
+
+        seen_by_asset[asset_id] = seen_by_asset.get(asset_id, 0) + 1
+        plan.append(
+            _AutoPartPlan(
+                title=section.get("title", "").strip(),
+                asset_id=asset_id,
+                asset_part_index=seen_by_asset[asset_id],
+                asset_part_total=total_by_asset.get(asset_id, 1),
+            )
+        )
+    return plan
+
+
+def _load_podcast_parts(db: Session, *, podcast_id: str) -> list[PodcastPartModel]:
+    return list(
+        db.execute(
+            select(PodcastPartModel)
+            .where(PodcastPartModel.podcast_id == podcast_id)
+            .order_by(PodcastPartModel.sort_order.asc(), PodcastPartModel.id.asc())
+        ).scalars().all()
+    )
+
+
+def _claim_next_podcast_part(db: Session) -> PodcastPartModel | None:
+    stmt: Select[tuple[PodcastPartModel]] = (
+        select(PodcastPartModel)
+        .where(
+            PodcastPartModel.status == "queued",
+            PodcastPartModel.queue_priority > 0,
+        )
+        .order_by(
+            PodcastPartModel.queue_priority.desc(),
+            PodcastPartModel.sort_order.asc(),
+            PodcastPartModel.updated_at.asc(),
+        )
+        .limit(1)
+    )
+    bind = db.get_bind()
+    if bind.dialect.name == "postgresql":
+        stmt = stmt.with_for_update(skip_locked=True)
+
+    part = db.execute(stmt).scalar_one_or_none()
+    if part is None:
+        return None
+
+    part.status = "processing"
+    part.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(part)
+    return part
 
 
 def _build_auto_part_plan(
@@ -564,6 +757,8 @@ def _synthesize_part_audio(
         return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
 
     turns = _split_dialogue_turns(script)
+    if not _is_forced_dual_voice(selected_voice=selected_voice) and _count_explicit_dialogue_turns(script) < 2:
+        return _synthesize_with_retry(tts_service=tts_service, text=script, voice=selected_voice)
     if _is_forced_dual_voice(selected_voice=selected_voice):
         turns = _ensure_dual_voice_turns(turns=turns, script=script)
     if not turns:
@@ -596,7 +791,11 @@ def _synthesize_part_audio(
                     ordered[index] = content
                 audio_turns = ordered
 
-        merged = _concat_wav_segments(audio_turns, gap_ms=130)
+        merged = _concat_wav_segments(
+            audio_turns,
+            gap_ms=max(0, int(settings.piper_dialogue_gap_ms)),
+            fade_ms=max(0, int(settings.piper_dialogue_edge_fade_ms)),
+        )
         return TTSResult(content=merged, extension="wav", content_type="audio/wav")
     except Exception as exc:
         logger.warning("Dialog TTS birlestirme fallback tek sese dondu: %s", exc)
@@ -661,6 +860,14 @@ def _split_dialogue_turns(script: str) -> list[tuple[str, str]]:
         else:
             turns.append(("Elif", line))
     return turns
+
+
+def _count_explicit_dialogue_turns(script: str) -> int:
+    dialogue_line_re = re.compile(
+        r"^(?:\d+[\).:\-]\s*)?(Elif|Ahmet|Zeynep|Anlatici|Anlatıcı|Narrator|Ogrenci|Öğrenci|Hoca|Doktor)\s*[:\-–—]\s*(.+)$",
+        flags=re.IGNORECASE,
+    )
+    return sum(1 for raw_line in script.splitlines() if dialogue_line_re.match(raw_line.strip()))
 
 
 def _is_forced_dual_voice(*, selected_voice: str) -> bool:
@@ -739,14 +946,16 @@ def _resolve_dialogue_voice(*, speaker: str, selected_voice: str) -> str:
     return female_voice
 
 
-def _concat_wav_segments(segments: list[bytes], *, gap_ms: int) -> bytes:
+def _concat_wav_segments(segments: list[bytes], *, gap_ms: int, fade_ms: int) -> bytes:
     if not segments:
         return b""
     if len(segments) == 1:
-        return segments[0]
+        return _normalize_wav_segment(segments[0], fade_ms=fade_ms)
+
+    normalized_segments = [_normalize_wav_segment(segment, fade_ms=fade_ms) for segment in segments]
 
     stream = BytesIO()
-    with wave.open(BytesIO(segments[0]), "rb") as first_reader:
+    with wave.open(BytesIO(normalized_segments[0]), "rb") as first_reader:
         params = first_reader.getparams()
         first_frames = first_reader.readframes(first_reader.getnframes())
 
@@ -758,7 +967,7 @@ def _concat_wav_segments(segments: list[bytes], *, gap_ms: int) -> bytes:
     with wave.open(stream, "wb") as writer:
         writer.setparams(params)
         writer.writeframes(first_frames)
-        for segment in segments[1:]:
+        for segment in normalized_segments[1:]:
             with wave.open(BytesIO(segment), "rb") as reader:
                 if (
                     reader.getnchannels() != params.nchannels
@@ -771,6 +980,75 @@ def _concat_wav_segments(segments: list[bytes], *, gap_ms: int) -> bytes:
                 writer.writeframes(reader.readframes(reader.getnframes()))
 
     return stream.getvalue()
+
+
+def _normalize_wav_segment(segment: bytes, *, fade_ms: int) -> bytes:
+    try:
+        with wave.open(BytesIO(segment), "rb") as reader:
+            channels = reader.getnchannels()
+            sample_width = reader.getsampwidth()
+            sample_rate = reader.getframerate()
+            frame_count = reader.getnframes()
+            pcm = reader.readframes(frame_count)
+    except wave.Error:
+        return segment
+
+    if sample_width != 2 or channels <= 0 or frame_count <= 0:
+        return segment
+
+    samples = np.frombuffer(pcm, dtype=np.int16)
+    if samples.size == 0 or samples.size % channels != 0:
+        return segment
+
+    framed = samples.reshape(-1, channels)
+    trimmed = _trim_wav_silence(framed, sample_rate=sample_rate)
+    softened = _apply_wav_edge_fade(trimmed, sample_rate=sample_rate, fade_ms=fade_ms)
+    clipped = np.clip(np.round(softened), -32768, 32767).astype(np.int16)
+    pcm_out = clipped.reshape(-1).tobytes()
+
+    output = BytesIO()
+    with wave.open(output, "wb") as writer:
+        writer.setnchannels(channels)
+        writer.setsampwidth(sample_width)
+        writer.setframerate(sample_rate)
+        writer.writeframes(pcm_out)
+    return output.getvalue()
+
+
+def _trim_wav_silence(samples: np.ndarray, *, sample_rate: int) -> np.ndarray:
+    if samples.size == 0 or sample_rate <= 0:
+        return samples
+
+    envelope = np.max(np.abs(samples.astype(np.int32)), axis=1)
+    peak = int(envelope.max(initial=0))
+    if peak <= 0:
+        return samples
+
+    threshold = max(180, int(peak * 0.015))
+    non_silent = np.flatnonzero(envelope > threshold)
+    if non_silent.size == 0:
+        return samples
+
+    padding_frames = min(samples.shape[0] // 8, max(1, int(sample_rate * 0.015)))
+    start = max(0, int(non_silent[0]) - padding_frames)
+    end = min(samples.shape[0], int(non_silent[-1]) + padding_frames + 1)
+    trimmed = samples[start:end]
+    return trimmed if trimmed.shape[0] >= 8 else samples
+
+
+def _apply_wav_edge_fade(samples: np.ndarray, *, sample_rate: int, fade_ms: int) -> np.ndarray:
+    if fade_ms <= 0 or sample_rate <= 0 or samples.shape[0] < 8:
+        return samples
+
+    fade_frames = min(samples.shape[0] // 4, max(1, int((sample_rate * fade_ms) / 1000)))
+    if fade_frames < 2:
+        return samples
+
+    faded = samples.astype(np.float32).copy()
+    ramp = np.linspace(0.0, 1.0, num=fade_frames, dtype=np.float32)[:, np.newaxis]
+    faded[:fade_frames] *= ramp
+    faded[-fade_frames:] *= ramp[::-1]
+    return faded
 
 
 def _resolve_auto_chars_per_part(*, format_name: str, text_len: int | None = None) -> int:
@@ -819,6 +1097,29 @@ def reap_stale_processing_jobs(db: Session, *, max_age_minutes: int | None = Non
     if reaped:
         db.commit()
         logger.warning("Stale processing job'lar failed'a cekildi: %d adet", reaped)
+    return reaped
+
+
+def reap_stale_processing_parts(db: Session, *, max_age_minutes: int | None = None) -> int:
+    if max_age_minutes is None:
+        max_age_minutes = settings.worker_stale_job_max_age_minutes
+    cutoff = datetime.now(UTC) - timedelta(minutes=max_age_minutes)
+    result = db.execute(
+        update(PodcastPartModel)
+        .where(
+            PodcastPartModel.status == "processing",
+            PodcastPartModel.updated_at < cutoff,
+        )
+        .values(
+            status="queued",
+            queue_priority=1,
+            updated_at=datetime.now(UTC),
+        )
+    )
+    reaped = result.rowcount
+    if reaped:
+        db.commit()
+        logger.warning("Stale processing part'lar queued durumuna cekildi: %d adet", reaped)
     return reaped
 
 

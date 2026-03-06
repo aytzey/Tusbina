@@ -1,0 +1,90 @@
+# Sürüm Notları
+
+## 2026-03-06
+
+### Bu Turda Yapılanlar
+
+#### Ses kalitesi tarafı
+
+- Backend TTS akışında Piper çıktısına uygulanan agresif post-process pitch kaydırma varsayılan olarak kapatıldı.
+- Diyalog modunda oluşan sert geçişleri azaltmak için WAV birleştirme akışına sessizlik kırpma, kısa fade ve daha düşük parça aralığı eklendi.
+- Etiketlenmemiş çok satırlı QA metinlerinin gereksiz yere parçalara bölünüp kesik kesik okunmasının önüne geçildi.
+- Script üretiminde metnin cümle ortasında kesilmesini azaltmak için sınırlandırma cümle/kelime sınırına çekildi.
+
+#### Mobil oynatma tarafı
+
+- Oynatıcı mantığı ekran içinden çıkarılıp uygulama seviyesinde kalıcı bir oynatma denetleyicisine taşındı.
+- `expo-audio` oturumu uygulama seviyesinde yönetilecek şekilde düzenlendi.
+- Arka planda çalma isteği, sessiz modda çalma ve lock-screen metadata güncelleme akışı eklendi.
+- Seek, yüklenme durumu, buffer durumu ve gerçek süre bilgisi store seviyesinde tutulmaya başlandı.
+- Bölüm değişiminde ve uygulama arka plana giderken ilerleme kaydetme ve kullanım flush akışı güçlendirildi.
+- Player ekranı native oynatma durumunu store üzerinden okuyacak şekilde sadeleştirildi.
+
+#### Ses akışı ve bölüm planlama tarafı
+
+- AI podcast üretimi toplu TTS yerine önce bölüm planı çıkaracak, ardından sadece önceliklendirilen parçaları seslendirecek şekilde iki aşamalı akışa taşındı.
+- Plan hazır olur olmaz podcast ve parça kayıtları anında oluşturulmaya başlandı; böylece kullanıcı tüm içeriğin bitmesini beklemeden bölüm listesini görebiliyor.
+- Podcast parçalarına kalıcı sıra, öncelik ve kaynak eşleme alanları eklendi; worker bu sırayı kullanarak parça bazlı ses üretimi yapıyor.
+- Podcast API tarafına parça önceliklendirme ve sıra güncelleme endpoint'leri eklendi.
+- Quiz tarafında AI podcast bölüm sırası artık parça `sort_order` alanından okunuyor.
+
+#### Bekleme ve bölüm listesi deneyimi
+
+- Yükleme ekranı, ses üretimi sırasında ne olduğunu açıklayan daha yönlendirici metinler ve alternatif aksiyonlarla güncellendi.
+- Plan çıkarıldıktan sonra bölüm listesi aynı ekranda anında görünür hale geldi; hazır, oluşturuluyor, sırada ve hata durumları görünür oldu.
+- Hazır olan ilk bölüm çıktığında kullanıcı bekleme ekranından doğrudan dinlemeye başlayabiliyor.
+- Bekleme ekranında kullanıcı istediği bölümü `Öne Al` ile seçip ses üretim sırasını değiştirebiliyor.
+- Player kuyruğu artık sadece hazır parçaları değil, sıradaki ve oluşturulan parçaları da gösteriyor.
+- Player bölüm listesinde durum bazlı etiketler eklendi; aktif çalan bölüm `Dinleniyor` olarak ayrışıyor.
+- Web tarafında player bölüm listesi sürükle-bırak ile yeniden sıralanabiliyor; native tarafta taşıma kontrolleri ile aynı sıra backend'e yazılıyor.
+- Podcast listesi ve player kuyruğu, hazır olmayan parçalar sonradan hazır olduğunda store üzerinden otomatik senkronize oluyor.
+
+#### Geliştirme altyapısı
+
+- `expo-dev-client` eklendi.
+- iOS development build için `eas.json` ve ilgili npm komutları eklendi.
+- Mobil lint uyarıları temizlendi.
+
+### Doğrulananlar
+
+- `npm run mobile:lint` geçti.
+- `npm run mobile:typecheck` geçti.
+- Backend için ilgili testler geçti:
+  - `tests/test_tts.py`
+  - `tests/test_generation_flow.py`
+  - `tests/test_script_generation.py`
+  - `tests/test_migration_bootstrap.py`
+
+### Bu Turda Göremeyeceğimiz / Tam Doğrulayamayacağımız Şeyler
+
+#### Expo Go + iPhone sınırları
+
+- Expo Go üzerinde iOS arka planda ses oynatma davranışı tam native koşullarda doğrulanamaz.
+- Lock-screen / Now Playing ekranındaki gerçek sistem davranışı Expo Go üzerinde güvenilir şekilde doğrulanamaz.
+- Kulaklık tuşları, Control Center medya kontrolleri ve uygulama arası geçişteki gerçek iOS medya oturumu davranışı bu turda tam görülemez.
+- Uygulama kill edildikten sonraki davranış, gerçek interruption senaryoları ve sistem seviyesinde medya yeniden başlatma davranışı bu turda doğrulanamaz.
+
+#### Mevcut teknik sınırlar
+
+- `expo-audio` ile mevcut kurulumda sistem seviyesinde `next / previous track` kontrolü tam desteklenmiyor; play/pause ve seek tarafı güçlendirildi.
+- Linux ortamında iOS simulator doğrulaması yapılamaz.
+- Gerçek iOS native arka plan ses davranışı için development build veya standalone build gerekir.
+
+### Bu Tur İçin Beklenen Kullanıcı Etkisi
+
+- Üretilen seslerde metalik ton kayması ve kesik parça geçişleri daha az olmalıdır.
+- Uygulama içi oynatma akışı daha stabil olmalıdır.
+- Arka plana geçildiğinde ses oturumu daha doğru yönetilmelidir.
+- Player ekranı ile gerçek oynatma durumu arasındaki senkron daha güvenilir olmalıdır.
+- AI podcast üretiminde ilk bekleme süresi kısalmalı, kullanıcı plan hazır olur olmaz bölümleri görmelidir.
+- Kullanıcılar hazır olan parçaları beklemeden dinleyebilmeli ve istedikleri bölümü öne alabilmelidir.
+- Bölüm sırası kullanıcı tercihine göre değiştirildiğinde worker yeni önceliğe göre ses üretmelidir.
+
+### Sonraki Doğrulama Adımı
+
+- Mümkün olan ilk native iOS development build üzerinde şu senaryolar test edilmelidir:
+  - Uygulama açıkken oynat / durdur / seek
+  - Uygulama arka plandayken çalma devamı
+  - Lock-screen / Control Center medya kontrolleri
+  - Bölüm geçişlerinde ilerleme kaydı
+  - Uzun AI podcast içeriklerinde ses bozulması

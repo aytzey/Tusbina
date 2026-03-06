@@ -1,11 +1,18 @@
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.db.models import UploadAssetModel
+from app.db.models import (
+    GenerationJobModel,
+    PodcastModel,
+    PodcastPartModel,
+    PodcastUserStateModel,
+    UploadAssetModel,
+)
 from app.main import app
 from app.services import tts as tts_module
 from app.services.generation import (
@@ -19,6 +26,7 @@ from app.services.generation import (
     _synthesize_part_audio,
     _synthesize_with_retry,
     process_next_generation_job,
+    process_next_podcast_part_generation,
 )
 from app.services.storage import get_storage_client
 from app.services.tts import TTSResult
@@ -27,7 +35,18 @@ client = TestClient(app)
 DUMMY_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
 
 
-def test_upload_generate_and_complete_job() -> None:
+@pytest.fixture(autouse=True)
+def clean_generation_tables() -> None:
+    with SessionLocal() as db:
+        db.query(PodcastUserStateModel).delete()
+        db.query(PodcastPartModel).delete()
+        db.query(PodcastModel).delete()
+        db.query(GenerationJobModel).delete()
+        db.query(UploadAssetModel).delete()
+        db.commit()
+
+
+def test_upload_generate_plans_immediately_and_generates_prioritized_parts() -> None:
     user_id = f"test-user-{uuid4().hex[:8]}"
     user_headers = {"x-user-id": user_id}
 
@@ -59,21 +78,15 @@ def test_upload_generate_and_complete_job() -> None:
     assert generation_response.status_code == 200
     job_id = generation_response.json()["job_id"]
 
-    status_payload = None
-    for _ in range(20):
-        with SessionLocal() as db:
-            process_next_generation_job(db, storage=get_storage_client())
+    with SessionLocal() as db:
+        assert process_next_generation_job(db, storage=get_storage_client()) is True
 
-        status_response = client.get(
-            f"/api/v1/generatePodcast/{job_id}/status",
-            headers=user_headers,
-        )
-        assert status_response.status_code == 200
-        status_payload = status_response.json()
-        if status_payload["status"] == "completed":
-            break
-
-    assert status_payload is not None
+    status_response = client.get(
+        f"/api/v1/generatePodcast/{job_id}/status",
+        headers=user_headers,
+    )
+    assert status_response.status_code == 200
+    status_payload = status_response.json()
     assert status_payload["status"] == "completed"
     assert status_payload["result_podcast_id"] is not None
 
@@ -83,11 +96,32 @@ def test_upload_generate_and_complete_job() -> None:
     podcast = next((item for item in podcasts if item["id"] == status_payload["result_podcast_id"]), None)
     assert podcast is not None
     assert len(podcast["parts"]) == 2
-    assert podcast["parts"][0]["title"].endswith("Giriş")
-    assert podcast["parts"][1]["title"].endswith("Klinik Akış")
-    assert podcast["parts"][0]["audio_url"].endswith(".wav")
+    assert podcast["parts"][0]["title"] == "Giriş"
+    assert podcast["parts"][1]["title"] == "Klinik Akış"
+    assert all(part["status"] == "queued" for part in podcast["parts"])
 
-    audio_key = podcast["parts"][0]["audio_url"].split("/static/uploads/")[-1]
+    refreshed_podcast = None
+    for _ in range(6):
+        with SessionLocal() as db:
+            assert process_next_podcast_part_generation(db, storage=get_storage_client()) is True
+
+        refreshed_response = client.get("/api/v1/podcasts", headers=user_headers)
+        assert refreshed_response.status_code == 200
+        refreshed_podcast = next(
+            (item for item in refreshed_response.json() if item["id"] == status_payload["result_podcast_id"]),
+            None,
+        )
+        assert refreshed_podcast is not None
+        if all(part["status"] == "ready" for part in refreshed_podcast["parts"]):
+            break
+
+    assert refreshed_podcast is not None
+    assert refreshed_podcast["parts"][0]["audio_url"].endswith(".wav")
+    assert refreshed_podcast["parts"][1]["audio_url"].endswith(".wav")
+    assert refreshed_podcast["parts"][0]["status"] == "ready"
+    assert refreshed_podcast["parts"][1]["status"] == "ready"
+
+    audio_key = refreshed_podcast["parts"][0]["audio_url"].split("/static/uploads/")[-1]
     audio_path = Path(settings.local_upload_dir) / audio_key
     assert audio_path.exists()
     assert audio_path.stat().st_size > 128
@@ -319,6 +353,74 @@ def test_generate_respects_explicit_single_section_without_auto_split(monkeypatc
     assert len(podcast["parts"]) == 1
 
 
+def test_reorder_endpoint_changes_priority_window_for_lazy_tts() -> None:
+    user_id = f"reorder-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("reorder.pdf", DUMMY_PDF, "application/pdf"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Reorder Test",
+            "voice": "Dr. Selin",
+            "format": "summary",
+            "file_ids": file_ids,
+            "sections": [
+                {"id": "s1", "title": "Bir", "enabled": True},
+                {"id": "s2", "title": "Iki", "enabled": True},
+                {"id": "s3", "title": "Uc", "enabled": True},
+            ],
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    with SessionLocal() as db:
+        assert process_next_generation_job(db, storage=get_storage_client()) is True
+
+    status_response = client.get(f"/api/v1/generatePodcast/{job_id}/status", headers=user_headers)
+    assert status_response.status_code == 200
+    podcast_id = status_response.json()["result_podcast_id"]
+    assert podcast_id
+
+    podcast_response = client.get(f"/api/v1/podcasts/{podcast_id}", headers=user_headers)
+    assert podcast_response.status_code == 200
+    parts = podcast_response.json()["parts"]
+    reordered_ids = [parts[2]["id"], parts[0]["id"], parts[1]["id"]]
+
+    reorder_response = client.put(
+        f"/api/v1/podcasts/{podcast_id}/parts/order",
+        json={"part_ids": reordered_ids},
+        headers=user_headers,
+    )
+    assert reorder_response.status_code == 200
+    reordered_titles = [part["title"] for part in reorder_response.json()["parts"]]
+    assert reordered_titles == ["Uc", "Bir", "Iki"]
+
+    refreshed_parts = []
+    for _ in range(6):
+        with SessionLocal() as db:
+            assert process_next_podcast_part_generation(db, storage=get_storage_client()) is True
+
+        refreshed_response = client.get(f"/api/v1/podcasts/{podcast_id}", headers=user_headers)
+        assert refreshed_response.status_code == 200
+        refreshed_parts = refreshed_response.json()["parts"]
+        if refreshed_parts[0]["status"] == "ready":
+            break
+
+    assert refreshed_parts[0]["title"] == "Uc"
+    assert refreshed_parts[0]["status"] == "ready"
+    assert refreshed_parts[1]["status"] == "queued"
+
+
 def test_resolve_auto_chars_per_part_changes_by_format(monkeypatch) -> None:
     monkeypatch.setattr(settings, "script_auto_chars_per_part", 4000)
     monkeypatch.setattr(settings, "script_auto_chars_per_part_narrative", 3200)
@@ -527,3 +629,34 @@ def test_non_dialogue_voice_does_not_force_dual_speakers(monkeypatch) -> None:
 
     assert tts.voices
     assert all(voice == "Elif" for voice in tts.voices)
+
+
+def test_unlabeled_multiline_qa_falls_back_to_single_voice(monkeypatch) -> None:
+    class _CaptureTTS:
+        def __init__(self) -> None:
+            self.voices: list[str] = []
+
+        def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+            self.voices.append(voice or "default")
+            return TTSResult(
+                content=tts_module._build_sine_wav(duration_sec=1, frequency=460),
+                extension="wav",
+                content_type="audio/wav",
+            )
+
+    monkeypatch.setattr(settings, "piper_dialogue_parallel_workers", 1)
+    tts = _CaptureTTS()
+    script = (
+        "Hiponatremi degerlendirmesinde serum osmolalite birlikte yorumlanir.\n"
+        "SIADH ile hipovolemik nedenler ayirici tanida kritik rol oynar.\n"
+        "Tedavi planinda altta yatan neden ve semptom siddeti birlikte ele alinir."
+    )
+
+    _synthesize_part_audio(
+        tts_service=tts,
+        script=script,
+        selected_voice="Elif",
+        dialogue_mode=True,
+    )
+
+    assert tts.voices == ["Elif"]

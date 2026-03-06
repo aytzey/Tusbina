@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import { Track } from "@/domain/models";
+import { Podcast, Track } from "@/domain/models";
+
+interface PlaybackSnapshot {
+  durationSec?: number;
+  isBuffering?: boolean;
+  isLoaded?: boolean;
+  isPlaying?: boolean;
+  positionSec?: number;
+}
 
 interface PlayerState {
   queue: Track[];
@@ -8,9 +16,15 @@ interface PlayerState {
   activeTrack: Track | null;
   isPlaying: boolean;
   positionSec: number;
+  pendingSeekSec: number | null;
+  playbackDurationSec: number;
+  isBuffering: boolean;
+  isLoaded: boolean;
   rate: 1 | 1.25 | 1.5 | 2;
   setTrack: (track: Track, startPositionSec?: number) => void;
   setQueue: (tracks: Track[], startIndex?: number, startPositionSec?: number) => void;
+  selectQueueIndex: (index: number, startPositionSec?: number) => void;
+  syncPodcastQueue: (podcast: Podcast) => void;
   play: () => void;
   pause: () => void;
   playPrevious: () => void;
@@ -19,6 +33,8 @@ interface PlayerState {
   removeBookmark: (trackId: string, second: number) => void;
   seekTo: (seconds: number) => void;
   setPosition: (seconds: number) => void;
+  setPlaybackSnapshot: (snapshot: PlaybackSnapshot) => void;
+  clearPendingSeek: () => void;
   tick: () => void;
   cycleRate: () => void;
   stop: () => void;
@@ -37,6 +53,16 @@ function defaultStartPosition(track: Track, startPositionSec?: number): number {
   return clampPosition(track, startPositionSec ?? track.resumePositionSec ?? 0);
 }
 
+function playbackStateForTrack(track: Track | null, startPositionSec = 0) {
+  return {
+    positionSec: clampPosition(track, startPositionSec),
+    pendingSeekSec: null,
+    playbackDurationSec: track?.durationSec ?? 0,
+    isBuffering: false,
+    isLoaded: false,
+  };
+}
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   queue: [],
   queueIndex: 0,
@@ -44,6 +70,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   activeTrack: null,
   isPlaying: false,
   positionSec: 0,
+  pendingSeekSec: null,
+  playbackDurationSec: 0,
+  isBuffering: false,
+  isLoaded: false,
   rate: 1,
   setTrack: (track, startPositionSec) =>
     set({
@@ -51,7 +81,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       queueIndex: 0,
       activeTrack: track,
       isPlaying: false,
-      positionSec: defaultStartPosition(track, startPositionSec)
+      ...playbackStateForTrack(track, defaultStartPosition(track, startPositionSec))
     }),
   setQueue: (tracks, startIndex = 0, startPositionSec) => {
     if (tracks.length === 0) {
@@ -60,7 +90,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         queueIndex: 0,
         activeTrack: null,
         isPlaying: false,
-        positionSec: 0
+        ...playbackStateForTrack(null)
       });
       return;
     }
@@ -72,9 +102,59 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       queueIndex: safeIndex,
       activeTrack: track,
       isPlaying: false,
-      positionSec: defaultStartPosition(track, startPositionSec)
+      ...playbackStateForTrack(track, defaultStartPosition(track, startPositionSec))
     });
   },
+  selectQueueIndex: (index, startPositionSec) =>
+    set((state) => {
+      if (index < 0 || index >= state.queue.length) {
+        return state;
+      }
+      const track = state.queue[index];
+      return {
+        queueIndex: index,
+        activeTrack: track,
+        isPlaying: false,
+        ...playbackStateForTrack(track, defaultStartPosition(track, startPositionSec))
+      };
+    }),
+  syncPodcastQueue: (podcast) =>
+    set((state) => {
+      const queueTargetsPodcast = state.queue.some((item) => item.sourceType === "ai" && item.parentId === podcast.id);
+      if (!queueTargetsPodcast) {
+        return state;
+      }
+
+      const partsById = new Map(podcast.parts.map((part) => [part.id, part]));
+      const nextQueue = state.queue.map((item) => {
+        if (item.sourceType !== "ai" || item.parentId !== podcast.id) {
+          return item;
+        }
+        const part = partsById.get(item.id);
+        if (!part) {
+          return item;
+        }
+        return {
+          ...item,
+          title: part.title,
+          subtitle: podcast.title,
+          durationSec: part.durationSec,
+          audioUrl: part.audioUrl,
+          partStatus: part.status,
+          voice: podcast.voice
+        };
+      });
+
+      const nextActiveTrack =
+        state.activeTrack?.sourceType === "ai" && state.activeTrack.parentId === podcast.id
+          ? nextQueue.find((item) => item.id === state.activeTrack?.id) ?? state.activeTrack
+          : state.activeTrack;
+
+      return {
+        queue: nextQueue,
+        activeTrack: nextActiveTrack
+      };
+    }),
   play: () => set({ isPlaying: true }),
   pause: () => set({ isPlaying: false }),
   playPrevious: () =>
@@ -88,7 +168,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         queueIndex: nextIndex,
         activeTrack: track,
-        positionSec: defaultStartPosition(track)
+        ...playbackStateForTrack(track, defaultStartPosition(track))
       };
     }),
   playNext: () =>
@@ -102,7 +182,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         queueIndex: nextIndex,
         activeTrack: track,
-        positionSec: defaultStartPosition(track)
+        ...playbackStateForTrack(track, defaultStartPosition(track))
       };
     }),
   addBookmarkAtCurrent: () => {
@@ -141,12 +221,32 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }),
   seekTo: (seconds) =>
     set((state) => ({
-      positionSec: clampPosition(state.activeTrack, seconds)
+      positionSec: clampPosition(state.activeTrack, seconds),
+      pendingSeekSec: clampPosition(state.activeTrack, seconds)
     })),
   setPosition: (seconds) =>
     set((state) => ({
       positionSec: clampPosition(state.activeTrack, seconds)
     })),
+  setPlaybackSnapshot: (snapshot) =>
+    set((state) => {
+      const nextPosition =
+        snapshot.positionSec === undefined
+          ? state.positionSec
+          : clampPosition(state.activeTrack, snapshot.positionSec);
+      const durationSec = snapshot.durationSec;
+      return {
+        positionSec: nextPosition,
+        playbackDurationSec:
+          durationSec !== undefined && Number.isFinite(durationSec) && durationSec > 0
+            ? durationSec
+            : state.playbackDurationSec,
+        isBuffering: snapshot.isBuffering ?? state.isBuffering,
+        isLoaded: snapshot.isLoaded ?? state.isLoaded,
+        isPlaying: snapshot.isPlaying ?? state.isPlaying
+      };
+    }),
+  clearPendingSeek: () => set({ pendingSeekSec: null }),
   tick: () => {
     const { isPlaying, activeTrack, positionSec, rate } = get();
     if (!isPlaying || !activeTrack) {
@@ -166,5 +266,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const nextIndex = currentIndex === RATES.length - 1 ? 0 : currentIndex + 1;
     set({ rate: RATES[nextIndex] });
   },
-  stop: () => set({ isPlaying: false, positionSec: 0 })
+  stop: () =>
+    set({
+      isPlaying: false,
+      ...playbackStateForTrack(get().activeTrack, 0)
+    })
 }));

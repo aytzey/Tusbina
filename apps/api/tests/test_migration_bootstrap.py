@@ -4,7 +4,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.migrations import run_migrations_or_stamp
 
-HEAD_REVISION = "20260305_0001"
+HEAD_REVISION = "20260306_0005"
 
 
 def _get_db_version(db_path: Path) -> str:

@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CoursePartStatus = Literal["completed", "inProgress", "locked", "new"]
-PodcastPartStatus = Literal["ready", "queued", "failed"]
+PodcastPartStatus = Literal["ready", "queued", "processing", "failed"]
 PodcastFormat = Literal["narrative", "summary", "qa"]
 SourceType = Literal["course", "ai"]
 
@@ -118,6 +118,7 @@ class GeneratePodcastSectionIn(BaseModel):
     id: str
     title: str
     enabled: bool = True
+    source_file_id: str | None = None
 
 
 class GeneratePodcastIn(BaseModel):
@@ -148,6 +149,10 @@ class GeneratePodcastStatusOut(BaseModel):
     progress_pct: int
     result_podcast_id: str | None = None
     error: str | None = None
+
+
+class PodcastPartOrderIn(BaseModel):
+    part_ids: list[str] = Field(min_length=1)
 
 
 # --- Quiz schemas ---

@@ -9,7 +9,8 @@ from app.core.auth import CurrentUser, get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.db.models import GenerationJobModel, PodcastModel, PodcastUserStateModel, QuizQuestionModel
-from app.models.schemas import Podcast, PodcastPart, PodcastStateUpdateIn
+from app.models.schemas import Podcast, PodcastPart, PodcastPartOrderIn, PodcastStateUpdateIn
+from app.services.generation import prioritize_podcast_part_window, reorder_podcast_parts
 from app.services.storage import get_storage_client
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
@@ -43,6 +44,7 @@ def _resolve_audio_url(audio_url: str | None) -> str | None:
 
 
 def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | None) -> Podcast:
+    ordered_parts = sorted(podcast.parts, key=lambda part: (part.sort_order, part.id))
     return Podcast(
         id=podcast.id,
         title=podcast.title,
@@ -60,7 +62,7 @@ def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | Non
                 status=part.status,
                 audio_url=_resolve_audio_url(part.audio_url),
             )
-            for part in podcast.parts
+            for part in ordered_parts
         ],
         is_favorite=state.is_favorite if state else False,
         is_downloaded=state.is_downloaded if state else False,
@@ -146,6 +148,56 @@ def get_podcast(
 
     state = db.get(PodcastUserStateModel, (current_user.user_id, podcast_id))
     return _serialize_podcast(podcast, state)
+
+
+@router.put("/{podcast_id}/parts/order", response_model=Podcast)
+def update_podcast_part_order(
+    podcast_id: str,
+    payload: PodcastPartOrderIn,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Podcast:
+    stmt = (
+        select(PodcastModel)
+        .where(PodcastModel.id == podcast_id, PodcastModel.user_id == current_user.user_id)
+        .options(selectinload(PodcastModel.parts))
+    )
+    podcast = db.execute(stmt).scalar_one_or_none()
+    if not podcast:
+        raise HTTPException(status_code=404, detail="Podcast not found")
+
+    try:
+        reorder_podcast_parts(db, podcast_id=podcast_id, part_ids=payload.part_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    refreshed = db.execute(stmt).scalar_one()
+    state = db.get(PodcastUserStateModel, (current_user.user_id, podcast_id))
+    return _serialize_podcast(refreshed, state)
+
+
+@router.post("/{podcast_id}/parts/{part_id}/prioritize", response_model=Podcast)
+def prioritize_podcast_part(
+    podcast_id: str,
+    part_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Podcast:
+    stmt = (
+        select(PodcastModel)
+        .where(PodcastModel.id == podcast_id, PodcastModel.user_id == current_user.user_id)
+        .options(selectinload(PodcastModel.parts))
+    )
+    podcast = db.execute(stmt).scalar_one_or_none()
+    if not podcast:
+        raise HTTPException(status_code=404, detail="Podcast not found")
+    if not any(part.id == part_id for part in podcast.parts):
+        raise HTTPException(status_code=404, detail="Podcast part not found")
+
+    prioritize_podcast_part_window(db, podcast_id=podcast_id, part_id=part_id)
+    refreshed = db.execute(stmt).scalar_one()
+    state = db.get(PodcastUserStateModel, (current_user.user_id, podcast_id))
+    return _serialize_podcast(refreshed, state)
 
 
 @router.put("/{podcast_id}/state", response_model=Podcast)

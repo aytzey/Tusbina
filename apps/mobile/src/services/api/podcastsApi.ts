@@ -7,6 +7,7 @@ import {
   ApiGenerateResponse,
   ApiGenerateStatus,
   ApiPodcast,
+  ApiPodcastPartOrderPayload,
   ApiPodcastStatePayload,
   ApiUploadResponse
 } from "./types";
@@ -66,6 +67,24 @@ export async function requestPodcastGeneration(payload: ApiGenerateRequest): Pro
 
 export async function fetchGenerationStatus(jobId: string): Promise<ApiGenerateStatus> {
   return apiRequest<ApiGenerateStatus>(`/generatePodcast/${jobId}/status`, { method: "GET" });
+}
+
+export async function prioritizePodcastPart(podcastId: string, partId: string): Promise<Podcast> {
+  const payload = await apiRequest<ApiPodcast>(`/podcasts/${podcastId}/parts/${partId}/prioritize`, {
+    method: "POST"
+  });
+  return mapApiPodcast(payload);
+}
+
+export async function reorderPodcastParts(
+  podcastId: string,
+  state: ApiPodcastPartOrderPayload
+): Promise<Podcast> {
+  const payload = await apiRequest<ApiPodcast>(`/podcasts/${podcastId}/parts/order`, {
+    method: "PUT",
+    body: JSON.stringify(state)
+  });
+  return mapApiPodcast(payload);
 }
 
 export async function deletePodcastById(podcastId: string): Promise<ApiDeletePodcastResponse> {

@@ -1,6 +1,6 @@
 export type SourceType = "course" | "ai";
 export type CoursePartStatus = "completed" | "inProgress" | "locked" | "new";
-export type PodcastPartStatus = "ready" | "queued" | "failed";
+export type PodcastPartStatus = "ready" | "queued" | "processing" | "failed";
 export type PodcastFormat = "narrative" | "summary" | "qa";
 
 export interface User {
@@ -72,6 +72,7 @@ export interface Track {
   parentId?: string;
   resumePositionSec?: number;
   voice?: string;
+  partStatus?: PodcastPartStatus;
 }
 
 export interface UploadFileItem {

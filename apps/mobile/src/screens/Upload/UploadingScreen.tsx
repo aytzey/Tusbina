@@ -1,22 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { PrimaryButton, ProgressBar, ScreenContainer } from "@/components";
-import { PodcastFormat } from "@/domain/models";
+import { Podcast, PodcastFormat } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
-import { ApiError, fetchGenerationStatus, isNetworkApiError, requestPodcastGeneration, uploadPdfFiles } from "@/services/api";
-import { usePodcastsStore, useUploadWizardStore } from "@/state/stores";
-import { colors, spacing, typography } from "@/theme";
+import {
+  ApiError,
+  fetchGenerationStatus,
+  isNetworkApiError,
+  prioritizePodcastPart,
+  requestPodcastGeneration,
+  uploadPdfFiles,
+} from "@/services/api";
+import { usePlayerStore, usePodcastsStore, useUploadWizardStore } from "@/state/stores";
+import { colors, radius, spacing, typography } from "@/theme";
+import {
+  buildPodcastQueue,
+  getPodcastPartStatusLabel,
+  getPodcastPartSummary,
+  resolvePodcastQueueStart,
+} from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+type UploadPhase = "uploading" | "planning" | "tracking";
+
 const STATUS_POLL_INTERVAL_MS = 1500;
+const PODCAST_POLL_INTERVAL_MS = 2500;
 const STATUS_MAX_POLLS = 320;
 const QUEUED_WARNING_POLLS = 20;
 
 export function UploadingScreen() {
   const navigation = useNavigation<Navigation>();
-  const loadPodcasts = usePodcastsStore((state) => state.loadPodcasts);
+  const replacePodcast = usePodcastsStore((state) => state.replacePodcast);
+  const refreshPodcast = usePodcastsStore((state) => state.refreshPodcast);
+  const setQueue = usePlayerStore((state) => state.setQueue);
 
   const files = useUploadWizardStore((state) => state.files);
   const voice = useUploadWizardStore((state) => state.voice);
@@ -26,9 +44,14 @@ export function UploadingScreen() {
   const setUploadedFileIds = useUploadWizardStore((state) => state.setUploadedFileIds);
   const resetWizard = useUploadWizardStore((state) => state.resetWizard);
 
+  const [phase, setPhase] = useState<UploadPhase>("uploading");
   const [progress, setProgress] = useState(5);
   const [statusText, setStatusText] = useState("Dosyalar hazırlanıyor...");
   const [error, setError] = useState<string | null>(null);
+  const [podcast, setPodcast] = useState<Podcast | null>(null);
+  const [planningJobId, setPlanningJobId] = useState<string | null>(null);
+  const seededPriorityPodcastId = useRef<string | null>(null);
+
   const validSections = useMemo(
     () => sections.filter((section) => section.enabled && section.title.trim().length > 0),
     [sections]
@@ -44,7 +67,20 @@ export function UploadingScreen() {
     [files, voice, format, podcastName, validSections.length]
   );
 
+  const partSummary = useMemo(() => (podcast ? getPodcastPartSummary(podcast) : null), [podcast]);
+  const hasPendingParts = useMemo(
+    () => Boolean(podcast?.parts.some((part) => part.status === "queued" || part.status === "processing")),
+    [podcast]
+  );
+  const firstReadyPart = useMemo(
+    () => podcast?.parts.find((part) => part.status === "ready") ?? null,
+    [podcast]
+  );
+
   useEffect(() => {
+    if (podcast || planningJobId) {
+      return;
+    }
     if (!canStart || voice === null || format === null) {
       setError("Wizard bilgileri eksik. Lütfen adımları yeniden tamamla.");
       return;
@@ -54,6 +90,7 @@ export function UploadingScreen() {
 
     const run = async () => {
       try {
+        setPhase("uploading");
         setStatusText("PDF dosyaları yükleniyor...");
         const uploadResult = await uploadPdfFiles(files);
         if (cancelled) {
@@ -63,7 +100,16 @@ export function UploadingScreen() {
         setUploadedFileIds(uploadResult.file_ids);
         setProgress(30);
 
-        setStatusText("Podcast üretim işi kuyruğa alındı...");
+        const uploadedIdByLocalId = new Map<string, string>();
+        files.forEach((file, index) => {
+          const uploadedId = uploadResult.file_ids[index];
+          if (uploadedId) {
+            uploadedIdByLocalId.set(file.localId, uploadedId);
+          }
+        });
+
+        setPhase("planning");
+        setStatusText("Önce bölüm planı çıkarılıyor. Hazır olan parçalar burada anında görünecek.");
         const job = await requestPodcastGeneration({
           title: podcastName,
           voice,
@@ -72,9 +118,13 @@ export function UploadingScreen() {
           sections: validSections.map((section) => ({
             id: section.id,
             title: section.title,
-            enabled: section.enabled
+            enabled: section.enabled,
+            source_file_id: section.sourceFileLocalId
+              ? uploadedIdByLocalId.get(section.sourceFileLocalId)
+              : undefined
           }))
         });
+        setPlanningJobId(job.job_id);
 
         let attempts = 0;
         let queuedStreak = 0;
@@ -90,23 +140,40 @@ export function UploadingScreen() {
           queuedStreak = status.status === "queued" ? queuedStreak + 1 : 0;
 
           setProgress(Math.max(35, status.progress_pct));
-          if (queuedStreak >= QUEUED_WARNING_POLLS) {
-            setStatusText(`Kuyrukta bekliyor... (${elapsedSec}s)`);
-          } else {
-            setStatusText(getStatusText(status.status, elapsedSec));
-          }
-
-          if (status.status === "completed") {
-            setProgress(100);
-            await loadPodcasts();
-            resetWizard();
-            navigation.navigate("MainTabs", { screen: "ListenTab" });
-            return;
-          }
+          setStatusText(getJobStatusText(status.status, elapsedSec, queuedStreak >= QUEUED_WARNING_POLLS));
 
           if (status.status === "failed") {
             throw new Error(status.error ?? "Podcast üretimi başarısız oldu.");
           }
+
+          if (!status.result_podcast_id) {
+            continue;
+          }
+
+          const plannedPodcast = await refreshPodcast(status.result_podcast_id);
+          if (!plannedPodcast) {
+            throw new Error("Plan hazırlandı ancak içerik listesi yüklenemedi.");
+          }
+
+          let nextPodcast = plannedPodcast;
+          if (seededPriorityPodcastId.current !== plannedPodcast.id && plannedPodcast.parts[0]) {
+            try {
+              nextPodcast = await prioritizePodcastPart(plannedPodcast.id, plannedPodcast.parts[0].id);
+              replacePodcast(nextPodcast);
+            } catch {
+              replacePodcast(plannedPodcast);
+            }
+            seededPriorityPodcastId.current = plannedPodcast.id;
+          } else {
+            replacePodcast(plannedPodcast);
+          }
+
+          setPhase("tracking");
+          setPodcast(nextPodcast);
+          setProgress(resolveTrackingProgress(nextPodcast));
+          setStatusText(buildTrackingStatusText(nextPodcast));
+          resetWizard();
+          return;
         }
 
         throw new Error("İşlem zaman aşımına uğradı. Backend worker durumunu kontrol edip tekrar dene.");
@@ -122,8 +189,7 @@ export function UploadingScreen() {
           navigation.replace("GeneralError");
           return;
         }
-        const message = toErrorMessage(e);
-        setError(message);
+        setError(toErrorMessage(e));
       }
     };
 
@@ -132,17 +198,156 @@ export function UploadingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [canStart, files, format, loadPodcasts, navigation, podcastName, resetWizard, setUploadedFileIds, validSections, voice]);
+  }, [
+    canStart,
+    files,
+    format,
+    navigation,
+    podcastName,
+    planningJobId,
+    podcast,
+    refreshPodcast,
+    replacePodcast,
+    resetWizard,
+    setUploadedFileIds,
+    validSections,
+    voice
+  ]);
+
+  useEffect(() => {
+    if (!podcast?.id || !hasPendingParts) {
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        await sleep(PODCAST_POLL_INTERVAL_MS);
+        const refreshed = await refreshPodcast(podcast.id);
+        if (cancelled || !refreshed) {
+          continue;
+        }
+        setPodcast(refreshed);
+        setProgress(resolveTrackingProgress(refreshed));
+        setStatusText(buildTrackingStatusText(refreshed));
+      }
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPendingParts, podcast?.id, refreshPodcast]);
+
+  const handleOpenPodcast = (targetPartId?: string) => {
+    if (!podcast) {
+      return;
+    }
+
+    const queue = buildPodcastQueue(podcast);
+    const defaultStart = resolvePodcastQueueStart(podcast);
+    const requestedIndex =
+      targetPartId !== undefined ? queue.findIndex((item) => item.id === targetPartId) : defaultStart.startIndex;
+    const startIndex = requestedIndex >= 0 ? requestedIndex : defaultStart.startIndex;
+    const startPositionSec = targetPartId ? 0 : defaultStart.startPositionSec;
+
+    setQueue(queue, startIndex, startPositionSec);
+    navigation.navigate("Player", { trackId: queue[startIndex]?.id, sourceType: "ai" });
+  };
+
+  const handlePrioritizePart = async (partId: string) => {
+    if (!podcast) {
+      return;
+    }
+
+    try {
+      const updatedPodcast = await prioritizePodcastPart(podcast.id, partId);
+      replacePodcast(updatedPodcast);
+      setPodcast(updatedPodcast);
+      setProgress(resolveTrackingProgress(updatedPodcast));
+      setStatusText(buildTrackingStatusText(updatedPodcast));
+    } catch {
+      setError("Bölüm sırası güncellenemedi. Lütfen tekrar dene.");
+    }
+  };
 
   return (
-    <ScreenContainer contentStyle={styles.container}>
-      <Text style={styles.title}>İçeriğin hazırlanıyor...</Text>
+    <ScreenContainer scroll contentStyle={styles.container}>
+      <Text style={styles.title}>{podcast ? "Planın hazır" : "İçeriğin hazırlanıyor..."}</Text>
       <Text style={styles.subtitle}>{error ?? statusText}</Text>
+      {phase === "tracking" ? (
+        <Text style={styles.helperText}>
+          Sesler artık tek seferde değil, dinleme sırasına göre üretiliyor. İstersen hazır içeriklerinle devam et,
+          istersen aşağıdan bir bölümü öne al.
+        </Text>
+      ) : null}
+
       <View style={styles.progressBlock}>
         <ProgressBar progress={progress} />
         <Text style={styles.progressValue}>%{progress}</Text>
       </View>
 
+      {podcast && partSummary ? (
+        <>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryChip}>
+              <Text style={styles.summaryChipLabel}>Hazır</Text>
+              <Text style={styles.summaryChipValue}>{partSummary.readyCount}</Text>
+            </View>
+            <View style={styles.summaryChip}>
+              <Text style={styles.summaryChipLabel}>Oluşturuluyor</Text>
+              <Text style={styles.summaryChipValue}>{partSummary.processingCount}</Text>
+            </View>
+            <View style={styles.summaryChip}>
+              <Text style={styles.summaryChipLabel}>Sırada</Text>
+              <Text style={styles.summaryChipValue}>{partSummary.queuedCount}</Text>
+            </View>
+          </View>
+
+          <View style={styles.actionRow}>
+            {firstReadyPart ? (
+              <PrimaryButton label="Dinlemeye Başla" onPress={() => handleOpenPodcast(firstReadyPart.id)} />
+            ) : (
+              <PrimaryButton label="Hazır İçeriklere Git" onPress={() => navigation.navigate("MainTabs", { screen: "ListenTab" })} />
+            )}
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => navigation.navigate("MainTabs", { screen: "ListenTab" })}
+            >
+              <Text style={styles.secondaryButtonLabel}>Kütüphaneye Dön</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.partList}>
+            {podcast.parts.map((part, index) => {
+              const isReady = part.status === "ready";
+              const statusLabel = getPodcastPartStatusLabel(part.status);
+              return (
+                <View key={part.id} style={styles.partCard}>
+                  <View style={styles.partIndex}>
+                    <Text style={styles.partIndexText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.partBody}>
+                    <Text style={styles.partTitle} numberOfLines={1}>
+                      {part.title}
+                    </Text>
+                    <Text style={styles.partStatus}>{statusLabel}</Text>
+                  </View>
+                  <Pressable
+                    style={[styles.partAction, isReady ? styles.partActionReady : styles.partActionQueued]}
+                    onPress={() => (isReady ? handleOpenPodcast(part.id) : void handlePrioritizePart(part.id))}
+                  >
+                    <Text style={styles.partActionLabel}>{isReady ? "Dinle" : "Öne Al"}</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
+
+      {planningJobId && !podcast ? <Text style={styles.jobMeta}>Plan işi: {planningJobId.slice(0, 8)}</Text> : null}
       {error ? <PrimaryButton label="Yeniden Dene" onPress={() => navigation.replace("Uploading")} /> : null}
     </ScreenContainer>
   );
@@ -154,17 +359,41 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-function getStatusText(status: "queued" | "processing" | "completed" | "failed", elapsedSec: number): string {
+function getJobStatusText(
+  status: "queued" | "processing" | "completed" | "failed",
+  elapsedSec: number,
+  showQueueWarning: boolean
+): string {
   if (status === "queued") {
-    return `Kuyrukta bekliyor... (${elapsedSec}s)`;
+    return showQueueWarning
+      ? `Kuyruk yoğun. Bu sırada hazır içeriklerle devam edebilirsin. (${elapsedSec}s)`
+      : `Plan sırası bekleniyor... (${elapsedSec}s)`;
   }
   if (status === "processing") {
-    return `Ses dalgaları üretiliyor... (${elapsedSec}s)`;
+    return `Bölüm planı hazırlanıyor... (${elapsedSec}s)`;
   }
   if (status === "completed") {
-    return "Tamamlandı";
+    return "Plan tamamlandı";
   }
   return "Üretim başarısız";
+}
+
+function resolveTrackingProgress(podcast: Podcast): number {
+  const totalParts = Math.max(podcast.parts.length, 1);
+  const summary = getPodcastPartSummary(podcast);
+  const weighted = summary.readyCount + summary.processingCount * 0.5;
+  return Math.max(45, Math.min(100, Math.round((weighted / totalParts) * 100)));
+}
+
+function buildTrackingStatusText(podcast: Podcast): string {
+  const summary = getPodcastPartSummary(podcast);
+  if (summary.readyCount > 0) {
+    return `${summary.readyCount}/${podcast.parts.length} bölüm hazır. İstersen hemen dinlemeye başlayabilirsin.`;
+  }
+  if (summary.processingCount > 0) {
+    return "İlk bölümler oluşturuluyor. Hazır olanlar burada anında görünecek.";
+  }
+  return "Plan hazır. Dinleme sırasına göre bölümler kuyruğa alındı.";
 }
 
 function toErrorMessage(error: unknown): string {
@@ -193,7 +422,6 @@ function toErrorMessage(error: unknown): string {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.lg,
-    justifyContent: "center",
     gap: spacing.md
   },
   title: {
@@ -206,12 +434,112 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center"
   },
+  helperText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: "center"
+  },
   progressBlock: {
     gap: spacing.sm
   },
   progressValue: {
     ...typography.h2,
     color: colors.motivationOrange,
+    textAlign: "center"
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: spacing.sm
+  },
+  summaryChip: {
+    flex: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceNavy,
+    gap: spacing.xs
+  },
+  summaryChipLabel: {
+    ...typography.caption,
+    color: colors.textSecondary
+  },
+  summaryChipValue: {
+    ...typography.h2,
+    color: colors.textPrimary
+  },
+  actionRow: {
+    gap: spacing.sm
+  },
+  secondaryButton: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  secondaryButtonLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700"
+  },
+  partList: {
+    gap: spacing.sm
+  },
+  partCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceNavy,
+    padding: spacing.md
+  },
+  partIndex: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.motivationOrange,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  partIndexText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: "700"
+  },
+  partBody: {
+    flex: 1,
+    gap: 2
+  },
+  partTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700"
+  },
+  partStatus: {
+    ...typography.caption,
+    color: colors.textSecondary
+  },
+  partAction: {
+    minWidth: 72,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: "center"
+  },
+  partActionReady: {
+    backgroundColor: colors.motivationOrange
+  },
+  partActionQueued: {
+    backgroundColor: "rgba(189,148,101,0.16)"
+  },
+  partActionLabel: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: "700"
+  },
+  jobMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
     textAlign: "center"
   }
 });
