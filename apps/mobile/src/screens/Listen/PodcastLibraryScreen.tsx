@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Alert, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { PodcastArtwork, ScreenContainer } from "@/components";
+import { PodcastCover, ScreenContainer } from "@/components";
 import { Podcast } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
 import { patchPodcastState } from "@/services/api";
@@ -182,11 +182,13 @@ export function PodcastLibraryScreen() {
 
             return (
               <Pressable style={styles.card} onPress={() => handleOpenPodcast(item)}>
-                {item.coverImageUrl && !item.coverImageUrl.endsWith(".svg") ? (
-                  <Image source={{ uri: item.coverImageUrl }} style={styles.coverImage} resizeMode="cover" />
-                ) : (
-                  <PodcastArtwork title={item.title} subtitle="AI Podcast" voice={item.voice} size={72} />
-                )}
+                <PodcastCover
+                  uri={item.coverImageUrl}
+                  title={item.title}
+                  subtitle="AI Podcast"
+                  voice={item.voice}
+                  size={72}
+                />
 
                 <View style={styles.cardBody}>
                   <Text style={styles.badge}>AI Üretildi</Text>

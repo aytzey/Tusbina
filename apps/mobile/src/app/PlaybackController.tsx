@@ -91,12 +91,13 @@ export function PlaybackController() {
       }
 
       if (trackToPersist.sourceType === "ai" && trackToPersist.parentId) {
-        const absoluteIndex = queueOverride.findIndex((item) => item.id === trackToPersist.id);
-        const beforeSec =
-          absoluteIndex > 0
-            ? queueOverride.slice(0, absoluteIndex).reduce((sum, item) => sum + item.durationSec, 0)
-            : 0;
-        const totalProgressSec = beforeSec + currentSec;
+        const fallbackAbsoluteIndex = queueOverride.findIndex((item) => item.id === trackToPersist.id);
+        const absoluteOffsetSec =
+          trackToPersist.absoluteOffsetSec ??
+          (fallbackAbsoluteIndex > 0
+            ? queueOverride.slice(0, fallbackAbsoluteIndex).reduce((sum, item) => sum + item.durationSec, 0)
+            : 0);
+        const totalProgressSec = absoluteOffsetSec + currentSec;
 
         patchPodcastLocalState(trackToPersist.parentId, { progressSec: totalProgressSec });
         updateDownloadedPodcastProgress(trackToPersist.parentId, totalProgressSec);

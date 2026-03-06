@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
 from app.core.config import settings
+from app.core.schema_compat import ensure_legacy_schema_compat
 
 MigrationAction = Literal["upgrade", "stamp"]
 
@@ -43,6 +44,9 @@ def run_migrations_or_stamp() -> MigrationAction:
         try:
             table_names = set(inspect(connection).get_table_names())
             config.attributes["connection"] = connection
+            if "alembic_version" in table_names or table_names.intersection(_APP_TABLES):
+                ensure_legacy_schema_compat(connection)
+                table_names = set(inspect(connection).get_table_names())
 
             if "alembic_version" in table_names:
                 command.upgrade(config, "head")

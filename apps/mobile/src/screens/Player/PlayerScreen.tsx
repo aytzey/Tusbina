@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { FeedbackModal, PodcastArtwork, ProgressBar, ScreenContainer } from "@/components";
+import { FeedbackModal, PodcastCover, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { patchPodcastState, prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
 import { useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
@@ -255,11 +255,13 @@ export function PlayerScreen() {
       {/* --- Cover Art --- */}
       <View style={styles.coverWrapper}>
         <View style={styles.cover}>
-          {track.coverImageUrl && !track.coverImageUrl.endsWith(".svg") ? (
-            <Image source={{ uri: track.coverImageUrl }} style={styles.coverImage} resizeMode="cover" />
-          ) : (
-            <PodcastArtwork title={track.title} subtitle={track.subtitle} voice={track.voice} size={240} />
-          )}
+          <PodcastCover
+            uri={track.coverImageUrl}
+            title={track.title}
+            subtitle={track.subtitle}
+            voice={track.voice}
+            size={240}
+          />
         </View>
         {track.sourceType === "ai" && (
           <View style={styles.aiBadge}>

@@ -1,20 +1,27 @@
 import { Podcast, PodcastPartStatus, Track } from "@/domain/models";
 
 export function buildPodcastQueue(podcast: Podcast): Track[] {
-  return podcast.parts.map((part) => ({
-    id: part.id,
-    title: part.title,
-    subtitle: podcast.title,
-    durationSec: part.durationSec,
-    sourceType: "ai",
-    audioUrl: part.localAudioUrl ?? part.audioUrl,
-    remoteAudioUrl: part.remoteAudioUrl ?? part.audioUrl,
-    localAudioUrl: part.localAudioUrl,
-    parentId: podcast.id,
-    voice: podcast.voice,
-    partStatus: part.status,
-    coverImageUrl: podcast.coverImageUrl
-  }));
+  let absoluteOffsetSec = 0;
+
+  return podcast.parts.map((part) => {
+    const track: Track = {
+      id: part.id,
+      title: part.title,
+      subtitle: podcast.title,
+      durationSec: part.durationSec,
+      absoluteOffsetSec,
+      sourceType: "ai",
+      audioUrl: part.localAudioUrl ?? part.audioUrl,
+      remoteAudioUrl: part.remoteAudioUrl ?? part.audioUrl,
+      localAudioUrl: part.localAudioUrl,
+      parentId: podcast.id,
+      voice: podcast.voice,
+      partStatus: part.status,
+      coverImageUrl: podcast.coverImageUrl
+    };
+    absoluteOffsetSec += part.durationSec;
+    return track;
+  });
 }
 
 export function resolvePodcastQueueStart(podcast: Podcast): {
@@ -61,6 +68,37 @@ export function getPodcastPartStatusLabel(
     return "Hata";
   }
   return "Sırada";
+}
+
+export function resolveTrackQueueStart(queue: Track[], absoluteProgressSec: number): {
+  startIndex: number;
+  startPositionSec: number;
+} {
+  if (queue.length === 0) {
+    return { startIndex: 0, startPositionSec: 0 };
+  }
+
+  const normalizedProgress = Math.max(absoluteProgressSec, 0);
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const track = queue[index];
+    const absoluteOffsetSec = track.absoluteOffsetSec ?? 0;
+    const absoluteEndSec = absoluteOffsetSec + track.durationSec;
+
+    if (normalizedProgress < absoluteEndSec) {
+      return {
+        startIndex: index,
+        startPositionSec: Math.max(0, normalizedProgress - absoluteOffsetSec),
+      };
+    }
+  }
+
+  const lastTrack = queue[queue.length - 1];
+  const absoluteOffsetSec = lastTrack.absoluteOffsetSec ?? 0;
+  return {
+    startIndex: queue.length - 1,
+    startPositionSec: Math.min(lastTrack.durationSec, Math.max(0, normalizedProgress - absoluteOffsetSec)),
+  };
 }
 
 export function getPodcastPartSummary(podcast: Podcast): {

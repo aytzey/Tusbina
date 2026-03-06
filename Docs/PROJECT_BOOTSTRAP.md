@@ -39,7 +39,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `podcastsStore`: podcast listesi + favorite/download/progress local patch
 - `uploadWizardStore`: belge/kapak dosyaları, ses, format, podcast adı
 - `downloadsStore`: çevrimdışı indirilen podcastler, yerel audio/cover eşlemesi ve kullanıcı bazlı sahiplik temizliği
-- `learningToolsStore`: günlük hedef, ders planı, kronometre
+- `learningToolsStore`: günlük hedef, ders planı, kronometre ve kullanıcı bazlı sahiplik temizliği
 
 ## 4) API Kontratları
 
@@ -55,7 +55,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `POST /api/v1/upload`
 - `POST /api/v1/generatePodcast`
 - `GET /api/v1/generatePodcast/{job_id}/status`
-- `GET /api/v1/voices/{voice_name}/preview`
+- `GET /api/v1/voices/{voice_name}/preview` (rate-limited)
 - `POST /api/v1/feedback`
 - `GET /api/v1/usage`
 - `POST /api/v1/usage/consume`

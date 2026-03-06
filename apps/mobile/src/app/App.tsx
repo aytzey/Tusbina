@@ -41,17 +41,19 @@ function useBootstrapData() {
   }, [isAuthenticated, loadCourses, loadPodcasts, syncUsage]);
 }
 
-function useDownloadOwnership() {
+function useUserScopedStores() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
-  const bindToUser = useDownloadsStore((state) => state.bindToUser);
+  const bindDownloadsToUser = useDownloadsStore((state) => state.bindToUser);
+  const bindLearningToolsToUser = useLearningToolsStore((state) => state.bindToUser);
 
   useEffect(() => {
     if (!isAuthenticated || !authUserId) {
       return;
     }
-    void bindToUser(authUserId);
-  }, [authUserId, bindToUser, isAuthenticated]);
+    bindDownloadsToUser(authUserId).catch(() => undefined);
+    bindLearningToolsToUser(authUserId);
+  }, [authUserId, bindDownloadsToUser, bindLearningToolsToUser, isAuthenticated]);
 }
 
 function usePendingPodcastSync() {
@@ -131,7 +133,7 @@ function useLearningToolsClock() {
 }
 
 export function App() {
-  useDownloadOwnership();
+  useUserScopedStores();
   useBootstrapData();
   usePendingPodcastSync();
   usePlaybackQuotaSync();

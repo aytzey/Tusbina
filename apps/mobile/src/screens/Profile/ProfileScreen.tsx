@@ -59,8 +59,8 @@ export function ProfileScreen() {
   const dailyGoalSec = dailyGoalMin * 60;
   const dailyProgress = Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100));
   const displayName = useMemo(
-    () => authUser?.user_metadata?.display_name || user.name,
-    [authUser?.user_metadata?.display_name, user.name]
+    () => authUser?.user_metadata?.display_name || authUser?.email?.split("@")[0] || user.name,
+    [authUser?.email, authUser?.user_metadata?.display_name, user.name]
   );
 
   return (

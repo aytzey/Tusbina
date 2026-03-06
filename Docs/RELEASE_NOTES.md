@@ -45,7 +45,10 @@
 - Mobil uygulamaya `İndirilenler` alanı eklendi; podcastler cihaz hafızasına alınarak internet olmadan dinlenebiliyor.
 - Oynatıcı ve podcast kütüphanesi, indirilen içerikler için çevrimdışı hazır durumunu gösterecek şekilde güncellendi.
 - İndirilen içerik store'u oturum açan kullanıcıya bağlandı; hesap değişiminde eski kullanıcının offline içerikleri yeni hesaba sızmıyor.
+- Kısmi çevrimdışı kuyruklarda oynatma başlangıcı ve ilerleme kaydı mutlak bölüm ofseti üzerinden düzeltilerek yanlış resume konumları giderildi.
+- İndirilenler ekranındaki süre etiketi artık toplam podcast süresi yerine gerçekten çevrimdışı hazır olan bölüm sürelerini gösteriyor.
 - Profil sekmesine `Çalışma Araçları` alanı eklendi; günlük dinleme hedefi, ders planı ve kronometre tek yerde yönetilebiliyor.
+- Çalışma araçları store'u kullanıcı bazlı izole edildi; hesap değişiminde günlük hedef, plan ve kronometre durumu çapraz taşınmıyor.
 - Günlük dinleme süresi artık oynatma sırasında otomatik toplanıyor ve profil özetinde daha okunabilir süre formatında gösteriliyor.
 - `Hesap Ayarları` ekranı eklendi; görünen ad ve temel hesap bilgileri uygulama içinden düzenlenebiliyor.
 - `Yardım & Destek` ekranı eklendi; e-posta, telefon ve doğrudan iletişim sayfası bağlantıları uygulama içine taşındı.
@@ -57,6 +60,7 @@
 - Bölüm adları yüklenen içeriğin başlık ve konu yapısından otomatik türetiliyor; kullanıcıya daha anlamlı bir dinleme listesi sunuluyor.
 - Kullanıcı kapak görseli yüklediyse bu görsel podcast kapağı olarak kullanılıyor; yoksa sistem içerikten otomatik kapak üretiyor.
 - Mobil tarafta gerçek kapak görseli varsa kütüphane ve oynatıcıda gösteriliyor; yoksa TUSBINA markalı dinamik fallback artwork üretiliyor.
+- Backend'in ürettiği SVG kapaklar da artık mobil kütüphane ve oynatıcıda doğrudan render ediliyor.
 
 #### Geliştirme altyapısı
 
@@ -65,9 +69,11 @@
 - Expo web çıktısını `apps/mobile/dist` altında üreten export akışı ve Nginx root fallback servisi eklendi; böylece public domain kökünde uygulama shell'i yayınlanabiliyor.
 - Mobil lint uyarıları temizlendi.
 - `create_all` ile açılmış eski SQLite veritabanlarında eksik podcast kapak ve `course_parts.audio_url` kolonlarını otomatik ekleyen uyumluluk katmanı eklendi.
+- Alembic bootstrap akışı da eski şemalarda aynı uyumluluk katmanını çalıştıracak şekilde güçlendirildi; legacy DB'ler head'e stamp edilirken eksik kolonlar tamamlanıyor.
 - Auth katmanına HS256 shared-secret fallback doğrulaması eklendi; test ve lokal Supabase senaryoları JWKS bağımlılığı olmadan çalışabiliyor.
 - `PATCH /api/v1/auth/profile` çağrısı artık eksik backend profilini otomatik oluşturuyor; hesap ayarları ekranı ilk senkron gecikmesinde 404'e düşmüyor.
 - Ayrı taşınan `cover_file_id` artık generation worker tarafından doğru resolve ediliyor; mobil upload kontratıyla kapak görseli gerçekten podcast kapağına yansıyor.
+- `GET /api/v1/voices/{voice}/preview` endpoint'ine app-level rate limit eklendi; public preview yüzeyi kontrolsüz TTS maliyeti üretmiyor.
 
 ### Doğrulananlar
 
@@ -75,7 +81,7 @@
 - `npm run mobile:lint` geçti.
 - `npm run mobile:typecheck` geçti.
 - `apps/api` içinde `ruff check .` geçti.
-- `apps/api` içinde tam test seti geçti: `pytest -q` -> `58 passed`
+- `apps/api` içinde tam test seti geçti: `pytest -q` -> `59 passed`
 
 ### Bu Turda Göremeyeceğimiz / Tam Doğrulayamayacağımız Şeyler
 

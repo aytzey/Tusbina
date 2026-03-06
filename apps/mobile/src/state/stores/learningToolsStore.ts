@@ -3,12 +3,14 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 interface LearningToolsState {
+  ownerUserId: string | null;
   dailyGoalMin: number;
   todayKey: string;
   todayListenedSec: number;
   studyPlan: string;
   stopwatchSec: number;
   stopwatchRunning: boolean;
+  bindToUser: (userId: string | null) => void;
   setDailyGoalMin: (minutes: number) => void;
   setStudyPlan: (value: string) => void;
   recordListeningSecond: () => void;
@@ -19,15 +21,38 @@ interface LearningToolsState {
   tickStopwatch: () => void;
 }
 
+const DEFAULT_STUDY_PLAN = "Bugün için dinlemek istediğin konu başlıklarını buraya yaz.";
+
 export const useLearningToolsStore = create<LearningToolsState>()(
   persist(
     (set) => ({
+      ownerUserId: null,
       dailyGoalMin: 30,
       todayKey: currentDayKey(),
       todayListenedSec: 0,
-      studyPlan: "Bugün için dinlemek istediğin konu başlıklarını buraya yaz.",
+      studyPlan: DEFAULT_STUDY_PLAN,
       stopwatchSec: 0,
       stopwatchRunning: false,
+      bindToUser: (userId) =>
+        set((state) => {
+          if (!userId || state.ownerUserId === userId) {
+            return state;
+          }
+
+          if (state.ownerUserId === null) {
+            return { ownerUserId: userId };
+          }
+
+          return {
+            ownerUserId: userId,
+            dailyGoalMin: 30,
+            todayKey: currentDayKey(),
+            todayListenedSec: 0,
+            studyPlan: DEFAULT_STUDY_PLAN,
+            stopwatchSec: 0,
+            stopwatchRunning: false,
+          };
+        }),
       setDailyGoalMin: (minutes) =>
         set((state) => ({
           ...normalizeDay(state),

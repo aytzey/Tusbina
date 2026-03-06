@@ -72,6 +72,7 @@ export interface Track {
   title: string;
   subtitle: string;
   durationSec: number;
+  absoluteOffsetSec?: number;
   sourceType: SourceType;
   audioUrl?: string;
   remoteAudioUrl?: string;

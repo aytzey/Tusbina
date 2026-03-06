@@ -21,7 +21,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - Akış ekranları: `Ders Detay`, `Player`, `Premium`, `Quiz`, `İndirilenler`, `Çalışma Araçları`, `Hesap Ayarları`, `Yardım & Destek`, `Hata durumları`
 - State store'ları: `auth`, `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `downloads`, `learningTools`, `quiz`
 - Upload akışı: `expo-document-picker` ile PDF/TXT seçimi, opsiyonel kapak yükleme, ses preview, API upload, otomatik bölümleme, job polling
-- Dinle kütüphanesi: favori/indirilen durumları backend'de kalıcı; çevrimdışı hazır bölümler yerel store ile yönetiliyor ve indirilenler aktif kullanıcıya göre izole tutuluyor
+- Dinle kütüphanesi: favori durumu backend'de kalıcı; çevrimdışı hazır bölümler ise yerel store ile ve aktif kullanıcıya göre izole şekilde yönetiliyor
 - Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir ve Nginx kökten servis edilebilir
 
 ## API (v1)
@@ -52,7 +52,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 
 - `upload` endpointi dosyaları `local` veya `R2` backend'ine yazar.
 - `generatePodcast` endpointi DB'de job oluşturur (`queued`).
-- Worker önce yüklenen belgeyi otomatik bölümlendirir, bölüm başlıklarını içerikten türetir ve kapak görselini resolve eder; kapak yoksa otomatik SVG cover üretir.
+- Worker önce yüklenen belgeyi otomatik bölümlendirir, bölüm başlıklarını içerikten türetir ve kapak görselini resolve eder; kapak yoksa otomatik SVG cover üretir ve mobil istemci bu kapağı doğrudan render eder.
 - `cover_file_id` belge `file_ids` listesinden ayrı taşınabilir; backend bu mobile kontratını doğrudan destekler.
 - `app.worker` queued job'ı güvenli şekilde claim eder (`FOR UPDATE SKIP LOCKED`), PDF/TXT içeriğinden bölüm metni üretir, TTS sentezi yapar ve job'ı `completed` yapar.
 - `OPENROUTER_API_KEY` verilirse script üretimi LLM destekli olur; anahtar yoksa extractive fallback kullanılır.

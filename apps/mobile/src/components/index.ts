@@ -1,5 +1,6 @@
 export * from "./FeedbackModal";
 export * from "./PodcastArtwork";
+export * from "./PodcastCover";
 export * from "./PrimaryButton";
 export * from "./ProgressBar";
 export * from "./QuotaLimitModal";

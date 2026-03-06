@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { usePlayerStore, useDownloadsStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart } from "@/utils";
+import { buildPodcastQueue, formatDuration, resolveTrackQueueStart } from "@/utils";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@/navigation/types";
@@ -30,17 +30,15 @@ export function DownloadsScreen() {
       return;
     }
 
-    const offlineParts = podcast.parts.filter((part) => Boolean(part.localAudioUrl));
-    if (offlineParts.length === 0) {
+    const offlineQueue = buildPodcastQueue(podcast).filter((track) => Boolean(track.localAudioUrl));
+    if (offlineQueue.length === 0) {
       Alert.alert("Henüz hazır değil", "Bu podcast için çevrimdışı oynatılabilir bölüm bulunamadı.");
       return;
     }
 
-    const queuePodcast = { ...podcast, parts: offlineParts };
-    const queue = buildPodcastQueue(queuePodcast);
-    const { startIndex, startPositionSec } = resolvePodcastQueueStart(queuePodcast);
-    setQueue(queue, startIndex, startPositionSec);
-    navigation.navigate("Player", { trackId: queue[startIndex]?.id, sourceType: "ai" });
+    const { startIndex, startPositionSec } = resolveTrackQueueStart(offlineQueue, podcast.progressSec ?? 0);
+    setQueue(offlineQueue, startIndex, startPositionSec);
+    navigation.navigate("Player", { trackId: offlineQueue[startIndex]?.id, sourceType: "ai" });
   };
 
   const handleRemove = async (podcastId: string) => {
@@ -79,12 +77,16 @@ export function DownloadsScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const offlineParts = item.parts.filter((part) => Boolean(part.localAudioUrl)).length;
+          const offlineDurationSec = item.parts.reduce(
+            (total, part) => total + (part.localAudioUrl ? part.durationSec : 0),
+            0
+          );
           return (
             <View style={styles.card}>
               <View style={styles.cardBody}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.cardMeta}>
-                  {offlineParts}/{item.parts.length} bölüm çevrimdışı • {formatDuration(item.totalDurationSec)}
+                  {offlineParts}/{item.parts.length} bölüm çevrimdışı • {formatDuration(offlineDurationSec)}
                 </Text>
               </View>
               <View style={styles.cardActions}>

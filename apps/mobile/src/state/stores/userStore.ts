@@ -36,7 +36,7 @@ interface UserState {
 
 const DEFAULT_USER = {
   id: "demo-user",
-  name: "Aytzey",
+  name: "Kullanıcı",
   isPremium: false,
   monthlyListenQuotaSec: DEFAULT_QUOTA_SEC,
   monthlyUsedSec: 0

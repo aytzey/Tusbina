@@ -1,3 +1,5 @@
+from collections import defaultdict, deque
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -19,3 +21,21 @@ def test_voice_preview_endpoint_returns_audio(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/wav"
     assert response.content == b"preview-bytes"
+
+
+def test_voice_preview_endpoint_rate_limits(monkeypatch) -> None:
+    class _PreviewTTS:
+        def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+            return TTSResult(content=b"preview-bytes", extension="wav", content_type="audio/wav")
+
+    monkeypatch.setattr("app.api.routes.voices.get_tts_service", lambda: _PreviewTTS())
+    monkeypatch.setattr("app.api.routes.voices.time", lambda: 1000.0)
+    monkeypatch.setattr("app.api.routes.voices._preview_requests", defaultdict(deque))
+
+    for _ in range(20):
+        response = client.get("/api/v1/voices/Elif/preview")
+        assert response.status_code == 200
+
+    limited = client.get("/api/v1/voices/Elif/preview")
+
+    assert limited.status_code == 429
