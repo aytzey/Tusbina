@@ -30,8 +30,8 @@ const STATUS_POLL_INTERVAL_MS = 1500;
 const PODCAST_POLL_INTERVAL_MS = 2500;
 const STATUS_MAX_POLLS = 320;
 const QUEUED_WARNING_POLLS = 20;
-const PLANNED_PODCAST_FETCH_RETRIES = 6;
-const PLANNED_PODCAST_FETCH_RETRY_MS = 900;
+const PLANNED_PODCAST_FETCH_RETRIES = 8;
+const PLANNED_PODCAST_FETCH_RETRY_MS = 1200;
 
 export function UploadingScreen() {
   const navigation = useNavigation<Navigation>();
@@ -131,6 +131,7 @@ export function UploadingScreen() {
 
         let attempts = 0;
         let queuedStreak = 0;
+        let lastResolvedPodcastId: string | null = null;
         while (!cancelled && attempts < STATUS_MAX_POLLS) {
           await sleep(STATUS_POLL_INTERVAL_MS);
           const status = await fetchGenerationStatus(job.job_id);
@@ -153,13 +154,17 @@ export function UploadingScreen() {
             continue;
           }
 
+          lastResolvedPodcastId = status.result_podcast_id;
+
           const plannedPodcast = await loadPlannedPodcastWithRetry({
             cancelled: () => cancelled,
             podcastId: status.result_podcast_id,
             refreshPodcast,
           });
           if (!plannedPodcast) {
-            throw new Error("Plan hazırlandı ancak içerik listesi yüklenemedi.");
+            setProgress(Math.max(45, status.progress_pct));
+            setStatusText("Plan hazırlandı. İçerik listesi yükleniyor, oturum doğrulanıyor...");
+            continue;
           }
 
           let nextPodcast = plannedPodcast;
@@ -183,6 +188,9 @@ export function UploadingScreen() {
           return;
         }
 
+        if (lastResolvedPodcastId) {
+          throw new Error("Plan hazırlandı ancak oturum doğrulanamadığı için içerik yüklenemedi. Tekrar giriş yapıp yeniden dene.");
+        }
         throw new Error("İşlem zaman aşımına uğradı. Backend worker durumunu kontrol edip tekrar dene.");
       } catch (e) {
         if (cancelled) {
