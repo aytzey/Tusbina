@@ -80,7 +80,6 @@ function usePendingPodcastSync() {
 function usePlaybackQuotaSync() {
   const isPlaying = usePlayerStore((state) => state.isPlaying);
   const activeTrack = usePlayerStore((state) => state.activeTrack);
-  const tick = usePlayerStore((state) => state.tick);
   const pause = usePlayerStore((state) => state.pause);
   const consumeOneSecond = useUserStore((state) => state.consumeOneSecond);
   const flushUsageConsumption = useUserStore((state) => state.flushUsageConsumption);
@@ -93,6 +92,10 @@ function usePlaybackQuotaSync() {
     }
 
     const interval = setInterval(() => {
+      if (!activeTrack?.audioUrl) {
+        return;
+      }
+
       const canContinue = consumeOneSecond();
       if (!canContinue) {
         pause();
@@ -100,13 +103,10 @@ function usePlaybackQuotaSync() {
         return;
       }
       recordListeningSecond();
-      if (!activeTrack?.audioUrl) {
-        tick();
-      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeTrack?.audioUrl, consumeOneSecond, flushUsageConsumption, isPlaying, pause, recordListeningSecond, tick]);
+  }, [activeTrack?.audioUrl, consumeOneSecond, flushUsageConsumption, isPlaying, pause, recordListeningSecond]);
 
   useEffect(() => {
     const interval = setInterval(() => {

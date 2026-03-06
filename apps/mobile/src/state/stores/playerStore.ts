@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Podcast, Track } from "@/domain/models";
+import type { Podcast, Track } from "@/domain/models";
 
 interface PlaybackSnapshot {
   durationSec?: number;
@@ -114,7 +114,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         queueIndex: index,
         activeTrack: track,
-        isPlaying: false,
+        isPlaying: state.isPlaying,
         ...playbackStateForTrack(track, defaultStartPosition(track, startPositionSec))
       };
     }),
@@ -155,7 +155,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       return {
         queue: nextQueue,
-        activeTrack: nextActiveTrack
+        activeTrack: nextActiveTrack,
+        playbackDurationSec:
+          nextActiveTrack && nextActiveTrack.id === state.activeTrack?.id
+            ? nextActiveTrack.durationSec
+            : state.playbackDurationSec
       };
     }),
   play: () => set({ isPlaying: true }),
@@ -171,6 +175,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         queueIndex: nextIndex,
         activeTrack: track,
+        isPlaying: state.isPlaying,
         ...playbackStateForTrack(track, defaultStartPosition(track))
       };
     }),
@@ -185,6 +190,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         queueIndex: nextIndex,
         activeTrack: track,
+        isPlaying: state.isPlaying,
         ...playbackStateForTrack(track, defaultStartPosition(track))
       };
     }),
@@ -245,8 +251,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             ? durationSec
             : state.playbackDurationSec,
         isBuffering: snapshot.isBuffering ?? state.isBuffering,
-        isLoaded: snapshot.isLoaded ?? state.isLoaded,
-        isPlaying: snapshot.isPlaying ?? state.isPlaying
+        isLoaded: snapshot.isLoaded ?? state.isLoaded
       };
     }),
   clearPendingSeek: () => set({ pendingSeekSec: null }),

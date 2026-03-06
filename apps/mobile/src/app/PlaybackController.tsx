@@ -246,9 +246,6 @@ export function PlaybackController() {
 
   useEffect(() => {
     if (!hasRemoteAudio) {
-      if (isPlaying) {
-        pause();
-      }
       return;
     }
 
@@ -265,7 +262,7 @@ export function PlaybackController() {
     safeAudioPlayerCall(() => {
       audioPlayer.pause();
     });
-  }, [audioPlayer, audioStatus.playing, hasRemoteAudio, isPlaying, pause]);
+  }, [audioPlayer, audioStatus.playing, hasRemoteAudio, isPlaying]);
 
   useEffect(() => {
     if (!hasRemoteAudio || pendingSeekSec === null || !audioStatus.isLoaded) {

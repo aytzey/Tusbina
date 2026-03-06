@@ -153,13 +153,6 @@ export function PlayerScreen() {
   };
 
   const onTogglePlay = () => {
-    if (!hasRemoteAudio) {
-      if (track.sourceType === "ai" && track.parentId) {
-        void prioritizeAiPart(track.id, track.parentId);
-      }
-      return;
-    }
-
     if (isPlaying) {
       pause();
       return;
@@ -167,6 +160,14 @@ export function PlayerScreen() {
 
     if (!canPlay()) {
       openLimitModal();
+      return;
+    }
+
+    if (!hasRemoteAudio) {
+      if (track.sourceType === "ai" && track.parentId) {
+        void prioritizeAiPart(track.id, track.parentId);
+      }
+      play();
       return;
     }
 
@@ -276,7 +277,11 @@ export function PlayerScreen() {
       ) : null}
       {currentTrackStatus ? <Text style={styles.trackStatus}>{currentTrackStatus}</Text> : null}
       {!track.audioUrl ? (
-        <Text style={styles.mutedInfo}>Bu bölüm hazır değil. Sıraya alındı ve hazır olur olmaz oynatılabilir.</Text>
+        <Text style={styles.mutedInfo}>
+          {isPlaying
+            ? "Bu bölüm hazırlanıyor. Hazır olur olmaz otomatik başlayacak."
+            : "Bu bölüm hazır değil. İstersen oynat diyerek hazır olur olmaz otomatik başlatabilirsin."}
+        </Text>
       ) : isAudioLoading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color={colors.motivationOrange} />
