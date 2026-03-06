@@ -67,6 +67,7 @@
 - `expo-dev-client` eklendi.
 - iOS development build için `eas.json` ve ilgili npm komutları eklendi.
 - Expo web çıktısını `apps/mobile/dist` altında üreten export akışı ve Nginx root fallback servisi eklendi; böylece public domain kökünde uygulama shell'i yayınlanabiliyor.
+- Expo web export sonrasında `index.html` script etiketi otomatik `type="module"` olarak düzeltiliyor; prod web shell blank screen vermiyor.
 - Mobil lint uyarıları temizlendi.
 - `create_all` ile açılmış eski SQLite veritabanlarında eksik podcast kapak ve `course_parts.audio_url` kolonlarını otomatik ekleyen uyumluluk katmanı eklendi.
 - Alembic bootstrap akışı da eski şemalarda aynı uyumluluk katmanını çalıştıracak şekilde güçlendirildi; legacy DB'ler head'e stamp edilirken eksik kolonlar tamamlanıyor.

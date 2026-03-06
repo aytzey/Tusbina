@@ -22,7 +22,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - State store'ları: `auth`, `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `downloads`, `learningTools`, `quiz`
 - Upload akışı: `expo-document-picker` ile PDF/TXT seçimi, opsiyonel kapak yükleme, ses preview, API upload, otomatik bölümleme, job polling
 - Dinle kütüphanesi: favori durumu backend'de kalıcı; çevrimdışı hazır bölümler ise yerel store ile ve aktif kullanıcıya göre izole şekilde yönetiliyor
-- Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir ve Nginx kökten servis edilebilir
+- Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir, module-script post-process uygulanır ve Nginx kökten servis edilebilir
 
 ## API (v1)
 
