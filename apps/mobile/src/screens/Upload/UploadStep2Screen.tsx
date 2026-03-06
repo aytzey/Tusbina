@@ -10,6 +10,7 @@ import { useUploadWizardStore } from "@/state/stores";
 import { PodcastFormat } from "@/domain/models";
 import { resolveReachableApiUrl } from "@/services/api/baseUrl";
 import { colors, radius, spacing, typography } from "@/theme";
+import { safeAudioPlayerCall } from "@/utils/audioPlayer";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -83,8 +84,9 @@ export function UploadStep2Screen() {
 
   useEffect(() => {
     return () => {
-      previewPlayer.pause();
-      previewPlayer.remove();
+      safeAudioPlayerCall(() => {
+        previewPlayer.pause();
+      });
     };
   }, [previewPlayer]);
 
@@ -92,20 +94,26 @@ export function UploadStep2Screen() {
     setPreviewError(null);
 
     if (previewingVoice === voiceKey && previewStatus.playing) {
-      previewPlayer.pause();
+      safeAudioPlayerCall(() => {
+        previewPlayer.pause();
+      });
       setPreviewingVoice(null);
       return;
     }
 
     if (previewStatus.playing) {
-      previewPlayer.pause();
+      safeAudioPlayerCall(() => {
+        previewPlayer.pause();
+      });
       setPreviewingVoice(null);
     }
 
     try {
       const previewUrl = await resolveReachableApiUrl(`/voices/${encodeURIComponent(voiceKey)}/preview`);
-      previewPlayer.replace(previewUrl);
-      previewPlayer.play();
+      safeAudioPlayerCall(() => {
+        previewPlayer.replace(previewUrl);
+        previewPlayer.play();
+      });
       setPreviewingVoice(voiceKey);
     } catch (error) {
       setPreviewingVoice(null);
@@ -189,7 +197,9 @@ export function UploadStep2Screen() {
         label="Devam Et → Otomatik Plan"
         disabled={!voice || !format}
         onPress={() => {
-          previewPlayer.pause();
+          safeAudioPlayerCall(() => {
+            previewPlayer.pause();
+          });
           setPreviewingVoice(null);
           navigation.navigate("UploadStep3");
         }}

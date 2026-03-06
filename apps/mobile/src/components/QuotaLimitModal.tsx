@@ -1,10 +1,12 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useUserStore } from "@/state/stores";
 import { RootStackParamList } from "@/navigation/types";
 import { colors, radius, spacing, typography } from "@/theme";
+
+const LOGO = require("../../assets/logo.png");
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,12 +25,8 @@ export function QuotaLimitModal() {
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          {/* Lock icon */}
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="lock-closed" size={28} color="#FFFFFF" />
-            </View>
-          </View>
+          {/* Logo */}
+          <Image source={LOGO} style={styles.logo} resizeMode="contain" />
 
           {/* Title */}
           <Text style={styles.title}>Demo Limitine Ulaştın!</Text>
@@ -89,17 +87,11 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
 
-  /* Lock icon */
-  iconContainer: {
+  /* Logo */
+  logo: {
+    width: 72,
+    height: 72,
     marginBottom: spacing.xs
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.motivationOrange,
-    alignItems: "center",
-    justifyContent: "center"
   },
 
   /* Title */

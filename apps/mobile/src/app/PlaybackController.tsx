@@ -4,6 +4,7 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-au
 import { Track } from "@/domain/models";
 import { patchCoursePartPosition as patchCoursePartPositionApi, patchPodcastState } from "@/services/api";
 import { useCoursesStore, useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
+import { safeAudioPlayerAsyncCall, safeAudioPlayerCall } from "@/utils/audioPlayer";
 
 const LOCK_SCREEN_OPTIONS = {
   showSeekBackward: true,
@@ -13,15 +14,49 @@ const LOCK_SCREEN_OPTIONS = {
 type LockScreenMetadata = {
   albumTitle?: string;
   artist?: string;
+  artworkUrl?: string;
   title?: string;
+};
+
+type LockScreenCompatiblePlayer = {
+  clearLockScreenControls?: () => void;
+  setActiveForLockScreen?: (
+    active: boolean,
+    metadata?: LockScreenMetadata,
+    options?: typeof LOCK_SCREEN_OPTIONS
+  ) => void;
 };
 
 function buildLockScreenMetadata(track: Track): LockScreenMetadata {
   return {
     title: track.title,
     artist: track.voice ? `${track.subtitle} • ${track.voice}` : track.subtitle,
-    albumTitle: track.sourceType === "ai" ? "TUSBINA Podcast" : "TUSBINA Ders"
+    albumTitle: track.sourceType === "ai" ? "TUSBINA Podcast" : "TUSBINA Ders",
+    artworkUrl: track.coverImageUrl
   };
+}
+
+function clearLockScreenControls(player: LockScreenCompatiblePlayer) {
+  safeAudioPlayerCall(() => {
+    if (typeof player.clearLockScreenControls === "function") {
+      player.clearLockScreenControls();
+      return;
+    }
+
+    if (typeof player.setActiveForLockScreen === "function") {
+      player.setActiveForLockScreen(false);
+    }
+  });
+}
+
+function setLockScreenControls(player: LockScreenCompatiblePlayer, track: Track) {
+  if (typeof player.setActiveForLockScreen !== "function") {
+    return;
+  }
+
+  safeAudioPlayerCall(() => {
+    player.setActiveForLockScreen?.(true, buildLockScreenMetadata(track), LOCK_SCREEN_OPTIONS);
+  });
 }
 
 export function PlaybackController() {
@@ -133,11 +168,11 @@ export function PlaybackController() {
 
   useEffect(() => {
     if (!track || !hasRemoteAudio) {
-      audioPlayer.clearLockScreenControls();
+      clearLockScreenControls(audioPlayer);
       return;
     }
 
-    audioPlayer.setActiveForLockScreen(true, buildLockScreenMetadata(track), LOCK_SCREEN_OPTIONS);
+    setLockScreenControls(audioPlayer, track);
   }, [audioPlayer, hasRemoteAudio, track]);
 
   useEffect(() => {
@@ -203,8 +238,10 @@ export function PlaybackController() {
       return;
     }
 
-    audioPlayer.shouldCorrectPitch = true;
-    audioPlayer.setPlaybackRate(rate, "high");
+    safeAudioPlayerCall(() => {
+      audioPlayer.shouldCorrectPitch = true;
+      audioPlayer.setPlaybackRate(rate, "high");
+    });
   }, [audioPlayer, clearPendingSeek, hasRemoteAudio, pendingSeekSec, rate]);
 
   useEffect(() => {
@@ -220,10 +257,14 @@ export function PlaybackController() {
     }
 
     if (isPlaying) {
-      audioPlayer.play();
+      safeAudioPlayerCall(() => {
+        audioPlayer.play();
+      });
       return;
     }
-    audioPlayer.pause();
+    safeAudioPlayerCall(() => {
+      audioPlayer.pause();
+    });
   }, [audioPlayer, audioStatus.playing, hasRemoteAudio, isPlaying, pause]);
 
   useEffect(() => {
@@ -232,8 +273,7 @@ export function PlaybackController() {
     }
 
     let cancelled = false;
-    void audioPlayer
-      .seekTo(pendingSeekSec)
+    void safeAudioPlayerAsyncCall(() => audioPlayer.seekTo(pendingSeekSec))
       .catch(() => undefined)
       .finally(() => {
         if (!cancelled) {
@@ -256,7 +296,7 @@ export function PlaybackController() {
 
     initialSeekTrackRef.current = track.id;
     if (positionSec > 0.5) {
-      void audioPlayer.seekTo(positionSec);
+      void safeAudioPlayerAsyncCall(() => audioPlayer.seekTo(positionSec));
     }
   }, [audioPlayer, audioStatus.isLoaded, hasRemoteAudio, positionSec, track]);
 

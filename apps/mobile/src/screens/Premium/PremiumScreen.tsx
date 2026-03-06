@@ -1,8 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { useUserStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
+
+const LOGO = require("../../../assets/logo.png");
 
 const FEATURES: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: "library-outline", label: "Tüm derslere sınırsız erişim" },
@@ -22,10 +24,8 @@ export function PremiumScreen() {
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      {/* --- Crown Icon --- */}
-      <View style={styles.crownCircle}>
-        <Ionicons name="trophy" size={40} color={colors.premiumGold} />
-      </View>
+      {/* --- Logo --- */}
+      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
 
       {/* --- Pricing --- */}
       <Text style={styles.price}>250 TL / Ay</Text>
@@ -128,14 +128,10 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
 
-  /* ---- Crown ---- */
-  crownCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(189,148,101,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
+  /* ---- Logo ---- */
+  logo: {
+    width: 100,
+    height: 100,
     marginBottom: spacing.sm
   },
 

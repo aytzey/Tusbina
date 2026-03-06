@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { colors, typography } from "@/theme";
+
+const LOGO = require("../../assets/logo.png");
 
 interface PodcastArtworkProps {
   title: string;
@@ -99,7 +101,11 @@ function PodcastArtworkComponent({
           <Ionicons name="sparkles" size={Math.max(11, size * 0.08)} color={palette.secondary} />
           <Text style={[styles.badgeText, { fontSize: Math.max(9, size * 0.075) }]}>AI</Text>
         </View>
-        <Text style={[styles.brand, { fontSize: Math.max(10, size * 0.08) }]}>TUSBINA</Text>
+        <Image
+          source={LOGO}
+          style={{ width: Math.max(20, size * 0.18), height: Math.max(20, size * 0.18), borderRadius: Math.max(10, size * 0.09) }}
+          resizeMode="contain"
+        />
       </View>
 
       <View style={styles.body}>
@@ -151,11 +157,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: "700",
     letterSpacing: 0.8,
-  },
-  brand: {
-    color: "rgba(248,248,246,0.82)",
-    fontWeight: "700",
-    letterSpacing: 1.2,
   },
   body: {
     gap: 6,
