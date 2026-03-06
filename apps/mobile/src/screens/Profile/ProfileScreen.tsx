@@ -133,6 +133,7 @@ export function ProfileScreen() {
 
       <View style={styles.menuSection}>
         <MenuItem icon="settings-outline" label="Hesap Ayarları" onPress={() => navigation.navigate("AccountSettings")} />
+        <MenuItem icon="shield-checkmark-outline" label="Hukuk & Gizlilik" onPress={() => navigation.navigate("LegalCenter")} />
         <MenuItem icon="download-outline" label="İndirilenler" onPress={() => navigation.navigate("Downloads")} />
         <MenuItem icon="timer-outline" label="Çalışma Araçları" onPress={() => navigation.navigate("StudyTools")} />
         <MenuItem icon="card-outline" label="Abonelik Yönetimi" onPress={() => navigation.navigate("Premium")} />

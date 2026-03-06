@@ -1,4 +1,5 @@
 import { NavigatorScreenParams } from "@react-navigation/native";
+import type { LegalDocumentId } from "@/content/legal";
 
 export type MainTabParamList = {
   CoursesTab: undefined;
@@ -22,6 +23,11 @@ export type RootStackParamList = {
   StudyTools: undefined;
   AccountSettings: undefined;
   Support: undefined;
+  LegalCenter: undefined;
+  LegalDocument: { documentId: LegalDocumentId; title?: string };
+  ConsentPreferences: undefined;
+  LegalConsent: undefined;
+  DeleteAccount: undefined;
   GeneralError: undefined;
   NoInternet: undefined;
 };

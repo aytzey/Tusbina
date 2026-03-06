@@ -1,3 +1,5 @@
+import type { LegalDocumentId } from "@/content/legal";
+
 export interface ApiCoursePart {
   id: string;
   course_id: string;
@@ -145,4 +147,58 @@ export interface ApiProfile {
 export interface ApiProfileUpdateRequest {
   display_name?: string;
   avatar_url?: string;
+}
+
+export interface ApiLegalDocumentSection {
+  heading: string;
+  paragraphs: string[];
+  bullets: string[];
+}
+
+export interface ApiLegalDocumentSummary {
+  slug: LegalDocumentId;
+  title: string;
+  summary: string;
+  version: string;
+  requires_acceptance: boolean;
+  public_url: string;
+}
+
+export interface ApiLegalDocument extends ApiLegalDocumentSummary {
+  sections: ApiLegalDocumentSection[];
+}
+
+export interface ApiLegalConsent {
+  privacy_policy_version?: string | null;
+  terms_of_use_version?: string | null;
+  kvkk_notice_version?: string | null;
+  required_consents_complete: boolean;
+  required_consents_accepted_at?: string | null;
+  marketing_opt_in: boolean;
+  marketing_consent_version?: string | null;
+  marketing_consent_updated_at?: string | null;
+  updated_at?: string | null;
+  privacy_policy_url: string;
+  terms_of_use_url: string;
+  kvkk_notice_url: string;
+  permissions_notice_url: string;
+  marketing_consent_url: string;
+  account_deletion_url: string;
+}
+
+export interface ApiLegalConsentUpdateRequest {
+  required_consents_accepted?: boolean;
+  marketing_opt_in: boolean;
+}
+
+export interface ApiDeleteAccountResponse {
+  ok: boolean;
+  auth_account_deleted: boolean;
+  deleted_podcasts: number;
+  deleted_upload_assets: number;
+  deleted_feedback: number;
+  deleted_generation_jobs: number;
+  deleted_quiz_questions: number;
+  deleted_storage_files: number;
+  message: string;
 }

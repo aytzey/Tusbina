@@ -22,6 +22,21 @@ class UserProfileModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class UserLegalConsentModel(Base):
+    __tablename__ = "user_legal_consents"
+
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    privacy_policy_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    terms_of_use_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    kvkk_notice_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    required_consents_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    marketing_opt_in: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    marketing_consent_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    marketing_consent_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class CourseModel(Base):
     __tablename__ = "courses"
 

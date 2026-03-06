@@ -59,6 +59,16 @@
 - `Yardım & Destek` aksiyonları başarısız olduğunda artık sessizce düşmek yerine kullanıcıya açıklayıcı uyarı gösteriyor.
 - Giriş ve kayıt ekranlarına TUSBINA logosu eklendi.
 
+#### Yasal uyum ve kullanıcı onayı
+
+- Mobil uygulamaya `Hukuk & Gizlilik` merkezi eklendi; gizlilik politikası, kullanım koşulları, KVKK metni, izin bilgilendirmesi, açık rıza ve hesap silme metinleri uygulama içinden okunabiliyor.
+- Giriş ve kayıt ekranlarına yasal metin bağlantıları eklendi; email ile kayıt akışında zorunlu kabul checkbox'ı olmadan hesap oluşturulamıyor.
+- Google / Apple ile giriş yapan kullanıcılar için eksik yasal onay varsa ilk oturumda zorunlu `Yasal Onay` kapısı açılıyor.
+- Açık rıza ve iletişim tercihi artık auth metadata ve backend `user_legal_consents` kaydına birlikte yazılıyor; profil içinde `Açık Rıza Tercihleri` ekranından yönetilebiliyor.
+- Google Play uyumu için uygulama içi `Hesabı Kalıcı Olarak Sil` ekranı ve `DELETE /api/v1/auth/account` akışı eklendi; backend kullanıcıya ait profil, içerik ve kullanım kayıtlarını temizlemeyi deniyor.
+- Public legal URL'ler `/legal/*` altında yayınlanacak şekilde backend ve Nginx genişletildi; App Store / Play Console privacy policy ve account deletion linkleri aynı domain üzerinden verilebiliyor.
+- İnceleme için `Docs/LEGAL_TEXT_DRAFTS.md` ve `Docs/STORE_COMPLIANCE_CHECKLIST.md` eklendi.
+
 #### İçerik otomasyonu ve görsel katman
 
 - `Bölüm ekle` mantığı upload akışından çıkarıldı; sistem yüklenen belgeyi otomatik bölümlendirip planı kendisi oluşturuyor.
@@ -90,7 +100,7 @@
 - `npm run mobile:lint` geçti.
 - `npm run mobile:typecheck` geçti.
 - `apps/api` içinde `ruff check .` geçti.
-- `apps/api` içinde tam test seti geçti: `pytest -q` -> `61 passed`
+- `apps/api` içinde tam test seti geçti: `pytest -q` -> `64 passed`
 
 ### Bu Turda Göremeyeceğimiz / Tam Doğrulayamayacağımız Şeyler
 

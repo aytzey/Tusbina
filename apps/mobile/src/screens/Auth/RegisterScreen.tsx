@@ -13,6 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import { LEGAL_DOCUMENT_LINKS } from "@/content/legal";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/state/stores/authStore";
@@ -49,27 +50,32 @@ function SocialButton({
 
 export function RegisterScreen() {
   const navigation = useNavigation<Nav>();
-  const signUp = useAuthStore((s) => s.signUp);
-  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
-  const signInWithApple = useAuthStore((s) => s.signInWithApple);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  const error = useAuthStore((s) => s.error);
-  const confirmationPending = useAuthStore((s) => s.confirmationPending);
+  const signUp = useAuthStore((state) => state.signUp);
+  const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
+  const signInWithApple = useAuthStore((state) => state.signInWithApple);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
+  const confirmationPending = useAuthStore((state) => state.confirmationPending);
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedRequired, setAcceptedRequired] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const canSubmit =
     displayName.trim().length >= 2 &&
     email.trim().length > 0 &&
     password.length >= 6 &&
+    acceptedRequired &&
     !isLoading;
 
   const handleRegister = async () => {
-    if (!canSubmit) return;
-    await signUp(email.trim(), password, displayName.trim());
+    if (!canSubmit) {
+      return;
+    }
+    await signUp(email.trim(), password, displayName.trim(), marketingOptIn);
   };
 
   if (confirmationPending) {
@@ -77,7 +83,7 @@ export function RegisterScreen() {
       <ScreenContainer scroll contentStyle={styles.container}>
         <View style={styles.confirmationBox}>
           <Ionicons name="mail-outline" size={64} color={colors.motivationOrange} />
-          <Text style={styles.confirmTitle}>E-postanizi kontrol edin</Text>
+          <Text style={styles.confirmTitle}>E-postanızı kontrol edin</Text>
           <Text style={styles.confirmText}>
             {email} adresine bir onay bağlantısı gönderdik. Hesabını aktif etmek için e-postadaki bağlantıya tıkla.
           </Text>
@@ -98,14 +104,12 @@ export function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.inner}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Kayıt Ol</Text>
           <Text style={styles.subtitle}>Yeni hesabını oluştur</Text>
         </View>
 
-        {/* Social login */}
         <View style={styles.socialRow}>
           <SocialButton
             icon="logo-google"
@@ -123,13 +127,16 @@ export function RegisterScreen() {
           ) : null}
         </View>
 
+        <Text style={styles.helperText}>
+          Google veya Apple ile devam edersen zorunlu yasal onay ekranı ilk oturumda ayrıca gösterilir.
+        </Text>
+
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>veya</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>İsim</Text>
@@ -164,7 +171,7 @@ export function RegisterScreen() {
             <View style={styles.passwordRow}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
-              placeholder="En az 6 karakter"
+                placeholder="En az 6 karakter"
                 placeholderTextColor={colors.textSecondary}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
@@ -172,10 +179,7 @@ export function RegisterScreen() {
                 onChangeText={setPassword}
                 editable={!isLoading}
               />
-              <Pressable
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
+              <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
@@ -185,11 +189,48 @@ export function RegisterScreen() {
             </View>
           </View>
 
+          <View style={styles.legalCard}>
+            <Text style={styles.legalTitle}>Yasal metinler</Text>
+            <View style={styles.linkWrap}>
+              {LEGAL_DOCUMENT_LINKS.filter((item) => item.required).map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.linkChip}
+                  onPress={() => navigation.navigate("LegalDocument", { documentId: item.id, title: item.title })}
+                >
+                  <Text style={styles.linkChipText}>{item.title}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable style={styles.checkboxRow} onPress={() => setAcceptedRequired((value) => !value)}>
+              <Ionicons
+                name={acceptedRequired ? "checkbox" : "square-outline"}
+                size={22}
+                color={acceptedRequired ? colors.motivationOrange : colors.textSecondary}
+              />
+              <Text style={styles.checkboxText}>
+                Gizlilik Politikası, Kullanım Koşulları ve KVKK Aydınlatma Metni&apos;ni okudum; kabul ediyorum.
+              </Text>
+            </Pressable>
+
+            <Pressable style={styles.checkboxRow} onPress={() => setMarketingOptIn((value) => !value)}>
+              <Ionicons
+                name={marketingOptIn ? "checkbox" : "square-outline"}
+                size={22}
+                color={marketingOptIn ? colors.motivationOrange : colors.textSecondary}
+              />
+              <Text style={styles.checkboxText}>
+                Ürün güncellemeleri ve eğitim bilgilendirmeleri için benimle iletişime geçilmesini kabul ediyorum.
+              </Text>
+            </Pressable>
+          </View>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
             disabled={!canSubmit}
-            onPress={handleRegister}
+            onPress={() => void handleRegister()}
             style={({ pressed }) => [
               styles.button,
               !canSubmit && styles.buttonDisabled,
@@ -204,7 +245,6 @@ export function RegisterScreen() {
           </Pressable>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Zaten hesabın var mı?</Text>
           <Pressable onPress={() => navigation.navigate("Login")}>
@@ -218,7 +258,7 @@ export function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center" },
-  inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.xl },
+  inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.lg },
   header: { alignItems: "center", gap: spacing.sm },
   logo: { width: 150, height: 100 },
   title: { ...typography.title, color: colors.textPrimary, fontSize: 28 },
@@ -237,10 +277,11 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
   },
   socialLabel: { ...typography.body, color: colors.textPrimary, fontWeight: "600" },
+  helperText: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
   dividerText: { ...typography.caption, color: colors.textSecondary },
-  form: { gap: spacing.lg },
+  form: { gap: spacing.md },
   inputGroup: { gap: spacing.xs },
   label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
   input: {
@@ -262,6 +303,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  legalCard: {
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceNavy,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  legalTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  linkWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  linkChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  linkChipText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  checkboxText: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
   error: { ...typography.caption, color: colors.danger, textAlign: "center" },
   button: {
     height: 52,
@@ -269,7 +350,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   buttonDisabled: { opacity: 0.4 },
   buttonPressed: { opacity: 0.8 },
@@ -279,11 +360,11 @@ const styles = StyleSheet.create({
   footerLink: { ...typography.body, color: colors.motivationOrange, fontWeight: "700" },
   confirmationBox: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    gap: spacing.lg,
+    justifyContent: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  confirmTitle: { ...typography.h2, color: colors.textPrimary, textAlign: "center" },
-  confirmText: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 24 },
+  confirmTitle: { ...typography.title, color: colors.textPrimary, textAlign: "center" },
+  confirmText: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
 });

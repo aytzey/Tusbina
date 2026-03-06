@@ -7,6 +7,8 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - Ürün raporu: `Design/TUSBINA_Urun_Detay_Raporu_V1-1.pdf`
 - Altyapı raporu: `Docs/UrunDetayRaporu.pdf`
 - Ekran referansları: `Design/*/code.html`
+- Yasal metin taslakları: `Docs/LEGAL_TEXT_DRAFTS.md`
+- Mağaza gizlilik checklist'i: `Docs/STORE_COMPLIANCE_CHECKLIST.md`
 
 ## Repo Yapısı
 
@@ -18,11 +20,13 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 ## Mobile
 
 - Tablar: `Dersler`, `Yükle`, `Dinle`, `Profil`
-- Akış ekranları: `Ders Detay`, `Player`, `Premium`, `Quiz`, `İndirilenler`, `Çalışma Araçları`, `Hesap Ayarları`, `Yardım & Destek`, `Hata durumları`
+- Akış ekranları: `Ders Detay`, `Player`, `Premium`, `Quiz`, `İndirilenler`, `Çalışma Araçları`, `Hesap Ayarları`, `Hukuk & Gizlilik`, `Açık Rıza Tercihleri`, `Hesap Silme`, `Yardım & Destek`, `Hata durumları`
 - State store'ları: `auth`, `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `downloads`, `learningTools`, `quiz`
 - Upload akışı: `expo-document-picker` ile PDF/TXT seçimi, opsiyonel kapak yükleme, ses preview, API upload, otomatik bölümleme, job polling
 - Dinle kütüphanesi: favori durumu backend'de kalıcı; çevrimdışı hazır bölümler ise yerel store ile ve aktif kullanıcıya göre izole şekilde yönetiliyor
 - Auth profile senkronu ve voice preview çağrıları API fallback adaylarını kullanır; web shell host/port kaydığında stale base URL'e takılmaz. App açılışı ve giriş akışları auth metadata'daki görünen adı backend profile'a yeniden taşır.
+- Giriş/kayıt yüzeylerinde yasal metin bağlantıları görünürdür; e-posta ile kayıt akışında zorunlu kabul checkbox'ları, sosyal girişte ise ilk oturumda zorunlu consent gate bulunur.
+- Public legal URL'ler `/legal/*` altında yayınlanır; mağaza privacy policy ve account deletion linkleri aynı domain üzerinden verilebilir.
 - Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir, module-script post-process uygulanır ve Nginx kökten servis edilebilir
 
 ## API (v1)
@@ -49,6 +53,12 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/profile`
 - `PATCH /api/v1/auth/profile` (profil yoksa auto-create edip günceller)
+- `GET /api/v1/legal/documents`
+- `GET /api/v1/legal/documents/{slug}`
+- `GET /api/v1/auth/legal-consent`
+- `PUT /api/v1/auth/legal-consent`
+- `DELETE /api/v1/auth/account`
+- `GET /legal` ve `GET /legal/{slug}` (public legal pages)
 
 ## Upload + Generation Mimari Notu
 

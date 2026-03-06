@@ -1,6 +1,7 @@
 export * from "./coursesApi";
 export * from "./feedbackApi";
 export * from "./httpClient";
+export * from "./legalApi";
 export * from "./mappers";
 export * from "./podcastsApi";
 export * from "./profileApi";

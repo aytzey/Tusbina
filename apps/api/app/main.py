@@ -10,6 +10,8 @@ from app.api.routes.courses import router as courses_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.generation import router as generation_router
 from app.api.routes.health import router as health_router
+from app.api.routes.legal import api_router as legal_api_router
+from app.api.routes.legal import router as legal_router
 from app.api.routes.podcasts import router as podcasts_router
 from app.api.routes.quiz import router as quiz_router
 from app.api.routes.upload import router as upload_router
@@ -54,6 +56,7 @@ if settings.storage_backend.lower() == "local":
     app.mount("/static/uploads", StaticFiles(directory=local_upload_dir), name="uploads")
 
 app.include_router(health_router)
+app.include_router(legal_router)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(courses_router, prefix="/api/v1")
 app.include_router(podcasts_router, prefix="/api/v1")
@@ -63,3 +66,4 @@ app.include_router(feedback_router, prefix="/api/v1")
 app.include_router(usage_router, prefix="/api/v1")
 app.include_router(quiz_router, prefix="/api/v1")
 app.include_router(voices_router, prefix="/api/v1")
+app.include_router(legal_api_router, prefix="/api/v1")

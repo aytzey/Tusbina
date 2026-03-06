@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ScreenContainer } from "@/components";
+import { RootStackParamList } from "@/navigation/types";
 import { updateMyProfile } from "@/services/api";
 import { useAuthStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
+
 export function AccountSettingsScreen() {
+  const navigation = useNavigation<Navigation>();
   const authUser = useAuthStore((state) => state.user);
   const updateDisplayName = useAuthStore((state) => state.updateDisplayName);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -93,6 +99,15 @@ export function AccountSettingsScreen() {
             <Text style={styles.buttonLabel}>Kaydet</Text>
           )}
         </Pressable>
+
+        <View style={styles.secondaryActions}>
+          <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate("LegalCenter")}>
+            <Text style={styles.secondaryButtonLabel}>Hukuk & Gizlilik</Text>
+          </Pressable>
+          <Pressable style={[styles.secondaryButton, styles.dangerButton]} onPress={() => navigation.navigate("DeleteAccount")}>
+            <Text style={[styles.secondaryButtonLabel, styles.dangerButtonLabel]}>Hesabı Sil</Text>
+          </Pressable>
+        </View>
       </View>
     </ScreenContainer>
   );
@@ -161,5 +176,28 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: "700",
+  },
+  secondaryActions: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  secondaryButton: {
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonLabel: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  dangerButton: {
+    borderColor: "rgba(214,69,69,0.4)",
+  },
+  dangerButtonLabel: {
+    color: colors.danger,
   },
 });

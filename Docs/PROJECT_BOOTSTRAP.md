@@ -24,6 +24,10 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `DownloadsScreen`
 - `StudyToolsScreen`
 - `AccountSettingsScreen`
+- `LegalCenterScreen`
+- `LegalDocumentScreen`
+- `ConsentPreferencesScreen`
+- `DeleteAccountScreen`
 - `SupportScreen`
 - `PremiumScreen`
 - `QuizScreen`
@@ -33,7 +37,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 ## 3) State Store'ları
 
 - `userStore`: kota, premium, limit modal, `/usage` senkronu
-- `authStore`: Supabase session, email/OAuth login, profile sync
+- `authStore`: Supabase session, email/OAuth login, profile sync, zorunlu yasal onay durumu ve açık rıza tercihi
 - `playerStore`: track/queue, play/pause, seek, prev/next, rate, bookmark
 - `coursesStore`: ders listesi + detay
 - `podcastsStore`: podcast listesi + favorite/download/progress local patch
@@ -65,6 +69,12 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/profile`
 - `PATCH /api/v1/auth/profile` (profil yoksa auto-create edip günceller)
+- `GET /api/v1/legal/documents`
+- `GET /api/v1/legal/documents/{slug}`
+- `GET /api/v1/auth/legal-consent`
+- `PUT /api/v1/auth/legal-consent`
+- `DELETE /api/v1/auth/account`
+- `GET /legal` + `GET /legal/{slug}` public legal pages
 
 ## 5) Altyapı
 
@@ -75,6 +85,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - Job pipeline: `generation_jobs` tablosu + ayrı worker (`python -m app.worker`)
 - Storage: `local` veya `Cloudflare R2` (`STORAGE_BACKEND`)
 - Reverse proxy + web shell: Nginx, `/api` ve `/static` proxy'lerken Expo web export çıktısını kökten servis eder
+- Yasal metinler aynı domain altında public `/legal/*` sayfaları olarak da yayınlanır; mağaza policy linkleri buradan verilebilir
 - Local orchestration: Docker Compose (Postgres + Redis + API + Worker + Nginx + `apps/mobile/dist`)
 
 ## 6) Mock -> Real Durum
@@ -87,6 +98,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
   Upload tarafında uzantı, dosya sayısı ve dosya boyutu validasyonu backend'de enforce edilir; mobile tarafı da 25 MB sınırı ve destekli kapak formatlarıyla hizalanır.
 - `profile usage`: `/usage` ve usage action endpointleri ile backend senkronu
   `/usage/consume` endpointi `consumed_sec` ve `limit_reached` döner; limit modal tetikleme buna göre yapılır.
+- `legal/compliance`: login/register ekranlarında doküman linkleri görünür; email register zorunlu kabul checkbox'ı ister, sosyal giriş eksikse `LegalConsentScreen` ile bloklanır. Açık rıza backend + auth metadata tarafında persist edilir; hesap silme akışı uygulama içinden tetiklenir.
 - `player feedback`: `/feedback` endpointine gönderilir
 - `library flags`: favori ve progress `PUT /podcasts/{id}/state` ile kalıcı; indirilen/offline durumu cihaz-lokal store üzerinden yönetilir
 

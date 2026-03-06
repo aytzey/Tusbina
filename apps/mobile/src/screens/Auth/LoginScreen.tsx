@@ -13,6 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import { LEGAL_DOCUMENT_LINKS } from "@/content/legal";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/state/stores/authStore";
@@ -49,11 +50,11 @@ function SocialButton({
 
 export function LoginScreen() {
   const navigation = useNavigation<Nav>();
-  const signIn = useAuthStore((s) => s.signIn);
-  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
-  const signInWithApple = useAuthStore((s) => s.signInWithApple);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  const error = useAuthStore((s) => s.error);
+  const signIn = useAuthStore((state) => state.signIn);
+  const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
+  const signInWithApple = useAuthStore((state) => state.signInWithApple);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,7 +63,9 @@ export function LoginScreen() {
   const canSubmit = email.trim().length > 0 && password.length >= 6 && !isLoading;
 
   const handleLogin = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      return;
+    }
     await signIn(email.trim(), password);
   };
 
@@ -72,14 +75,12 @@ export function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.inner}
       >
-        {/* Logo / Title */}
         <View style={styles.header}>
           <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>TUSBINA</Text>
           <Text style={styles.subtitle}>Hesabınıza giriş yapın</Text>
         </View>
 
-        {/* Social login */}
         <View style={styles.socialRow}>
           <SocialButton
             icon="logo-google"
@@ -97,13 +98,16 @@ export function LoginScreen() {
           ) : null}
         </View>
 
+        <Text style={styles.helperText}>
+          Sosyal girişte gerekli yasal onaylar eksikse uygulama seni önce onay ekranına yönlendirir.
+        </Text>
+
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>veya</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>E-posta</Text>
@@ -133,10 +137,7 @@ export function LoginScreen() {
                 onChangeText={setPassword}
                 editable={!isLoading}
               />
-              <Pressable
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
+              <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
@@ -146,11 +147,29 @@ export function LoginScreen() {
             </View>
           </View>
 
+          <View style={styles.legalCard}>
+            <Text style={styles.legalTitle}>Yasal metinlere hızlı erişim</Text>
+            <View style={styles.linkWrap}>
+              {LEGAL_DOCUMENT_LINKS.slice(0, 3).map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.linkChip}
+                  onPress={() => navigation.navigate("LegalDocument", { documentId: item.id, title: item.title })}
+                >
+                  <Text style={styles.linkChipText}>{item.title}</Text>
+                </Pressable>
+              ))}
+              <Pressable style={styles.linkChip} onPress={() => navigation.navigate("LegalCenter")}>
+                <Text style={styles.linkChipText}>Tüm Metinler</Text>
+              </Pressable>
+            </View>
+          </View>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
             disabled={!canSubmit}
-            onPress={handleLogin}
+            onPress={() => void handleLogin()}
             style={({ pressed }) => [
               styles.button,
               !canSubmit && styles.buttonDisabled,
@@ -160,12 +179,11 @@ export function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.textPrimary} />
             ) : (
-            <Text style={styles.buttonLabel}>Giriş Yap</Text>
+              <Text style={styles.buttonLabel}>Giriş Yap</Text>
             )}
           </Pressable>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Hesabınız yok mu?</Text>
           <Pressable onPress={() => navigation.navigate("Register")}>
@@ -179,7 +197,7 @@ export function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center" },
-  inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.xl },
+  inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.lg },
   header: { alignItems: "center", gap: spacing.sm },
   logo: { width: 150, height: 100 },
   title: { ...typography.title, color: colors.textPrimary, fontSize: 32 },
@@ -198,10 +216,11 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
   },
   socialLabel: { ...typography.body, color: colors.textPrimary, fontWeight: "600" },
+  helperText: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
   dividerText: { ...typography.caption, color: colors.textSecondary },
-  form: { gap: spacing.lg },
+  form: { gap: spacing.md },
   inputGroup: { gap: spacing.xs },
   label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
   input: {
@@ -223,6 +242,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  legalCard: {
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceNavy,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  legalTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  linkWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  linkChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  linkChipText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+  },
   error: { ...typography.caption, color: colors.danger, textAlign: "center" },
   button: {
     height: 52,
@@ -230,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   buttonDisabled: { opacity: 0.4 },
   buttonPressed: { opacity: 0.8 },
