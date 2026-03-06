@@ -1,8 +1,11 @@
 import { useAuthStore } from "@/state/stores/authStore";
-
-const CONFIGURED_API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
-export const API_BASE_URL = normalizeBaseUrl(CONFIGURED_API_BASE_URL);
-let activeApiBaseUrl = API_BASE_URL;
+import {
+  API_BASE_URL,
+  buildApiUrl,
+  getApiBaseCandidates,
+  resolveApiAssetUrl,
+  setActiveApiBaseUrl,
+} from "./baseUrl";
 const DEFAULT_USER_ID = process.env.EXPO_PUBLIC_DEMO_USER_ID ?? "demo-user";
 
 interface ApiRequestOptions extends Omit<RequestInit, "headers"> {
@@ -20,38 +23,6 @@ export class ApiError extends Error {
     this.status = status;
     this.payload = payload;
   }
-}
-
-export function resolveApiAssetUrl(rawUrl: string | null | undefined): string | undefined {
-  if (!rawUrl) {
-    return undefined;
-  }
-
-  const apiOrigin = getApiOrigin();
-  if (!apiOrigin) {
-    return rawUrl;
-  }
-
-  if (rawUrl.startsWith("/")) {
-    return `${apiOrigin}${rawUrl}`;
-  }
-
-  try {
-    const parsed = new URL(rawUrl);
-    const host = parsed.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") {
-      return `${apiOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
-    }
-    return rawUrl;
-  } catch {
-    const normalized = rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`;
-    return `${apiOrigin}${normalized}`;
-  }
-}
-
-export function buildApiUrl(path: string): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${activeApiBaseUrl}${normalizedPath}`;
 }
 
 export function isNetworkApiError(error: unknown): error is ApiError {
@@ -90,7 +61,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
         throw new ApiError(response.status, payload);
       }
 
-      activeApiBaseUrl = baseUrl;
+      setActiveApiBaseUrl(baseUrl);
       return payload as T;
     } catch (error) {
       if (error instanceof ApiError && error.status !== 0) {
@@ -113,57 +84,4 @@ function safeJsonParse(raw: string): unknown {
   }
 }
 
-function getApiOrigin(): string | null {
-  try {
-    const parsed = new URL(activeApiBaseUrl);
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-}
-
-function getApiBaseCandidates(): string[] {
-  if (!isWebRuntime()) {
-    return [API_BASE_URL];
-  }
-
-  const fallbackBases = buildWebFallbackBaseUrls();
-  const ordered = [API_BASE_URL, ...fallbackBases];
-  return dedupe(ordered);
-}
-
-function buildWebFallbackBaseUrls(): string[] {
-  const fallbacks: string[] = [];
-
-  try {
-    const configured = new URL(API_BASE_URL);
-    const apiPath = configured.pathname.replace(/\/+$/, "") || "/api/v1";
-    const port = configured.port || "8090";
-    const protocol = window.location.protocol === "https:" ? "https" : "http";
-    const currentHost = window.location.hostname;
-
-    fallbacks.push(`${protocol}://${currentHost}:${port}${apiPath}`);
-    if (currentHost !== "127.0.0.1") {
-      fallbacks.push(`http://127.0.0.1:${port}${apiPath}`);
-    }
-    if (currentHost !== "localhost") {
-      fallbacks.push(`http://localhost:${port}${apiPath}`);
-    }
-  } catch {
-    // Keep only configured base if URL parsing fails.
-  }
-
-  return fallbacks.map(normalizeBaseUrl);
-}
-
-function isWebRuntime(): boolean {
-  return typeof window !== "undefined" && typeof document !== "undefined";
-}
-
-function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
-}
-
-function dedupe(values: string[]): string[] {
-  return values.filter((value, index) => values.indexOf(value) === index);
-}
+export { API_BASE_URL, buildApiUrl, resolveApiAssetUrl };

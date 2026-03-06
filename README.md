@@ -22,6 +22,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - State store'ları: `auth`, `user`, `player`, `courses`, `podcasts`, `uploadWizard`, `downloads`, `learningTools`, `quiz`
 - Upload akışı: `expo-document-picker` ile PDF/TXT seçimi, opsiyonel kapak yükleme, ses preview, API upload, otomatik bölümleme, job polling
 - Dinle kütüphanesi: favori durumu backend'de kalıcı; çevrimdışı hazır bölümler ise yerel store ile ve aktif kullanıcıya göre izole şekilde yönetiliyor
+- Auth profile senkronu ve voice preview çağrıları API fallback adaylarını kullanır; web shell host/port kaydığında stale base URL'e takılmaz
 - Web export: `npm run mobile:export:web` çıktısı `apps/mobile/dist` altında üretilir, module-script post-process uygulanır ve Nginx kökten servis edilebilir
 
 ## API (v1)
@@ -38,6 +39,7 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - `POST /api/v1/upload`
 - `POST /api/v1/generatePodcast`
 - `GET /api/v1/generatePodcast/{job_id}/status`
+  `status=completed` planın hazır olduğunu ifade eder; ses üretim ilerlemesi `plan_ready`, `audio_ready_parts` ve `audio_total_parts` alanlarından izlenir.
 - `GET /api/v1/voices/{voice_name}/preview`
 - `POST /api/v1/feedback`
 - `GET /api/v1/usage`
@@ -54,7 +56,8 @@ TUSBINA, TUS öğrencileri için sesli eğitim asistanı. Bu repo, `Design` ve `
 - `generatePodcast` endpointi DB'de job oluşturur (`queued`).
 - Worker önce yüklenen belgeyi otomatik bölümlendirir, bölüm başlıklarını içerikten türetir ve kapak görselini resolve eder; kapak yoksa otomatik SVG cover üretir ve mobil istemci bu kapağı doğrudan render eder.
 - `cover_file_id` belge `file_ids` listesinden ayrı taşınabilir; backend bu mobile kontratını doğrudan destekler.
-- `app.worker` queued job'ı güvenli şekilde claim eder (`FOR UPDATE SKIP LOCKED`), PDF/TXT içeriğinden bölüm metni üretir, TTS sentezi yapar ve job'ı `completed` yapar.
+- `app.worker` queued job'ı güvenli şekilde claim eder (`FOR UPDATE SKIP LOCKED`), PDF/TXT içeriğinden bölüm metni üretir, planı hazırlar ve job'ı `completed` yapar.
+- Ses sentezi bölüm bazında ayrı worker döngüsüyle ilerler; job status yanıtındaki `audio_ready_parts` / `audio_total_parts` alanları bu aşamayı görünür kılar.
 - `OPENROUTER_API_KEY` verilirse script üretimi LLM destekli olur; anahtar yoksa extractive fallback kullanılır.
 
 ## Hızlı Başlangıç

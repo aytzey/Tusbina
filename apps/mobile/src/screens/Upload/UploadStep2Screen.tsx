@@ -8,7 +8,7 @@ import { PrimaryButton, ScreenContainer, WizardProgress } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useUploadWizardStore } from "@/state/stores";
 import { PodcastFormat } from "@/domain/models";
-import { buildApiUrl } from "@/services/api";
+import { resolveReachableApiUrl } from "@/services/api/baseUrl";
 import { colors, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -81,7 +81,7 @@ export function UploadStep2Screen() {
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const handlePreview = (voiceKey: string) => {
+  const handlePreview = async (voiceKey: string) => {
     setPreviewError(null);
 
     if (previewingVoice === voiceKey && previewStatus.playing) {
@@ -91,7 +91,8 @@ export function UploadStep2Screen() {
     }
 
     try {
-      previewPlayer.replace(buildApiUrl(`/voices/${encodeURIComponent(voiceKey)}/preview`));
+      const previewUrl = await resolveReachableApiUrl(`/voices/${encodeURIComponent(voiceKey)}/preview`);
+      previewPlayer.replace(previewUrl);
       previewPlayer.play();
       setPreviewingVoice(voiceKey);
     } catch (error) {
@@ -134,7 +135,7 @@ export function UploadStep2Screen() {
               </View>
               <Pressable
                 hitSlop={8}
-                onPress={() => handlePreview(option.key)}
+                onPress={() => void handlePreview(option.key)}
                 style={styles.previewButton}
               >
                 <Ionicons

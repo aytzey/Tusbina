@@ -93,6 +93,9 @@ def test_upload_generate_plans_immediately_and_generates_prioritized_parts() -> 
     assert status_response.status_code == 200
     status_payload = status_response.json()
     assert status_payload["status"] == "completed"
+    assert status_payload["plan_ready"] is True
+    assert status_payload["audio_ready_parts"] == 0
+    assert status_payload["audio_total_parts"] == 2
     assert status_payload["result_podcast_id"] is not None
 
     podcasts_response = client.get("/api/v1/podcasts", headers=user_headers)
@@ -125,6 +128,16 @@ def test_upload_generate_plans_immediately_and_generates_prioritized_parts() -> 
     assert refreshed_podcast["parts"][1]["audio_url"].endswith(".wav")
     assert refreshed_podcast["parts"][0]["status"] == "ready"
     assert refreshed_podcast["parts"][1]["status"] == "ready"
+
+    refreshed_status_response = client.get(
+        f"/api/v1/generatePodcast/{job_id}/status",
+        headers=user_headers,
+    )
+    assert refreshed_status_response.status_code == 200
+    refreshed_status = refreshed_status_response.json()
+    assert refreshed_status["plan_ready"] is True
+    assert refreshed_status["audio_ready_parts"] == 2
+    assert refreshed_status["audio_total_parts"] == 2
 
     audio_key = refreshed_podcast["parts"][0]["audio_url"].split("/static/uploads/")[-1]
     audio_path = Path(settings.local_upload_dir) / audio_key

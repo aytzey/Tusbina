@@ -58,4 +58,4 @@ def get_generation_status(
         logger.warning("GEN_STATUS_NOT_FOUND user_id=%s job_id=%s", current_user.user_id, job_id)
         raise HTTPException(status_code=404, detail="Generation job not found")
 
-    return job_to_status_schema(job)
+    return job_to_status_schema(job, db)

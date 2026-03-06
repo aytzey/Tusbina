@@ -55,6 +55,7 @@ Bu doküman, `Design` ve `Docs` raporlarının teknik karşılığıdır.
 - `POST /api/v1/upload`
 - `POST /api/v1/generatePodcast`
 - `GET /api/v1/generatePodcast/{job_id}/status`
+  `status=completed` planın çıkarıldığını gösterir; hazır ses sayaçları `plan_ready`, `audio_ready_parts`, `audio_total_parts` alanlarıyla izlenir.
 - `GET /api/v1/voices/{voice_name}/preview` (rate-limited)
 - `POST /api/v1/feedback`
 - `GET /api/v1/usage`

@@ -87,11 +87,25 @@ def get_generation_job(db: Session, *, job_id: str, user_id: str) -> GenerationJ
     return db.execute(stmt).scalar_one_or_none()
 
 
-def job_to_status_schema(job: GenerationJobModel) -> GeneratePodcastStatusOut:
+def job_to_status_schema(job: GenerationJobModel, db: Session) -> GeneratePodcastStatusOut:
+    audio_ready_parts = 0
+    audio_total_parts = 0
+    plan_ready = bool(job.result_podcast_id)
+
+    if job.result_podcast_id:
+        parts = db.execute(
+            select(PodcastPartModel.status).where(PodcastPartModel.podcast_id == job.result_podcast_id)
+        ).scalars().all()
+        audio_total_parts = len(parts)
+        audio_ready_parts = sum(1 for status in parts if status == "ready")
+
     return GeneratePodcastStatusOut(
         job_id=job.id,
         status=job.status,
         progress_pct=job.progress_pct,
+        plan_ready=plan_ready,
+        audio_ready_parts=audio_ready_parts,
+        audio_total_parts=audio_total_parts,
         result_podcast_id=job.result_podcast_id,
         error=job.error,
     )

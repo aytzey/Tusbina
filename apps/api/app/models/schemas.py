@@ -150,6 +150,9 @@ class GeneratePodcastStatusOut(BaseModel):
     job_id: str
     status: Literal["queued", "processing", "completed", "failed"]
     progress_pct: int
+    plan_ready: bool = False
+    audio_ready_parts: int = 0
+    audio_total_parts: int = 0
     result_podcast_id: str | None = None
     error: str | None = None
 

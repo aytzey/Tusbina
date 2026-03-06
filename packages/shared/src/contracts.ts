@@ -22,6 +22,9 @@ export interface GeneratePodcastStatusResponse {
   job_id: string;
   status: "queued" | "processing" | "completed" | "failed";
   progress_pct: number;
+  plan_ready: boolean;
+  audio_ready_parts: number;
+  audio_total_parts: number;
   result_podcast_id?: string | null;
   error?: string | null;
 }

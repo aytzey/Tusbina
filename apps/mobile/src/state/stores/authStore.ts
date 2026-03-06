@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { create } from "zustand";
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
+import { buildApiUrl, getApiBaseCandidates, setActiveApiBaseUrl } from "@/services/api/baseUrl";
 import { supabase } from "@/services/supabase";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -281,16 +282,31 @@ function extractHashParams(url: string): Map<string, string> {
 }
 
 async function syncProfileToBackend(accessToken: string, displayName?: string) {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
   const body: Record<string, string> = {};
   if (displayName) body.display_name = displayName;
+  let lastError: unknown = null;
 
-  await fetch(`${apiUrl}/auth/profile`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(body),
-  });
+  for (const baseUrl of getApiBaseCandidates()) {
+    try {
+      const response = await fetch(buildApiUrl("/auth/profile", baseUrl), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Profile sync failed (${response.status})`);
+      }
+
+      setActiveApiBaseUrl(baseUrl);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Profile sync failed");
 }
