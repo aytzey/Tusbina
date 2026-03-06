@@ -90,7 +90,7 @@
 - `npm run mobile:lint` geçti.
 - `npm run mobile:typecheck` geçti.
 - `apps/api` içinde `ruff check .` geçti.
-- `apps/api` içinde tam test seti geçti: `pytest -q` -> `59 passed`
+- `apps/api` içinde tam test seti geçti: `pytest -q` -> `61 passed`
 
 ### Bu Turda Göremeyeceğimiz / Tam Doğrulayamayacağımız Şeyler
 
