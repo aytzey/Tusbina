@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     public_upload_base_url: str = "http://localhost:8000/static/uploads"
     upload_allowed_extensions: str = "pdf,png,jpg,jpeg,webp,txt,docx,pptx,doc,ppt"
     upload_max_files: int = 8
-    upload_max_file_size_mb: int = 100
+    upload_max_file_size_mb: int = 50
+    premium_upload_max_file_size_mb: int = 100
     upload_validate_pdf_signature: bool = True
     r2_account_id: str = ""
     r2_access_key: str = ""

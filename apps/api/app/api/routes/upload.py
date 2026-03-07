@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.db.models import UploadAssetModel
 from app.models.schemas import UploadAssetOut, UploadOut
+from app.services.seed import ensure_usage_row
 from app.services.storage import get_storage_client
 
 router = APIRouter(tags=["upload"])
@@ -27,11 +28,15 @@ async def upload_pdf(
             detail=f"En fazla {settings.upload_max_files} dosya yükleyebilirsiniz",
         )
 
+    usage = ensure_usage_row(db, current_user.user_id)
     storage = get_storage_client()
     allowed_extensions = {
         ext.strip().lower().lstrip(".") for ext in settings.upload_allowed_extensions.split(",") if ext.strip()
     }
-    max_size_bytes = settings.upload_max_file_size_mb * 1024 * 1024
+    max_file_size_mb = (
+        settings.premium_upload_max_file_size_mb if usage.is_premium else settings.upload_max_file_size_mb
+    )
+    max_size_bytes = max_file_size_mb * 1024 * 1024
 
     assets: list[UploadAssetOut] = []
     file_ids: list[str] = []
@@ -56,7 +61,7 @@ async def upload_pdf(
         if len(raw) > max_size_bytes:
             raise HTTPException(
                 status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=f"Dosya boyutu limiti aşıldı (max {settings.upload_max_file_size_mb} MB)",
+                detail=f"Dosya boyutu limiti aşıldı (max {max_file_size_mb} MB)",
             )
 
         stored = storage.save_bytes(
