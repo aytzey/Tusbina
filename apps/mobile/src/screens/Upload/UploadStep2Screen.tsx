@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   voiceGroup: {
-    gap: spacing.sm,
+    gap: 6,
   },
   voiceOption: {
     flexDirection: "row",
@@ -275,8 +275,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.dividerStrong,
     backgroundColor: colors.cardBg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
   },
   voiceOptionSelected: {
     borderColor: colors.motivationOrange,
@@ -289,9 +289,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   voiceIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
     justifyContent: "center",
