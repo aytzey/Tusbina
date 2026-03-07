@@ -22,6 +22,7 @@ import { ConsentPreferencesScreen } from "@/screens/Profile/ConsentPreferencesSc
 import { DeleteAccountScreen } from "@/screens/Profile/DeleteAccountScreen";
 import { LegalCenterScreen } from "@/screens/Profile/LegalCenterScreen";
 import { LegalDocumentScreen } from "@/screens/Profile/LegalDocumentScreen";
+import { NotificationsScreen } from "@/screens/Profile/NotificationsScreen";
 import { SupportScreen } from "@/screens/Profile/SupportScreen";
 import { GeneralErrorScreen } from "@/screens/States/GeneralErrorScreen";
 import { NoInternetScreen } from "@/screens/States/NoInternetScreen";
@@ -92,6 +93,7 @@ export function RootNavigator() {
             component={LegalDocumentScreen}
             options={({ route }) => ({ title: route.params.title ?? "Yasal Metin" })}
           />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Bildirimler" }} />
           <Stack.Screen name="Support" component={SupportScreen} options={{ title: "Yardım & Destek" }} />
           <Stack.Screen name="GeneralError" component={GeneralErrorScreen} options={{ title: "Bir Hata Oluştu" }} />
           <Stack.Screen name="NoInternet" component={NoInternetScreen} options={{ title: "Bağlantı Yok" }} />

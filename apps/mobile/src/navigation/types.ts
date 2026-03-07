@@ -29,6 +29,7 @@ export type RootStackParamList = {
   ConsentPreferences: undefined;
   LegalConsent: undefined;
   DeleteAccount: undefined;
+  Notifications: undefined;
   GeneralError: undefined;
   NoInternet: undefined;
 };

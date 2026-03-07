@@ -112,7 +112,7 @@ export function HomeScreen() {
           />
           <Text style={styles.headerBrand}>TUSBINA</Text>
         </View>
-        <Pressable style={styles.notifButton} hitSlop={8} onPress={() => navigation.navigate("ListenTab")}>
+        <Pressable style={styles.notifButton} hitSlop={8} onPress={() => navigation.navigate("Notifications")}>
           <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
         </Pressable>
       </View>
