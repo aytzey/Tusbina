@@ -7,15 +7,22 @@ import { createJSONStorage, persist } from "zustand/middleware";
 type DownloadablePodcast = Podcast;
 const DOWNLOAD_CONCURRENCY = 3;
 
+interface DownloadProgress {
+  downloadedParts: number;
+  totalParts: number;
+}
+
 interface DownloadsState {
   ownerUserId: string | null;
   downloads: DownloadablePodcast[];
   downloadingIds: string[];
+  downloadProgress: Record<string, DownloadProgress>;
   error: string | null;
   bindToUser: (userId: string | null) => Promise<void>;
   isPodcastDownloaded: (podcastId: string) => boolean;
   getDownloadedPodcast: (podcastId: string) => DownloadablePodcast | undefined;
   getOfflinePartsCount: (podcastId: string) => number;
+  getDownloadProgress: (podcastId: string) => DownloadProgress | null;
   applyDownloadsToPodcast: (podcast: Podcast) => Podcast;
   syncPodcastsWithDownloads: (podcasts: Podcast[]) => Podcast[];
   updateDownloadedPodcastProgress: (podcastId: string, progressSec: number) => void;
@@ -32,6 +39,7 @@ export const useDownloadsStore = create<DownloadsState>()(
       ownerUserId: null,
       downloads: [],
       downloadingIds: [],
+      downloadProgress: {},
       error: null,
       bindToUser: async (userId) => {
         if (!userId) {
@@ -65,6 +73,7 @@ export const useDownloadsStore = create<DownloadsState>()(
         }
         return podcast.parts.filter((part) => Boolean(part.localAudioUrl)).length;
       },
+      getDownloadProgress: (podcastId) => get().downloadProgress[podcastId] ?? null,
       applyDownloadsToPodcast: (podcast) => applyDownloadState(podcast, get().downloads),
       syncPodcastsWithDownloads: (podcasts) => podcasts.map((podcast) => applyDownloadState(podcast, get().downloads)),
       updateDownloadedPodcastProgress: (podcastId, progressSec) =>
@@ -85,6 +94,10 @@ export const useDownloadsStore = create<DownloadsState>()(
 
         set((state) => ({
           downloadingIds: [...state.downloadingIds, podcast.id],
+          downloadProgress: {
+            ...state.downloadProgress,
+            [podcast.id]: { downloadedParts: 0, totalParts: podcast.parts.length },
+          },
           error: null,
         }));
 
@@ -95,6 +108,7 @@ export const useDownloadsStore = create<DownloadsState>()(
 
           const existing = get().getDownloadedPodcast(podcast.id);
           const existingParts = new Map((existing?.parts ?? []).map((part) => [part.id, part]));
+          let completedParts = 0;
 
           const nextParts = await mapWithConcurrency(
             podcast.parts,
@@ -104,6 +118,13 @@ export const useDownloadsStore = create<DownloadsState>()(
               const previous = existingParts.get(part.id);
 
               if (!remoteAudioUrl) {
+                completedParts += 1;
+                set((state) => ({
+                  downloadProgress: {
+                    ...state.downloadProgress,
+                    [podcast.id]: { downloadedParts: completedParts, totalParts: podcast.parts.length },
+                  },
+                }));
                 return {
                   ...part,
                   audioUrl: previous?.localAudioUrl ?? part.audioUrl,
@@ -115,6 +136,14 @@ export const useDownloadsStore = create<DownloadsState>()(
               const extension = inferFileExtension(remoteAudioUrl, "audio");
               const targetPath = `${podcastDir}/${buildVersionedFileName(part.id, remoteAudioUrl, extension)}`;
               const localAudioUrl = await downloadIfNeeded(remoteAudioUrl, targetPath);
+
+              completedParts += 1;
+              set((state) => ({
+                downloadProgress: {
+                  ...state.downloadProgress,
+                  [podcast.id]: { downloadedParts: completedParts, totalParts: podcast.parts.length },
+                },
+              }));
 
               return {
                 ...part,
@@ -146,17 +175,25 @@ export const useDownloadsStore = create<DownloadsState>()(
             parts: nextParts,
           };
 
-          set((state) => ({
-            downloads: replacePodcastEntry(state.downloads, downloadedPodcast),
-            downloadingIds: state.downloadingIds.filter((id) => id !== podcast.id),
-          }));
+          set((state) => {
+            const { [podcast.id]: _removed, ...restProgress } = state.downloadProgress;
+            return {
+              downloads: replacePodcastEntry(state.downloads, downloadedPodcast),
+              downloadingIds: state.downloadingIds.filter((id) => id !== podcast.id),
+              downloadProgress: restProgress,
+            };
+          });
 
           return applyDownloadState(downloadedPodcast, get().downloads);
         } catch (error) {
-          set((state) => ({
-            downloadingIds: state.downloadingIds.filter((id) => id !== podcast.id),
-            error: error instanceof Error ? error.message : "İndirilenler güncellenemedi.",
-          }));
+          set((state) => {
+            const { [podcast.id]: _removed, ...restProgress } = state.downloadProgress;
+            return {
+              downloadingIds: state.downloadingIds.filter((id) => id !== podcast.id),
+              downloadProgress: restProgress,
+              error: error instanceof Error ? error.message : "İndirilenler güncellenemedi.",
+            };
+          });
           throw error;
         }
       },

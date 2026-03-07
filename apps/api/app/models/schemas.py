@@ -61,6 +61,7 @@ class Podcast(BaseModel):
     total_duration_sec: int
     cover_image_url: str | None = None
     cover_image_source: str | None = None
+    course_id: str | None = None
     parts: list[PodcastPart] = []
     is_favorite: bool = False
     is_downloaded: bool = False
@@ -131,6 +132,7 @@ class GeneratePodcastIn(BaseModel):
     uploaded_file_ids: list[str] = []
     sections: list[GeneratePodcastSectionIn] = []
     cover_file_id: str | None = None
+    course_id: str | None = None
 
     @model_validator(mode="after")
     def normalize_file_ids(self) -> "GeneratePodcastIn":

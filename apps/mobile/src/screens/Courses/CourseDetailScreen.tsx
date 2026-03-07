@@ -5,9 +5,9 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { useCoursesStore, usePlayerStore } from "@/state/stores";
+import { useCoursesStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
 import { colors, radius, shadows, spacing, typography } from "@/theme";
-import { formatDuration } from "@/utils";
+import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRoute = RouteProp<RootStackParamList, "CourseDetail">;
@@ -63,6 +63,11 @@ export function CourseDetailScreen() {
   const selectedCourse = useCoursesStore((state) => state.selectedCourse);
   const selectCourse = useCoursesStore((state) => state.selectCourse);
   const setQueue = usePlayerStore((state) => state.setQueue);
+  const podcasts = usePodcastsStore((state) => state.podcasts);
+
+  const linkedPodcasts = selectedCourse
+    ? podcasts.filter((p) => p.courseId === selectedCourse.id)
+    : [];
 
   useEffect(() => {
     void selectCourse(route.params.courseId);
@@ -208,6 +213,34 @@ export function CourseDetailScreen() {
           );
         })}
       </View>
+
+      {/* Linked Podcasts */}
+      {linkedPodcasts.length > 0 ? (
+        <View style={styles.linkedSection}>
+          <Text style={styles.linkedTitle}>İlişkili Podcastler</Text>
+          {linkedPodcasts.map((podcast) => (
+            <Pressable
+              key={podcast.id}
+              style={styles.linkedCard}
+              onPress={() => {
+                const queue = buildPodcastQueue(podcast);
+                const { startIndex, startPositionSec } = resolvePodcastQueueStart(podcast);
+                setQueue(queue, startIndex, startPositionSec);
+                navigation.navigate("Player", { trackId: queue[startIndex].id, sourceType: "ai" });
+              }}
+            >
+              <Ionicons name="headset-outline" size={20} color={colors.motivationOrange} />
+              <View style={styles.linkedCardText}>
+                <Text style={styles.linkedCardTitle} numberOfLines={1}>{podcast.title}</Text>
+                <Text style={styles.linkedCardMeta}>
+                  {podcast.voice} · {formatDuration(podcast.totalDurationSec)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </ScreenContainer>
   );
 }
@@ -356,5 +389,39 @@ const styles = StyleSheet.create({
   statusInProgress: {
     ...typography.caption,
     color: colors.motivationOrange,
+  },
+  /* Linked Podcasts */
+  linkedSection: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  linkedTitle: {
+    ...typography.h3,
+    color: colors.textPrimary,
+  },
+  linkedCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.motivationOrange,
+  },
+  linkedCardText: {
+    flex: 1,
+    gap: 2,
+  },
+  linkedCardTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "600",
+  },
+  linkedCardMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
 });

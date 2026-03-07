@@ -201,6 +201,7 @@ def process_next_generation_job(db: Session, *, storage: StorageClient, tts: TTS
             total_duration_sec=default_duration_sec * len(part_plan),
             cover_image_url=None,
             cover_image_source=None,
+            course_id=payload.get("course_id"),
         )
         cover_image = _resolve_or_generate_cover_image(
             storage=storage,

@@ -41,6 +41,7 @@ export function PlayerScreen() {
   const removePodcastDownload = useDownloadsStore((state) => state.removePodcastDownload);
   const downloadingIds = useDownloadsStore((state) => state.downloadingIds);
   const getDownloadedPodcast = useDownloadsStore((state) => state.getDownloadedPodcast);
+  const getDownloadProgress = useDownloadsStore((state) => state.getDownloadProgress);
 
   const canPlay = useUserStore((state) => state.canPlay);
   const openLimitModal = useUserStore((state) => state.openLimitModal);
@@ -66,6 +67,7 @@ export function PlayerScreen() {
   const queueIds = useMemo(() => queue.map((item) => item.id), [queue]);
   const canReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
   const isCurrentPodcastDownloading = currentPodcast ? downloadingIds.includes(currentPodcast.id) : false;
+  const currentDownloadProgress = currentPodcast && isCurrentPodcastDownloading ? getDownloadProgress(currentPodcast.id) : null;
 
   useEffect(() => {
     if (!currentPodcast) {
@@ -382,13 +384,11 @@ export function PlayerScreen() {
         <Pressable
           style={[styles.playButton, !hasRemoteAudio && styles.playButtonQueued]}
           onPress={onTogglePlay}
-          disabled={isAudioLoading}
         >
+          <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={colors.textPrimary} />
           {isBuffering && isPlaying ? (
-            <ActivityIndicator size={28} color={colors.textPrimary} />
-          ) : (
-            <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={colors.textPrimary} />
-          )}
+            <ActivityIndicator size={14} color={colors.motivationOrange} style={styles.playButtonSpinner} />
+          ) : null}
         </Pressable>
 
         <Pressable
@@ -431,7 +431,11 @@ export function PlayerScreen() {
               color={colors.textSecondary}
             />
             <Text style={styles.secondaryBtnLabel}>
-              {isCurrentPodcastDownloading ? "İndiriliyor" : currentPodcast.isDownloaded ? "İndirildi" : "İndir"}
+              {isCurrentPodcastDownloading
+                ? currentDownloadProgress
+                  ? `${currentDownloadProgress.downloadedParts}/${currentDownloadProgress.totalParts}`
+                  : "İndiriliyor"
+                : currentPodcast.isDownloaded ? "İndirildi" : "İndir"}
             </Text>
           </Pressable>
         ) : null}
@@ -740,6 +744,11 @@ const styles = StyleSheet.create({
   },
   playButtonQueued: {
     opacity: 0.72
+  },
+  playButtonSpinner: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
   },
   controlDisabled: {
     opacity: 0.35

@@ -44,6 +44,7 @@ export function UploadingScreen() {
   const voice = useUploadWizardStore((state) => state.voice);
   const format = useUploadWizardStore((state) => state.format);
   const podcastName = useUploadWizardStore((state) => state.podcastName);
+  const courseId = useUploadWizardStore((state) => state.courseId);
   const setUploadedFileIds = useUploadWizardStore((state) => state.setUploadedFileIds);
   const resetWizard = useUploadWizardStore((state) => state.resetWizard);
 
@@ -124,6 +125,7 @@ export function UploadingScreen() {
           format: format as PodcastFormat,
           file_ids: uploadedDocumentIds,
           cover_file_id: coverFileId ?? undefined,
+          course_id: courseId ?? undefined,
           sections: []
         });
         planningJobIdRef.current = job.job_id;

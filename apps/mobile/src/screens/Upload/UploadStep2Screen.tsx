@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { PrimaryButton, ScreenContainer, WizardProgress } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { useUploadWizardStore } from "@/state/stores";
+import { useCoursesStore, useUploadWizardStore } from "@/state/stores";
 import { PodcastFormat } from "@/domain/models";
 import { resolveReachableApiUrl } from "@/services/api/baseUrl";
 import { colors, radius, spacing, typography } from "@/theme";
@@ -74,8 +74,11 @@ export function UploadStep2Screen() {
   const navigation = useNavigation<Navigation>();
   const voice = useUploadWizardStore((state) => state.voice);
   const format = useUploadWizardStore((state) => state.format);
+  const courseId = useUploadWizardStore((state) => state.courseId);
   const setVoice = useUploadWizardStore((state) => state.setVoice);
   const setFormat = useUploadWizardStore((state) => state.setFormat);
+  const setCourseId = useUploadWizardStore((state) => state.setCourseId);
+  const courses = useCoursesStore((state) => state.courses);
 
   const previewPlayer = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true });
   const previewStatus = useAudioPlayerStatus(previewPlayer);
@@ -193,6 +196,35 @@ export function UploadStep2Screen() {
           );
         })}
       </View>
+
+      {/* --- Course Association --- */}
+      {courses.length > 0 ? (
+        <>
+          <Text style={styles.sectionTitle}>Ders ile ilişkilendir (isteğe bağlı)</Text>
+          <View style={styles.courseGroup}>
+            <Pressable
+              style={[styles.courseChip, !courseId && styles.courseChipSelected]}
+              onPress={() => setCourseId(null)}
+            >
+              <Text style={[styles.courseChipLabel, !courseId && styles.courseChipLabelSelected]}>Bağımsız</Text>
+            </Pressable>
+            {courses.map((course) => {
+              const isSelected = courseId === course.id;
+              return (
+                <Pressable
+                  key={course.id}
+                  style={[styles.courseChip, isSelected && styles.courseChipSelected]}
+                  onPress={() => setCourseId(course.id)}
+                >
+                  <Text style={[styles.courseChipLabel, isSelected && styles.courseChipLabelSelected]} numberOfLines={1}>
+                    {course.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
 
       {validationError ? <Text style={styles.warning}>{validationError}</Text> : null}
 
@@ -319,5 +351,29 @@ const styles = StyleSheet.create({
   },
   formatLabelSelected: {
     color: colors.textPrimary,
+  },
+  courseGroup: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  courseChip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.dividerStrong,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  courseChipSelected: {
+    borderColor: colors.motivationOrange,
+    backgroundColor: colors.orangeTint,
+  },
+  courseChipLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  courseChipLabelSelected: {
+    color: colors.motivationOrange,
+    fontWeight: "600",
   },
 });

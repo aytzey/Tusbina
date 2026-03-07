@@ -39,6 +39,7 @@ export interface ApiPodcast {
   total_duration_sec: number;
   cover_image_url?: string | null;
   cover_image_source?: string | null;
+  course_id?: string | null;
   parts: ApiPodcastPart[];
   is_favorite?: boolean;
   is_downloaded?: boolean;
@@ -80,6 +81,7 @@ export interface ApiGenerateRequest {
   format: "narrative" | "summary" | "qa";
   file_ids: string[];
   cover_file_id?: string;
+  course_id?: string;
   sections?: {
     id: string;
     title: string;

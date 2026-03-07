@@ -7,7 +7,7 @@ import { PodcastCover, ScreenContainer } from "@/components";
 import { Podcast } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
 import { patchPodcastState } from "@/services/api";
-import { useDownloadsStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
+import { useCoursesStore, useDownloadsStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart, stripDownloadState } from "@/utils";
 import { EmptyLibraryScreen } from "@/screens/States/EmptyLibraryScreen";
@@ -33,6 +33,9 @@ export function PodcastLibraryScreen() {
   const removePodcastDownload = useDownloadsStore((state) => state.removePodcastDownload);
   const downloadingIds = useDownloadsStore((state) => state.downloadingIds);
   const getOfflinePartsCount = useDownloadsStore((state) => state.getOfflinePartsCount);
+  const getDownloadProgress = useDownloadsStore((state) => state.getDownloadProgress);
+
+  const courses = useCoursesStore((state) => state.courses);
 
   const [filter, setFilter] = useState<ListenFilter>("all");
   const [deletingPodcastId, setDeletingPodcastId] = useState<string | null>(null);
@@ -174,6 +177,7 @@ export function PodcastLibraryScreen() {
             const progressWidth = `${Math.min(100, Math.max(0, progressPct))}%` as `${number}%`;
             const offlinePartsCount = getOfflinePartsCount(item.id);
             const isDownloading = downloadingIds.includes(item.id);
+            const dlProgress = isDownloading ? getDownloadProgress(item.id) : null;
 
             return (
               <Pressable style={styles.card} onPress={() => handleOpenPodcast(item)}>
@@ -186,21 +190,33 @@ export function PodcastLibraryScreen() {
                 />
 
                 <View style={styles.cardBody}>
-                  <Text style={styles.badge}>Üretildi</Text>
+                  <Text style={styles.badge}>
+                    {item.courseId
+                      ? courses.find((c) => c.id === item.courseId)?.title ?? "Üretildi"
+                      : "Üretildi"}
+                  </Text>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardMeta}>
                     {item.voice} • {formatDuration(item.totalDurationSec)}
                   </Text>
                   <Text style={[styles.downloadMeta, isDownloading && { color: colors.premiumGold }]}>
                     {isDownloading
-                      ? "İndiriliyor..."
+                      ? dlProgress
+                        ? `İndiriliyor... ${dlProgress.downloadedParts}/${dlProgress.totalParts} bölüm`
+                        : "İndiriliyor..."
                       : offlinePartsCount > 0
                         ? `${offlinePartsCount}/${item.parts.length} bölüm indirildi`
                         : "Çevrimdışı kopya yok"}
                   </Text>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: progressWidth }]} />
-                  </View>
+                  {isDownloading && dlProgress ? (
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${Math.round((dlProgress.downloadedParts / Math.max(1, dlProgress.totalParts)) * 100)}%` as `${number}%`, backgroundColor: colors.premiumGold }]} />
+                    </View>
+                  ) : (
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: progressWidth }]} />
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.cardActions}>

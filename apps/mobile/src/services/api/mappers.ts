@@ -33,6 +33,7 @@ export function mapApiPodcast(podcast: ApiPodcast): Podcast {
     coverImageUrl: resolveApiAssetUrl(podcast.cover_image_url),
     remoteCoverImageUrl: resolveApiAssetUrl(podcast.cover_image_url),
     coverImageSource: podcast.cover_image_source ?? undefined,
+    courseId: podcast.course_id ?? undefined,
     isFavorite: podcast.is_favorite ?? false,
     isDownloaded: false,
     progressSec: podcast.progress_sec ?? 0,

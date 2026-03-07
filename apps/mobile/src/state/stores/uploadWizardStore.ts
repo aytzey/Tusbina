@@ -8,6 +8,7 @@ interface UploadWizardState {
   voice: string | null;
   format: PodcastFormat | null;
   podcastName: string;
+  courseId: string | null;
   addFiles: (files: UploadFileItem[]) => void;
   removeFile: (localId: string) => void;
   setCoverImage: (file: UploadFileItem | null) => void;
@@ -15,6 +16,7 @@ interface UploadWizardState {
   setVoice: (voice: string) => void;
   setFormat: (format: PodcastFormat) => void;
   setPodcastName: (name: string) => void;
+  setCourseId: (courseId: string | null) => void;
   resetWizard: () => void;
 }
 
@@ -30,6 +32,7 @@ export const useUploadWizardStore = create<UploadWizardState>((set) => ({
   voice: "Elif",
   format: null,
   podcastName: "",
+  courseId: null,
   addFiles: (newFiles) =>
     set((state) => {
       const unique = [...state.files];
@@ -58,6 +61,7 @@ export const useUploadWizardStore = create<UploadWizardState>((set) => ({
   setVoice: (voice) => set({ voice }),
   setFormat: (format) => set({ format }),
   setPodcastName: (podcastName) => set({ podcastName }),
+  setCourseId: (courseId) => set({ courseId }),
   resetWizard: () =>
     set({
       files: [],
@@ -66,5 +70,6 @@ export const useUploadWizardStore = create<UploadWizardState>((set) => ({
       voice: "Elif",
       format: null,
       podcastName: "",
+      courseId: null,
     }),
 }));

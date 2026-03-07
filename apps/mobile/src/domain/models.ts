@@ -53,6 +53,7 @@ export interface Podcast {
   coverImageUrl?: string;
   remoteCoverImageUrl?: string;
   coverImageSource?: string;
+  courseId?: string;
   parts: PodcastPart[];
   isFavorite?: boolean;
   isDownloaded?: boolean;

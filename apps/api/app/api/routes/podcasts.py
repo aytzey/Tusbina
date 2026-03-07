@@ -54,6 +54,7 @@ def _serialize_podcast(podcast: PodcastModel, state: PodcastUserStateModel | Non
         total_duration_sec=podcast.total_duration_sec,
         cover_image_url=_resolve_audio_url(podcast.cover_image_url),
         cover_image_source=podcast.cover_image_source,
+        course_id=podcast.course_id,
         parts=[
             PodcastPart(
                 id=part.id,
