@@ -7,8 +7,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { PrimaryButton, ScreenContainer, WizardProgress } from "@/components";
 import { UploadFileItem } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
-import { useUploadWizardStore } from "@/state/stores";
+import { usePodcastsStore, useUploadWizardStore, useUserStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
+
+const DEMO_MAX_UPLOADS = 2;
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -33,8 +35,11 @@ export function UploadStep1Screen() {
   const addFiles = useUploadWizardStore((state) => state.addFiles);
   const removeFile = useUploadWizardStore((state) => state.removeFile);
   const setCoverImage = useUploadWizardStore((state) => state.setCoverImage);
+  const isPremium = useUserStore((state) => state.user.isPremium);
+  const totalPodcasts = usePodcastsStore((state) => state.podcasts.length);
   const [warning, setWarning] = useState<string | null>(null);
 
+  const demoLimitReached = !isPremium && totalPodcasts >= DEMO_MAX_UPLOADS;
   const canAddMore = files.length < MAX_FILES;
   const remainingSlots = useMemo(() => Math.max(MAX_FILES - files.length, 0), [files.length]);
 
@@ -199,9 +204,24 @@ export function UploadStep1Screen() {
         </View>
       )}
 
+      {demoLimitReached ? (
+        <View style={styles.demoLimitCard}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.premiumGold} />
+          <Text style={styles.demoLimitText}>
+            Demo hesapla en fazla {DEMO_MAX_UPLOADS} içerik oluşturabilirsin. Daha fazlası için Premium'a geç.
+          </Text>
+          <Pressable
+            style={styles.demoLimitButton}
+            onPress={() => navigation.navigate("Premium")}
+          >
+            <Text style={styles.demoLimitButtonText}>Premium'a Geç</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <PrimaryButton
         label="Devam Et → Ses Seçimi"
-        disabled={files.length === 0}
+        disabled={files.length === 0 || demoLimitReached}
         onPress={() => navigation.navigate("UploadStep2")}
       />
     </ScreenContainer>
@@ -350,5 +370,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: spacing.sm,
+  },
+  demoLimitCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.premiumGold,
+    backgroundColor: colors.goldTint,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    alignItems: "center",
+  },
+  demoLimitText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: "center",
+  },
+  demoLimitButton: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.premiumGold,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  demoLimitButtonText: {
+    ...typography.button,
+    color: colors.textPrimary,
   },
 });

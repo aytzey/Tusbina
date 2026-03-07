@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { useUserStore } from "@/state/stores";
@@ -21,6 +21,36 @@ export function PremiumScreen() {
   const usageError = useUserStore((state) => state.usageError);
   const activatePremium = useUserStore((state) => state.activatePremium);
   const addExtraPackage = useUserStore((state) => state.addExtraPackage);
+
+  const handlePurchasePremium = () => {
+    const confirmMessage = "Premium aboneliğiniz aktif edilecek. Devam etmek istiyor musunuz?";
+    if (Platform.OS === "web") {
+      const webConfirm = (globalThis as { confirm?: (msg?: string) => boolean }).confirm;
+      if (typeof webConfirm === "function" && webConfirm(confirmMessage)) {
+        void activatePremium();
+      }
+    } else {
+      Alert.alert("Premium Abonelik", confirmMessage, [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Satın Al", onPress: () => void activatePremium() },
+      ]);
+    }
+  };
+
+  const handlePurchaseExtra = () => {
+    const confirmMessage = "Ekstra paket satın alınacak. Devam etmek istiyor musunuz?";
+    if (Platform.OS === "web") {
+      const webConfirm = (globalThis as { confirm?: (msg?: string) => boolean }).confirm;
+      if (typeof webConfirm === "function" && webConfirm(confirmMessage)) {
+        void addExtraPackage();
+      }
+    } else {
+      Alert.alert("Ekstra Paket", confirmMessage, [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Satın Al", onPress: () => void addExtraPackage() },
+      ]);
+    }
+  };
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
@@ -82,7 +112,7 @@ export function PremiumScreen() {
         </Text>
         <Pressable
           style={[styles.extraButton, usageLoading && styles.buttonDisabled]}
-          onPress={() => void addExtraPackage()}
+          onPress={handlePurchaseExtra}
           disabled={usageLoading}
         >
           <Text style={styles.extraButtonLabel}>
@@ -93,13 +123,13 @@ export function PremiumScreen() {
 
       {/* --- CTA --- */}
       <Pressable
-        style={[styles.ctaButton, usageLoading && styles.buttonDisabled]}
-        onPress={() => void activatePremium()}
-        disabled={usageLoading}
+        style={[styles.ctaButton, (usageLoading || user.isPremium) && styles.buttonDisabled]}
+        onPress={handlePurchasePremium}
+        disabled={usageLoading || user.isPremium}
       >
         <Ionicons name="star" size={18} color={colors.textPrimary} />
         <Text style={styles.ctaLabel}>
-          {usageLoading ? "İşleniyor..." : "Premium'a Geç - 250 TL/Ay"}
+          {usageLoading ? "İşleniyor..." : user.isPremium ? "Zaten Premium Üyesin" : "Premium'a Geç - 250 TL/Ay"}
         </Text>
       </Pressable>
 
