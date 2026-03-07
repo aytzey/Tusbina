@@ -9,7 +9,7 @@ const LOGO = require("../../../assets/logo.png");
 const FEATURES: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: "library-outline", label: "Tüm derslere sınırsız erişim" },
   { icon: "time-outline", label: "Ayda 10 saat dinleme hakkı" },
-  { icon: "cloud-upload-outline", label: "Sınırsız dosya yükleme (500 MB)" },
+  { icon: "cloud-upload-outline", label: "Dosya başına 100 MB yükleme" },
   { icon: "layers-outline", label: "Konulara göre otomatik ayırma" },
   { icon: "list-outline", label: "Step-step bölünebilir podcast'ler" },
   { icon: "download-outline", label: "Çevrimdışı dinleme" }

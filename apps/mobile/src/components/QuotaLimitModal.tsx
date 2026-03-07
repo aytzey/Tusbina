@@ -13,7 +13,7 @@ type Navigation = NativeStackNavigationProp<RootStackParamList>;
 const BENEFITS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: "time-outline", label: "Ayda 10 saat dinleme hakkı" },
   { icon: "book-outline", label: "Tüm derslere sınırsız erişim" },
-  { icon: "cloud-upload-outline", label: "500 MB'a kadar dosya yükleme" }
+  { icon: "cloud-upload-outline", label: "100 MB'a kadar dosya yükleme" }
 ];
 
 export function QuotaLimitModal() {
@@ -36,7 +36,7 @@ export function QuotaLimitModal() {
 
           {/* Description */}
           <Text style={styles.description}>
-            Demo sürümüyle yalnızca 5 dakika dinleyebilir ve 50 MB dosya yükleyebilirsin.
+            Demo sürümüyle yalnızca 1 saat dinleyebilir ve 50 MB dosya yükleyebilirsin.
             Premium&apos;a geçerek tüm özelliklerin kilidini aç!
           </Text>
 

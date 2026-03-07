@@ -15,7 +15,8 @@ const DEMO_MAX_UPLOADS = 2;
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const MAX_FILES = 6;
-const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const DEMO_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const PREMIUM_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_COVER_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
 
 const ALLOWED_DOCUMENT_TYPES = [
@@ -39,6 +40,8 @@ export function UploadStep1Screen() {
   const totalPodcasts = usePodcastsStore((state) => state.podcasts.length);
   const [warning, setWarning] = useState<string | null>(null);
 
+  const maxFileSize = isPremium ? PREMIUM_MAX_FILE_SIZE_BYTES : DEMO_MAX_FILE_SIZE_BYTES;
+  const maxFileSizeMB = Math.round(maxFileSize / (1024 * 1024));
   const demoLimitReached = !isPremium && totalPodcasts >= DEMO_MAX_UPLOADS;
   const canAddMore = files.length < MAX_FILES;
   const remainingSlots = useMemo(() => Math.max(MAX_FILES - files.length, 0), [files.length]);
@@ -59,7 +62,7 @@ export function UploadStep1Screen() {
       return;
     }
 
-    const validAssets = result.assets.filter((asset) => (asset.size ?? 0) <= MAX_FILE_SIZE_BYTES);
+    const validAssets = result.assets.filter((asset) => (asset.size ?? 0) <= maxFileSize);
     const oversizedCount = result.assets.length - validAssets.length;
 
     const picked = validAssets.slice(0, remainingSlots).map<UploadFileItem>((asset, index) => ({
@@ -72,9 +75,9 @@ export function UploadStep1Screen() {
     }));
 
     if (oversizedCount > 0 && result.assets.length > remainingSlots) {
-      setWarning(`50 MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
+      setWarning(`${maxFileSizeMB} MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
     } else if (oversizedCount > 0) {
-      setWarning(`50 MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
+      setWarning(`${maxFileSizeMB} MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
     } else if (result.assets.length > remainingSlots) {
       setWarning(`Maksimum ${MAX_FILES} belge destekleniyor. Fazla dosyalar eklenmedi.`);
     } else if (picked.length === 0) {
@@ -108,8 +111,8 @@ export function UploadStep1Screen() {
       return;
     }
 
-    if ((asset.size ?? 0) > MAX_FILE_SIZE_BYTES) {
-      setWarning("Kapak görseli 50 MB sınırını aşıyor.");
+    if ((asset.size ?? 0) > maxFileSize) {
+      setWarning(`Kapak görseli ${maxFileSizeMB} MB sınırını aşıyor.`);
       return;
     }
 
@@ -137,7 +140,7 @@ export function UploadStep1Screen() {
         <Ionicons name="document-text" size={40} color={colors.motivationOrange} />
         <Text style={styles.uploadTitle}>Belge dosyalarını yükle</Text>
         <Text style={styles.uploadDescription}>
-          {SUPPORTED_FORMAT_LABEL} yükleyebilirsin. Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek. Her dosya için üst sınır 50 MB.
+          {SUPPORTED_FORMAT_LABEL} yükleyebilirsin. Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek. Her dosya için üst sınır {maxFileSizeMB} MB.
         </Text>
       </Pressable>
 
