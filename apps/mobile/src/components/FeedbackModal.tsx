@@ -11,18 +11,18 @@ interface FeedbackModalProps {
 
 const TAGS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: "headset-outline", label: "Ses Kalitesi" },
-  { icon: "checkmark-circle-outline", label: "Icerik Dogrulugu" },
-  { icon: "speedometer-outline", label: "Hiz" },
+  { icon: "checkmark-circle-outline", label: "İçerik Doğruluğu" },
+  { icon: "speedometer-outline", label: "Hız" },
   { icon: "mic-outline", label: "Telaffuz" },
-  { icon: "list-outline", label: "Bolum Sirasi" },
-  { icon: "ellipsis-horizontal-outline", label: "Diger" }
+  { icon: "list-outline", label: "Bölüm Sırası" },
+  { icon: "ellipsis-horizontal-outline", label: "Diğer" }
 ];
 
 const RATING_LABELS: Record<number, string> = {
-  1: "Kotu",
+  1: "Kötü",
   2: "Vasat",
   3: "Orta",
-  4: "Iyi",
+  4: "İyi",
   5: "Harika"
 };
 
@@ -50,7 +50,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      setError("Gondermek icin yildiz puani zorunlu.");
+      setError("Göndermek için yıldız puanı zorunlu.");
       return;
     }
 
@@ -61,7 +61,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
       await onSubmit({ rating, tags: selectedTags, text });
       closeAndReset();
     } catch {
-      setError("Geri bildirim gonderilemedi.");
+      setError("Geri bildirim gönderilemedi.");
       setSending(false);
     }
   };
@@ -85,7 +85,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
 
           {/* Subtitle */}
           <Text style={styles.subtitle}>
-            Bu podcast deneyiminizi nasil degerlendirirsiniz?
+            Bu podcast deneyiminizi nasıl değerlendirirsiniz?
           </Text>
 
           {/* Star rating */}
@@ -105,7 +105,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
           </View>
 
           {/* Tags section */}
-          <Text style={styles.sectionTitle}>Neler iyilestirilebilir?</Text>
+          <Text style={styles.sectionTitle}>Neler iyileştirilebilir?</Text>
           <View style={styles.tagsContainer}>
             {TAGS.map(({ icon, label }) => {
               const active = selectedTags.includes(label);
@@ -131,7 +131,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
             style={styles.input}
             multiline
             numberOfLines={4}
-            placeholder="Detayli geri bildiriminizi yazin..."
+            placeholder="Detaylı geri bildiriminizi yazın..."
             placeholderTextColor={colors.textSecondary}
             value={text}
             onChangeText={setText}
@@ -145,7 +145,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
             onPress={() => void handleSubmit()}
           >
             <Text style={styles.primaryLabel}>
-              {sending ? "Gonderiliyor..." : "Geri Bildirimi Gonder"}
+              {sending ? "Gönderiliyor..." : "Geri Bildirimi Gönder"}
             </Text>
           </Pressable>
         </View>

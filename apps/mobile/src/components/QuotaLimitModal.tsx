@@ -11,9 +11,9 @@ const LOGO = require("../../assets/logo.png");
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const BENEFITS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: "time-outline", label: "Ayda 10 saat dinleme hakki" },
-  { icon: "book-outline", label: "Tum derslere sinirsiz erisim" },
-  { icon: "cloud-upload-outline", label: "500 MB'a kadar dosya yukleme" }
+  { icon: "time-outline", label: "Ayda 10 saat dinleme hakkı" },
+  { icon: "book-outline", label: "Tüm derslere sınırsız erişim" },
+  { icon: "cloud-upload-outline", label: "500 MB'a kadar dosya yükleme" }
 ];
 
 export function QuotaLimitModal() {
@@ -32,12 +32,12 @@ export function QuotaLimitModal() {
           <Image source={LOGO} style={styles.logo} resizeMode="contain" />
 
           {/* Title */}
-          <Text style={styles.title}>Demo Limitine Ulastin!</Text>
+          <Text style={styles.title}>Demo Limitine Ulaştın!</Text>
 
           {/* Description */}
           <Text style={styles.description}>
-            Demo surumuyle yalnizca 5 dakika dinleyebilir ve 50 MB dosya yukleyebilirsin.
-            Premium&apos;a gecerek tum ozelliklerin kilidini ac!
+            Demo sürümüyle yalnızca 5 dakika dinleyebilir ve 50 MB dosya yükleyebilirsin.
+            Premium&apos;a geçerek tüm özelliklerin kilidini aç!
           </Text>
 
           {/* Benefits card */}
@@ -60,7 +60,7 @@ export function QuotaLimitModal() {
               navigation.navigate("Premium");
             }}
           >
-            <Text style={styles.primaryLabel}>Premium&apos;a Gec - 250 TL/Ay</Text>
+            <Text style={styles.primaryLabel}>Premium&apos;a Geç - 250 TL/Ay</Text>
           </Pressable>
 
           {/* Later link */}

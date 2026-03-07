@@ -197,9 +197,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   logoRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     borderWidth: 2,
     borderColor: colors.premiumGold,
     alignItems: "center",
@@ -211,12 +211,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 6,
-    overflow: "hidden",
   },
   logo: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   brandTitle: {
     ...typography.hero,

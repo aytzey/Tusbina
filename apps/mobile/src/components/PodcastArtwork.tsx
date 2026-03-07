@@ -99,7 +99,7 @@ function PodcastArtworkComponent({
       <View style={styles.topRow}>
         <View style={[styles.badge, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
           <Ionicons name="sparkles" size={Math.max(11, size * 0.08)} color={palette.secondary} />
-          <Text style={[styles.badgeText, { fontSize: Math.max(9, size * 0.075) }]}>AI</Text>
+          <Text style={[styles.badgeText, { fontSize: Math.max(9, size * 0.075) }]}>Özel</Text>
         </View>
         <Image
           source={LOGO}

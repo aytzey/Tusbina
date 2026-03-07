@@ -8,7 +8,7 @@ interface WizardProgressProps {
   totalSteps: number;
 }
 
-const STEP_LABELS = ["Yukle", "Ayarla", "Olustur"];
+const STEP_LABELS = ["Yükle", "Ayarla", "Oluştur"];
 
 export function WizardProgress({ label, step, totalSteps }: WizardProgressProps) {
   const safeTotal = Math.max(totalSteps, 1);
@@ -62,7 +62,7 @@ export function WizardProgress({ label, step, totalSteps }: WizardProgressProps)
                     isUpcoming && styles.stepLabelUpcoming
                   ]}
                 >
-                  {STEP_LABELS[idx] ?? `Adim ${stepNum}`}
+                  {STEP_LABELS[idx] ?? `Adım ${stepNum}`}
                 </Text>
               </View>
 

@@ -229,16 +229,9 @@ export function UploadStep2Screen() {
       {validationError ? <Text style={styles.warning}>{validationError}</Text> : null}
 
       <PrimaryButton
-        label="Devam Et → İçerik Planla"
+        label={!format ? "İçerik formatı seçiniz" : "Devam Et → İçerik Planla"}
+        disabled={!voice || !format}
         onPress={() => {
-          if (!voice) {
-            setValidationError("Lütfen bir seslendirici seçin.");
-            return;
-          }
-          if (!format) {
-            setValidationError("Lütfen bir içerik formatı seçin.");
-            return;
-          }
           setValidationError(null);
           safeAudioPlayerCall(() => {
             previewPlayer.pause();
