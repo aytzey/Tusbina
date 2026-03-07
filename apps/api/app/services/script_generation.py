@@ -199,6 +199,10 @@ def _extract_text_from_asset(asset: UploadAssetModel, storage: StorageClient) ->
     filename_lower = (asset.filename or "").lower()
     content_type = (asset.content_type or "").lower()
     is_pdf = filename_lower.endswith(".pdf") or "pdf" in content_type
+    is_docx = filename_lower.endswith(".docx") or "wordprocessingml" in content_type
+    is_pptx = filename_lower.endswith(".pptx") or "presentationml" in content_type
+    is_doc = filename_lower.endswith(".doc") and not is_docx
+    is_ppt = filename_lower.endswith(".ppt") and not is_pptx
 
     text = ""
     if is_pdf:
@@ -209,6 +213,13 @@ def _extract_text_from_asset(asset: UploadAssetModel, storage: StorageClient) ->
                 asset.filename,
             )
             return ""
+    elif is_docx:
+        text = _extract_text_from_docx(raw)
+    elif is_pptx:
+        text = _extract_text_from_pptx(raw)
+    elif is_doc or is_ppt:
+        logger.warning("Eski Office formati desteklenmiyor (doc/ppt): %s", asset.filename)
+        text = raw.decode("utf-8", errors="ignore")
     else:
         text = raw.decode("utf-8", errors="ignore")
 
@@ -259,6 +270,35 @@ def _extract_text_from_pdf(raw: bytes) -> str:
         return "\n".join(pages)
     except Exception as exc:
         logger.warning("PDF metin cikarimi basarisiz: %s", exc)
+        return ""
+
+
+def _extract_text_from_docx(raw: bytes) -> str:
+    try:
+        from docx import Document
+        doc = Document(BytesIO(raw))
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(paragraphs)
+    except Exception as exc:
+        logger.warning("DOCX metin cikarimi basarisiz: %s", exc)
+        return ""
+
+
+def _extract_text_from_pptx(raw: bytes) -> str:
+    try:
+        from pptx import Presentation
+        prs = Presentation(BytesIO(raw))
+        texts: list[str] = []
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for paragraph in shape.text_frame.paragraphs:
+                        text = paragraph.text.strip()
+                        if text:
+                            texts.append(text)
+        return "\n".join(texts)
+    except Exception as exc:
+        logger.warning("PPTX metin cikarimi basarisiz: %s", exc)
         return ""
 
 

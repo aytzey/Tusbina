@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -56,6 +56,7 @@ export function RegisterScreen() {
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
   const confirmationPending = useAuthStore((state) => state.confirmationPending);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -63,6 +64,12 @@ export function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedRequired, setAcceptedRequired] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+
+  useEffect(() => {
+    if (confirmationPending && isAuthenticated) {
+      navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+    }
+  }, [confirmationPending, isAuthenticated, navigation]);
 
   const canSubmit =
     displayName.trim().length >= 2 &&
@@ -82,10 +89,15 @@ export function RegisterScreen() {
     return (
       <ScreenContainer scroll contentStyle={styles.container}>
         <View style={styles.confirmationBox}>
-          <Ionicons name="mail-outline" size={64} color={colors.motivationOrange} />
+          <View style={styles.confirmIconWrap}>
+            <Ionicons name="mail-outline" size={48} color={colors.motivationOrange} />
+          </View>
           <Text style={styles.confirmTitle}>E-postanızı kontrol edin</Text>
           <Text style={styles.confirmText}>
             {email} adresine bir onay bağlantısı gönderdik. Hesabını aktif etmek için e-postadaki bağlantıya tıkla.
+          </Text>
+          <Text style={styles.confirmHint}>
+            Onayladıktan sonra aşağıdaki butona basarak giriş yapabilirsiniz.
           </Text>
           <Pressable
             onPress={() => navigation.navigate("Login")}
@@ -365,6 +377,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
+  confirmIconWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.orangeTint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   confirmTitle: { ...typography.title, color: colors.textPrimary, textAlign: "center" },
   confirmText: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
+  confirmHint: { ...typography.caption, color: colors.motivationOrange, textAlign: "center", fontWeight: "600" },
 });

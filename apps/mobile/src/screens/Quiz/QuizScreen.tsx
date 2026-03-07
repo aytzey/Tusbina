@@ -55,7 +55,7 @@ export function QuizScreen() {
       <ScreenContainer contentStyle={styles.centered}>
         <ActivityIndicator size="large" color={colors.motivationOrange} />
         <Text style={styles.loadingText}>
-          {generating ? "Sorular AI ile üretiliyor..." : "Sorular yükleniyor..."}
+          {generating ? "Sorular üretiliyor..." : "Sorular yükleniyor..."}
         </Text>
       </ScreenContainer>
     );
@@ -73,8 +73,8 @@ export function QuizScreen() {
         </Text>
         <Text style={styles.emptySubtitle}>
           {currentPartTitle
-            ? `AI, aktif bolumden (${currentPartTitle}) TUS formatinda soru uretir.`
-            : "AI ile podcast içeriğinden TUS formatında sorular üretilebilir."}
+            ? `Aktif bölümden (${currentPartTitle}) TUS formatında soru üretilir.`
+            : "Podcast içeriğinden TUS formatında sorular üretilebilir."}
         </Text>
         <PrimaryButton
           label="Quiz Oluştur"
@@ -93,7 +93,7 @@ export function QuizScreen() {
       <View style={styles.sourceBadge}>
         <Ionicons name="document-text" size={14} color={colors.success} />
         <Text style={styles.sourceBadgeText}>
-          {currentPartTitle ? `${currentPartTitle} - Bolum Kaynagi` : `${current.category} - Kaynak Dosya`}
+          {currentPartTitle ? `${currentPartTitle} - Bölüm Kaynağı` : `${current.category} - Kaynak Dosya`}
         </Text>
       </View>
 

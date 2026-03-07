@@ -81,6 +81,7 @@ export function UploadStep2Screen() {
   const previewStatus = useAudioPlayerStatus(previewPlayer);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -139,7 +140,7 @@ export function UploadStep2Screen() {
             <Pressable
               key={option.key}
               style={[styles.voiceOption, isSelected && styles.voiceOptionSelected]}
-              onPress={() => setVoice(option.key)}
+              onPress={() => { setVoice(option.key); setValidationError(null); }}
             >
               <View style={styles.voiceLeft}>
                 <View style={[styles.voiceIconWrap, isSelected && styles.voiceIconWrapSelected]}>
@@ -180,7 +181,7 @@ export function UploadStep2Screen() {
             <Pressable
               key={item.key}
               style={[styles.formatCard, isSelected && styles.formatCardSelected]}
-              onPress={() => setFormat(item.key)}
+              onPress={() => { setFormat(item.key); setValidationError(null); }}
             >
               <Ionicons
                 name={item.icon}
@@ -193,10 +194,20 @@ export function UploadStep2Screen() {
         })}
       </View>
 
+      {validationError ? <Text style={styles.warning}>{validationError}</Text> : null}
+
       <PrimaryButton
-        label="Devam Et → Otomatik Plan"
-        disabled={!voice || !format}
+        label="Devam Et → İçerik Planla"
         onPress={() => {
+          if (!voice) {
+            setValidationError("Lütfen bir seslendirici seçin.");
+            return;
+          }
+          if (!format) {
+            setValidationError("Lütfen bir içerik formatı seçin.");
+            return;
+          }
+          setValidationError(null);
           safeAudioPlayerCall(() => {
             previewPlayer.pause();
           });

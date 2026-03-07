@@ -322,7 +322,7 @@ export function PlayerScreen() {
         {track.sourceType === "ai" && (
           <View style={styles.aiBadge}>
             <Ionicons name="sparkles" size={12} color={colors.premiumGold} />
-            <Text style={styles.aiBadgeText}>AI Üretildi</Text>
+            <Text style={styles.aiBadgeText}>Üretildi</Text>
           </View>
         )}
       </View>

@@ -24,7 +24,7 @@ async def upload_pdf(
     if len(files) > settings.upload_max_files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"En fazla {settings.upload_max_files} dosya yukleyebilirsiniz",
+            detail=f"En fazla {settings.upload_max_files} dosya yükleyebilirsiniz",
         )
 
     storage = get_storage_client()
@@ -43,7 +43,7 @@ async def upload_pdf(
         if allowed_extensions and ext not in allowed_extensions:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Desteklenmeyen dosya uzantisi: {Path(filename).suffix or 'bilinmiyor'}",
+                detail=f"Desteklenmeyen dosya uzantısı: {Path(filename).suffix or 'bilinmiyor'}. Desteklenen: PDF, Word, PowerPoint, metin dosyası",
             )
 
         raw = await file.read()
@@ -51,12 +51,12 @@ async def upload_pdf(
             if not raw.lstrip().startswith(b"%PDF-"):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Gecersiz PDF dosyasi",
+                    detail="Geçersiz PDF dosyası",
                 )
         if len(raw) > max_size_bytes:
             raise HTTPException(
                 status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=f"Dosya boyutu limiti asildi (max {settings.upload_max_file_size_mb} MB)",
+                detail=f"Dosya boyutu limiti aşıldı (max {settings.upload_max_file_size_mb} MB)",
             )
 
         stored = storage.save_bytes(

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,7 +17,7 @@ type ListenFilter = "all" | "ai" | "favorites" | "downloaded";
 
 const FILTERS: { key: ListenFilter; label: string }[] = [
   { key: "all", label: "Tümü" },
-  { key: "ai", label: "AI Üretilenler" },
+  { key: "ai", label: "Üretilenler" },
   { key: "favorites", label: "Favoriler" },
   { key: "downloaded", label: "İndirilenler" },
 ];
@@ -180,21 +180,23 @@ export function PodcastLibraryScreen() {
                 <PodcastCover
                   uri={item.coverImageUrl}
                   title={item.title}
-                  subtitle="AI Podcast"
+                  subtitle="Podcast"
                   voice={item.voice}
                   size={72}
                 />
 
                 <View style={styles.cardBody}>
-                  <Text style={styles.badge}>AI Üretildi</Text>
+                  <Text style={styles.badge}>Üretildi</Text>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardMeta}>
                     {item.voice} • {formatDuration(item.totalDurationSec)}
                   </Text>
-                  <Text style={styles.downloadMeta}>
-                    {offlinePartsCount > 0
-                      ? `${offlinePartsCount}/${item.parts.length} bölüm çevrimdışı hazır`
-                      : "Çevrimdışı kopya yok"}
+                  <Text style={[styles.downloadMeta, isDownloading && { color: colors.premiumGold }]}>
+                    {isDownloading
+                      ? "İndiriliyor..."
+                      : offlinePartsCount > 0
+                        ? `${offlinePartsCount}/${item.parts.length} bölüm indirildi`
+                        : "Çevrimdışı kopya yok"}
                   </Text>
                   <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: progressWidth }]} />
@@ -210,11 +212,15 @@ export function PodcastLibraryScreen() {
                     />
                   </Pressable>
                   <Pressable style={styles.actionBtn} onPress={() => void toggleDownloadState(item)} disabled={isDownloading} hitSlop={6}>
-                    <Ionicons
-                      name={item.isDownloaded ? "cloud-done" : "cloud-download-outline"}
-                      size={20}
-                      color={item.isDownloaded ? colors.success : colors.textSecondary}
-                    />
+                    {isDownloading ? (
+                      <ActivityIndicator size={16} color={colors.motivationOrange} />
+                    ) : (
+                      <Ionicons
+                        name={item.isDownloaded ? "cloud-done" : "cloud-download-outline"}
+                        size={20}
+                        color={item.isDownloaded ? colors.success : colors.textSecondary}
+                      />
+                    )}
                   </Pressable>
                   <Pressable style={styles.actionBtn} onPress={() => void handleDeletePodcast(item)} disabled={deletingPodcastId === item.id} hitSlop={6}>
                     <Ionicons

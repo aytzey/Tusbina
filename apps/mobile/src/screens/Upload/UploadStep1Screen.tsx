@@ -12,9 +12,19 @@ import { colors, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-const MAX_FILES = 4;
-const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_FILES = 6;
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const ALLOWED_COVER_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
+
+const ALLOWED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/msword",
+  "application/vnd.ms-powerpoint",
+];
+const SUPPORTED_FORMAT_LABEL = "PDF, Word, PowerPoint veya metin dosyası";
 
 export function UploadStep1Screen() {
   const navigation = useNavigation<Navigation>();
@@ -35,7 +45,7 @@ export function UploadStep1Screen() {
     }
 
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "text/plain"],
+      type: ALLOWED_DOCUMENT_TYPES,
       multiple: true,
       copyToCacheDirectory: true,
     });
@@ -57,13 +67,13 @@ export function UploadStep1Screen() {
     }));
 
     if (oversizedCount > 0 && result.assets.length > remainingSlots) {
-      setWarning(`25 MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
+      setWarning(`50 MB üzeri ${oversizedCount} dosya ve limit dışı içerikler eklenmedi.`);
     } else if (oversizedCount > 0) {
-      setWarning(`25 MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
+      setWarning(`50 MB üzerinde ${oversizedCount} dosya var. Bu dosyalar eklenmedi.`);
     } else if (result.assets.length > remainingSlots) {
       setWarning(`Maksimum ${MAX_FILES} belge destekleniyor. Fazla dosyalar eklenmedi.`);
     } else if (picked.length === 0) {
-      setWarning("Geçerli bir PDF veya metin dosyası seçilmedi.");
+      setWarning(`Geçerli bir dosya seçilmedi. Desteklenen: ${SUPPORTED_FORMAT_LABEL}`);
     } else {
       setWarning(null);
     }
@@ -94,7 +104,7 @@ export function UploadStep1Screen() {
     }
 
     if ((asset.size ?? 0) > MAX_FILE_SIZE_BYTES) {
-      setWarning("Kapak görseli 25 MB sınırını aşıyor.");
+      setWarning("Kapak görseli 50 MB sınırını aşıyor.");
       return;
     }
 
@@ -120,9 +130,9 @@ export function UploadStep1Screen() {
 
       <Pressable style={styles.uploadArea} onPress={() => void pickSourceFiles()}>
         <Ionicons name="document-text" size={40} color={colors.motivationOrange} />
-        <Text style={styles.uploadTitle}>PDF veya metin dosyalarını yükle</Text>
+        <Text style={styles.uploadTitle}>Belge dosyalarını yükle</Text>
         <Text style={styles.uploadDescription}>
-          Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek. Her dosya için üst sınır 25 MB.
+          {SUPPORTED_FORMAT_LABEL} yükleyebilirsin. Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek. Her dosya için üst sınır 50 MB.
         </Text>
       </Pressable>
 

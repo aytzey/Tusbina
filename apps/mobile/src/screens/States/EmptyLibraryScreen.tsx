@@ -13,7 +13,7 @@ export function EmptyLibraryScreen({ onCreate }: EmptyLibraryScreenProps) {
     <View style={styles.container}>
       <Image source={LOGO} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>Henüz podcast oluşturmadın</Text>
-      <Text style={styles.description}>PDF yükleyip birkaç dakikada dinlenebilir AI podcast içeriği üretebilirsin.</Text>
+      <Text style={styles.description}>PDF yükleyip birkaç dakikada dinlenebilir podcast içeriği üretebilirsin.</Text>
       <PrimaryButton label="PDF Yükle" onPress={onCreate} />
     </View>
   );

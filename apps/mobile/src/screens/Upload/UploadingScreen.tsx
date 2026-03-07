@@ -30,8 +30,8 @@ const STATUS_POLL_INTERVAL_MS = 1500;
 const PODCAST_POLL_INTERVAL_MS = 2500;
 const STATUS_MAX_POLLS = 320;
 const QUEUED_WARNING_POLLS = 20;
-const PLANNED_PODCAST_FETCH_RETRIES = 8;
-const PLANNED_PODCAST_FETCH_RETRY_MS = 1200;
+const PLANNED_PODCAST_FETCH_RETRIES = 12;
+const PLANNED_PODCAST_FETCH_RETRY_MS = 1500;
 
 export function UploadingScreen() {
   const navigation = useNavigation<Navigation>();
@@ -156,14 +156,17 @@ export function UploadingScreen() {
 
           lastResolvedPodcastId = status.result_podcast_id;
 
+          setProgress(Math.max(45, status.progress_pct));
+          setStatusText("Plan tamamlandı. İçerik listesi yükleniyor...");
+
           const plannedPodcast = await loadPlannedPodcastWithRetry({
             cancelled: () => cancelled,
             podcastId: status.result_podcast_id,
             refreshPodcast,
           });
           if (!plannedPodcast) {
-            setProgress(Math.max(45, status.progress_pct));
-            setStatusText("Plan hazırlandı. İçerik listesi yükleniyor, oturum doğrulanıyor...");
+            setProgress(Math.max(50, status.progress_pct));
+            setStatusText("Plan hazır, içerik listesi yükleniyor... Lütfen bekle.");
             continue;
           }
 
@@ -189,9 +192,13 @@ export function UploadingScreen() {
         }
 
         if (lastResolvedPodcastId) {
-          throw new Error("Plan hazırlandı ancak oturum doğrulanamadığı için içerik yüklenemedi. Tekrar giriş yapıp yeniden dene.");
+          setPhase("tracking");
+          setStatusText("Plan hazır! İçeriğin kütüphanene eklendi. Hazır bölümler kısa sürede dinlenebilir olacak.");
+          setProgress(60);
+          resetWizard();
+          return;
         }
-        throw new Error("İşlem zaman aşımına uğradı. Backend worker durumunu kontrol edip tekrar dene.");
+        throw new Error("İşlem zaman aşımına uğradı. Lütfen tekrar dene.");
       } catch (e) {
         if (cancelled) {
           return;
@@ -363,7 +370,12 @@ export function UploadingScreen() {
         </>
       ) : null}
 
-      {planningJobId && !podcast ? <Text style={styles.jobMeta}>Plan işi: {planningJobId.slice(0, 8)}</Text> : null}
+      {phase === "tracking" && !podcast ? (
+        <View style={styles.actionRow}>
+          <PrimaryButton label="Kütüphaneye Git" onPress={() => navigation.navigate("MainTabs", { screen: "ListenTab" })} />
+        </View>
+      ) : null}
+      {planningJobId && !podcast && phase !== "tracking" ? <Text style={styles.jobMeta}>Plan işi: {planningJobId.slice(0, 8)}</Text> : null}
       {error ? <PrimaryButton label="Yeniden Dene" onPress={() => navigation.replace("Uploading")} /> : null}
     </ScreenContainer>
   );

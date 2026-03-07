@@ -38,7 +38,7 @@ function buildLockScreenMetadata(track: Track): LockScreenMetadata {
   return {
     title: track.title,
     artist: track.voice ? `${track.subtitle} • ${track.voice}` : track.subtitle,
-    albumTitle: track.sourceType === "ai" ? "TUSBINA Podcast" : "TUSBINA Ders",
+    albumTitle: track.sourceType === "ai" ? "TUSBİNA Podcast" : "TUSBİNA Ders",
     artworkUrl: track.coverImageUrl
   };
 }

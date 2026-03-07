@@ -186,19 +186,20 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.xl,
     justifyContent: "center",
-    gap: spacing.lg,
+    gap: spacing.md,
   },
 
   /* ---- Hero ---- */
   hero: {
     alignItems: "center",
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    paddingTop: spacing.xl,
   },
   logoRing: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 2,
     borderColor: colors.premiumGold,
     alignItems: "center",
@@ -210,11 +211,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 6,
+    overflow: "hidden",
   },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
   },
   brandTitle: {
     ...typography.hero,

@@ -12,3 +12,5 @@ edge-tts>=7.2.0,<8
 mutagen>=1.47.0
 pathvalidate>=3.2.0
 pypdf>=6.2.0
+python-docx>=1.1.0
+python-pptx>=1.0.0
