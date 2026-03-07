@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 type DownloadablePodcast = Podcast;
+const DOWNLOAD_CONCURRENCY = 3;
 
 interface DownloadsState {
   ownerUserId: string | null;
@@ -95,8 +96,10 @@ export const useDownloadsStore = create<DownloadsState>()(
           const existing = get().getDownloadedPodcast(podcast.id);
           const existingParts = new Map((existing?.parts ?? []).map((part) => [part.id, part]));
 
-          const nextParts = await Promise.all(
-            podcast.parts.map(async (part) => {
+          const nextParts = await mapWithConcurrency(
+            podcast.parts,
+            DOWNLOAD_CONCURRENCY,
+            async (part) => {
               const remoteAudioUrl = part.remoteAudioUrl ?? part.audioUrl;
               const previous = existingParts.get(part.id);
 
@@ -110,7 +113,7 @@ export const useDownloadsStore = create<DownloadsState>()(
               }
 
               const extension = inferFileExtension(remoteAudioUrl, "audio");
-              const targetPath = `${podcastDir}/${sanitizePathSegment(part.id)}.${extension}`;
+              const targetPath = `${podcastDir}/${buildVersionedFileName(part.id, remoteAudioUrl, extension)}`;
               const localAudioUrl = await downloadIfNeeded(remoteAudioUrl, targetPath);
 
               return {
@@ -119,15 +122,19 @@ export const useDownloadsStore = create<DownloadsState>()(
                 remoteAudioUrl,
                 localAudioUrl,
               };
-            })
+            }
           );
 
           const remoteCoverImageUrl = podcast.remoteCoverImageUrl ?? podcast.coverImageUrl;
           let coverImageUrl = remoteCoverImageUrl;
           if (remoteCoverImageUrl) {
-            const coverExtension = inferFileExtension(remoteCoverImageUrl, "image");
-            const coverTargetPath = `${podcastDir}/cover.${coverExtension}`;
-            coverImageUrl = await downloadIfNeeded(remoteCoverImageUrl, coverTargetPath);
+            try {
+              const coverExtension = inferFileExtension(remoteCoverImageUrl, "image");
+              const coverTargetPath = `${podcastDir}/${buildVersionedFileName("cover", remoteCoverImageUrl, coverExtension)}`;
+              coverImageUrl = await downloadIfNeeded(remoteCoverImageUrl, coverTargetPath);
+            } catch {
+              coverImageUrl = remoteCoverImageUrl;
+            }
           }
 
           const downloadedPodcast: DownloadablePodcast = {
@@ -221,6 +228,27 @@ async function ensureDirectory(path: string): Promise<void> {
   await FileSystem.makeDirectoryAsync(path, { intermediates: true });
 }
 
+async function mapWithConcurrency<T, TResult>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<TResult>
+): Promise<TResult[]> {
+  const results = new Array<TResult>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
 async function downloadIfNeeded(remoteUrl: string, targetPath: string): Promise<string> {
   if (remoteUrl.startsWith("file://")) {
     return remoteUrl;
@@ -245,6 +273,21 @@ function inferFileExtension(url: string, fallbackType: "audio" | "image"): strin
 
 function sanitizePathSegment(value: string): string {
   return (value || "item").replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+
+function buildVersionedFileName(baseName: string, remoteUrl: string, extension: string): string {
+  return `${sanitizePathSegment(baseName)}-${hashString(remoteUrl)}.${extension}`;
+}
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0).toString(36);
 }
 
 function isLocalFileUri(value: string | undefined): boolean {

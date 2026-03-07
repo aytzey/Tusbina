@@ -55,6 +55,7 @@ export function PlayerScreen() {
   const isBuffering = hasRemoteAudio && isPlaybackBuffering;
   const isAudioLoading = hasRemoteAudio && !isPlaybackLoaded;
   const prioritizeMarkerRef = useRef<string | null>(null);
+  const lookAheadPriorityRef = useRef(new Set<string>());
   const currentPodcast = useMemo(
     () =>
       track?.sourceType === "ai" && track.parentId
@@ -62,6 +63,7 @@ export function PlayerScreen() {
         : null,
     [getDownloadedPodcast, podcasts, track?.parentId, track?.sourceType]
   );
+  const queueIds = useMemo(() => queue.map((item) => item.id), [queue]);
   const canReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
   const isCurrentPodcastDownloading = currentPodcast ? downloadingIds.includes(currentPodcast.id) : false;
 
@@ -71,6 +73,10 @@ export function PlayerScreen() {
     }
     syncPodcastQueue(currentPodcast);
   }, [currentPodcast, syncPodcastQueue]);
+
+  useEffect(() => {
+    lookAheadPriorityRef.current.clear();
+  }, [currentPodcast?.id]);
 
   useEffect(() => {
     if (!track || track.sourceType !== "ai" || !track.parentId || track.partStatus === "ready") {
@@ -92,6 +98,41 @@ export function PlayerScreen() {
         // Best-effort background prioritization. The queue still updates on polling.
       });
   }, [replacePodcast, syncPodcastQueue, track]);
+
+  useEffect(() => {
+    if (!currentPodcast) {
+      return;
+    }
+
+    const nextPendingPart = queue
+      .slice(queueIndex + 1)
+      .find(
+        (item) =>
+          item.sourceType === "ai" &&
+          item.parentId === currentPodcast.id &&
+          !item.audioUrl &&
+          item.partStatus !== "failed"
+      );
+
+    if (!nextPendingPart?.parentId) {
+      return;
+    }
+
+    const marker = `${nextPendingPart.parentId}:${nextPendingPart.id}`;
+    if (lookAheadPriorityRef.current.has(marker)) {
+      return;
+    }
+    lookAheadPriorityRef.current.add(marker);
+
+    void prioritizePodcastPart(nextPendingPart.parentId, nextPendingPart.id)
+      .then((updatedPodcast) => {
+        replacePodcast(updatedPodcast);
+        syncPodcastQueue(updatedPodcast);
+      })
+      .catch(() => {
+        lookAheadPriorityRef.current.delete(marker);
+      });
+  }, [currentPodcast, queue, queueIndex, replacePodcast, syncPodcastQueue]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -236,6 +277,12 @@ export function PlayerScreen() {
 
   const handleToggleDownload = async () => {
     if (!currentPodcast) {
+      return;
+    }
+
+    if (currentPodcast.isDownloaded && track.parentId === currentPodcast.id && track.localAudioUrl) {
+      setFeedbackToast("Aktif çevrimdışı kaydı kaldırmak için önce başka bir içerik aç.");
+      setTimeout(() => setFeedbackToast(null), 1800);
       return;
     }
 
@@ -445,10 +492,8 @@ export function PlayerScreen() {
                   : "Hazır";
             const canMoveUp = currentPodcast !== null && index > 0;
             const canMoveDown = currentPodcast !== null && index < queue.length - 1;
-            const nextIdsUp =
-              canMoveUp ? moveItem(queue.map((queueItem) => queueItem.id), index, index - 1) : null;
-            const nextIdsDown =
-              canMoveDown ? moveItem(queue.map((queueItem) => queueItem.id), index, index + 1) : null;
+            const nextIdsUp = canMoveUp ? moveItem(queueIds, index, index - 1) : null;
+            const nextIdsDown = canMoveDown ? moveItem(queueIds, index, index + 1) : null;
             const queueItemProps =
               canReorderQueue && item.sourceType === "ai"
                 ? {
@@ -463,7 +508,7 @@ export function PlayerScreen() {
                       if (draggedIndex < 0) {
                         return;
                       }
-                      void handleReorderQueue(moveItem(queue.map((queueItem) => queueItem.id), draggedIndex, index));
+                      void handleReorderQueue(moveItem(queueIds, draggedIndex, index));
                       setDraggedPartId(null);
                     },
                     onDragEnd: () => setDraggedPartId(null)

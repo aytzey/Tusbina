@@ -18,6 +18,7 @@ export function DownloadsScreen() {
   const patchPodcastLocalState = usePodcastsStore((state) => state.patchPodcastLocalState);
   const replacePodcast = usePodcastsStore((state) => state.replacePodcast);
   const setQueue = usePlayerStore((state) => state.setQueue);
+  const activeTrack = usePlayerStore((state) => state.activeTrack);
 
   const sortedDownloads = [...downloads].sort((a, b) =>
     (b.downloadedAt ?? "").localeCompare(a.downloadedAt ?? "")
@@ -41,6 +42,11 @@ export function DownloadsScreen() {
   };
 
   const handleRemove = async (podcastId: string) => {
+    if (activeTrack?.parentId === podcastId && activeTrack.localAudioUrl) {
+      Alert.alert("Önce başka içerik aç", "Şu an açık olan çevrimdışı podcast silinemez.");
+      return;
+    }
+
     const existing = downloads.find((item) => item.id === podcastId);
     await removePodcastDownload(podcastId);
     if (existing) {

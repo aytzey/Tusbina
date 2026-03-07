@@ -29,6 +29,7 @@ function resetPlayerStore() {
     bookmarksByTrack: {},
     activeTrack: null,
     isPlaying: false,
+    isPlaybackActive: false,
     positionSec: 0,
     pendingSeekSec: null,
     playbackDurationSec: 0,
@@ -93,8 +94,27 @@ test("does not clear play intent when native status briefly reports not playing"
 
   const state = usePlayerStore.getState();
   assert.equal(state.isPlaying, true);
+  assert.equal(state.isPlaybackActive, false);
   assert.equal(state.isBuffering, true);
   assert.equal(state.isLoaded, false);
+});
+
+test("tracks real playback state separately from autoplay intent", () => {
+  const readyTrack = makeTrack("part-1", { audioUrl: "https://a/1.wav" });
+
+  usePlayerStore.getState().setQueue([readyTrack], 0, 0);
+  usePlayerStore.getState().play();
+  usePlayerStore.getState().setPlaybackSnapshot({
+    isPlaying: true,
+    isLoaded: true,
+    isBuffering: false,
+    positionSec: 3,
+  });
+
+  const state = usePlayerStore.getState();
+  assert.equal(state.isPlaying, true);
+  assert.equal(state.isPlaybackActive, true);
+  assert.equal(state.positionSec, 3);
 });
 
 test("updates the active streaming part when queue sync makes the audio ready", () => {
@@ -153,6 +173,72 @@ test("updates the active streaming part when queue sync makes the audio ready", 
   assert.equal(state.activeTrack?.partStatus, "ready");
   assert.equal(state.activeTrack?.coverImageUrl, "https://example.com/next-cover.png");
   assert.equal(state.playbackDurationSec, 130);
+  assert.equal(state.isPlaying, true);
+});
+
+test("rebuilds ai queue order and offsets when podcast parts are reordered", () => {
+  const first = makeTrack("part-1", {
+    absoluteOffsetSec: 0,
+    durationSec: 90,
+    audioUrl: "https://a/1.wav",
+  });
+  const second = makeTrack("part-2", {
+    absoluteOffsetSec: 90,
+    durationSec: 110,
+    audioUrl: "https://a/2.wav",
+  });
+
+  usePlayerStore.getState().setQueue([first, second], 1, 14);
+  usePlayerStore.getState().play();
+  usePlayerStore.getState().syncPodcastQueue({
+    id: "pod-streaming",
+    title: "Streaming test",
+    sourceType: "ai",
+    voice: "Elif",
+    format: "summary",
+    totalDurationSec: 200,
+    coverImageUrl: "https://example.com/cover.png",
+    remoteCoverImageUrl: "https://example.com/cover.png",
+    coverImageSource: "generated",
+    parts: [
+      {
+        id: "part-2",
+        podcastId: "pod-streaming",
+        title: "Track part-2",
+        durationSec: 110,
+        pageRange: "s2/2",
+        status: "ready",
+        audioUrl: "https://a/2.wav",
+        remoteAudioUrl: "https://a/2.wav",
+      },
+      {
+        id: "part-1",
+        podcastId: "pod-streaming",
+        title: "Track part-1",
+        durationSec: 90,
+        pageRange: "s1/2",
+        status: "ready",
+        audioUrl: "https://a/1.wav",
+        remoteAudioUrl: "https://a/1.wav",
+      },
+    ],
+    isFavorite: false,
+    isDownloaded: false,
+    progressSec: 90,
+  });
+
+  const state = usePlayerStore.getState();
+  assert.deepEqual(
+    state.queue.map((item) => ({ id: item.id, absoluteOffsetSec: item.absoluteOffsetSec })),
+    [
+      { id: "part-2", absoluteOffsetSec: 0 },
+      { id: "part-1", absoluteOffsetSec: 110 },
+    ]
+  );
+  assert.equal(state.activeTrack?.id, "part-2");
+  assert.equal(state.queueIndex, 0);
+  assert.equal(state.positionSec, 14);
+  assert.equal(state.playbackDurationSec, 110);
   assert.equal(state.isPlaying, true);
 });
 

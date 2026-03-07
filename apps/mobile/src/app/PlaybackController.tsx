@@ -109,6 +109,7 @@ export function PlaybackController() {
   const deferredPauseRef = useRef(false);
   const resumeIssuedAtRef = useRef<number | null>(null);
   const resumePositionRef = useRef(0);
+  const lastHeartbeatPersistRef = useRef<string | null>(null);
 
   const logPlayerDebug = useCallback(
     (event: string, extra: Record<string, unknown> = {}) => {
@@ -474,6 +475,25 @@ export function PlaybackController() {
     }
     wasPlayingRef.current = isPlaying;
   }, [flushUsageConsumption, isPlaying, persistCurrentProgress]);
+
+  useEffect(() => {
+    if (!track || !hasRemoteAudio || !audioStatus.playing) {
+      return;
+    }
+
+    const wholeSecond = Math.max(0, Math.floor(positionSec));
+    if (wholeSecond <= 0 || wholeSecond % 15 !== 0) {
+      return;
+    }
+
+    const marker = `${track.id}:${wholeSecond}`;
+    if (lastHeartbeatPersistRef.current === marker) {
+      return;
+    }
+    lastHeartbeatPersistRef.current = marker;
+
+    void persistCurrentProgress(track, wholeSecond);
+  }, [audioStatus.playing, hasRemoteAudio, persistCurrentProgress, positionSec, track]);
 
   useEffect(() => {
     if (!track || !hasRemoteAudio) {
