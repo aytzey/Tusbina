@@ -1,4 +1,5 @@
 export * from "./FeedbackModal";
+export * from "./MiniPlayerBar";
 export * from "./PodcastArtwork";
 export * from "./PodcastCover";
 export * from "./PrimaryButton";

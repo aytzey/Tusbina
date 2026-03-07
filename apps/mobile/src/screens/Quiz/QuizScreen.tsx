@@ -233,17 +233,17 @@ const styles = StyleSheet.create({
 
   /* Loading */
   loadingText: {
-    ...typography.body,
+    ...typography.bodyMedium,
     color: colors.textSecondary,
     textAlign: "center"
   },
 
   /* Empty state */
   emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(191,95,62,0.15)",
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.orangeTint,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 6,
-    backgroundColor: "rgba(46,158,87,0.15)",
+    backgroundColor: colors.greenTint,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.pill
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   questionBadge: {
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.pill
@@ -298,9 +298,9 @@ const styles = StyleSheet.create({
 
   /* Question card */
   questionCard: {
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
-    padding: spacing.lg
+    padding: spacing.xl
   },
   questionText: {
     ...typography.body,
@@ -318,8 +318,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: radius.md,
     borderWidth: 1.5,
-    borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    borderColor: colors.dividerStrong,
+    backgroundColor: colors.cardBg,
     padding: spacing.md,
     gap: spacing.md
   },
@@ -328,17 +328,17 @@ const styles = StyleSheet.create({
   },
   optionCorrect: {
     borderColor: colors.success,
-    backgroundColor: "rgba(46,158,87,0.12)"
+    backgroundColor: colors.greenTint
   },
   optionWrong: {
     borderColor: colors.danger,
-    backgroundColor: "rgba(214,69,69,0.10)"
+    backgroundColor: colors.dangerTint
   },
   letterCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center"
   },
@@ -364,11 +364,11 @@ const styles = StyleSheet.create({
 
   /* Explanation card */
   explanationCard: {
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     borderLeftWidth: 4,
     borderLeftColor: colors.success,
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.sm
   },
   explanationTitle: {
@@ -393,11 +393,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    height: 44,
+    height: 46,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.divider
+    borderColor: colors.dividerStrong
   },
   navBtnOutlinedLabel: {
     ...typography.body,
@@ -413,9 +413,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    height: 44,
+    height: 46,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange
   },
   navBtnFilledLabel: {

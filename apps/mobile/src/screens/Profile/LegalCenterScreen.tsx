@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.divider,
   },

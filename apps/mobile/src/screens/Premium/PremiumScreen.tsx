@@ -2,7 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { useUserStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, shadows, spacing, typography } from "@/theme";
 
 const LOGO = require("../../../assets/logo.png");
 
@@ -122,7 +122,7 @@ export function PremiumScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl,
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
     alignItems: "center"
@@ -130,23 +130,23 @@ const styles = StyleSheet.create({
 
   /* ---- Logo ---- */
   logo: {
-    width: 100,
-    height: 100,
-    marginBottom: spacing.sm
+    width: 90,
+    height: 90,
+    marginBottom: spacing.sm,
   },
 
   /* ---- Pricing ---- */
   price: {
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: "700",
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     color: colors.textPrimary,
     textAlign: "center"
   },
   quotaHighlight: {
-    ...typography.body,
+    ...typography.bodyMedium,
     color: colors.motivationOrange,
-    fontWeight: "700",
     textAlign: "center"
   },
 
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceNavy
+    backgroundColor: colors.cardBg
   },
   statusText: {
     ...typography.caption,
@@ -172,9 +172,11 @@ const styles = StyleSheet.create({
   featuresCard: {
     width: "100%",
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.lg,
-    gap: spacing.md
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   featureRow: {
     flexDirection: "row",
@@ -182,10 +184,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   featureIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(191,95,62,0.12)",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.orangeTint,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -206,13 +208,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.md,
     alignItems: "center",
     gap: spacing.xs
   },
   comparisonCardHighlight: {
-    borderColor: colors.premiumGold
+    borderColor: colors.premiumGold,
+    borderWidth: 1.5,
   },
   compareTitle: {
     ...typography.caption,
@@ -246,7 +249,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.lg,
     gap: spacing.sm
   },
@@ -265,8 +268,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary
   },
   extraButton: {
-    height: 44,
-    borderRadius: radius.md,
+    height: 46,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.premiumGold,
     alignItems: "center",
@@ -282,13 +285,14 @@ const styles = StyleSheet.create({
   ctaButton: {
     width: "100%",
     height: 56,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.premiumGold,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    marginTop: spacing.sm
+    marginTop: spacing.sm,
+    ...shadows.glow(colors.premiumGold),
   },
   ctaLabel: {
     ...typography.button,
@@ -303,7 +307,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm
   },
   restoreLabel: {
-    ...typography.caption,
+    ...typography.small,
     color: colors.textSecondary,
     textDecorationLine: "underline"
   },

@@ -2,6 +2,7 @@ import { NavigatorScreenParams } from "@react-navigation/native";
 import type { LegalDocumentId } from "@/content/legal";
 
 export type MainTabParamList = {
+  HomeTab: undefined;
   CoursesTab: undefined;
   UploadTab: undefined;
   ListenTab: undefined;

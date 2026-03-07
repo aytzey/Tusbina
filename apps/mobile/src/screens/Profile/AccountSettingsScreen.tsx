@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.lg,
     gap: spacing.sm,
   },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 52,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",

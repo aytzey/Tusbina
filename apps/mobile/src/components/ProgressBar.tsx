@@ -41,40 +41,49 @@ export function ProgressBar({ progress, buffering, onSeek }: ProgressBarProps) {
   );
 }
 
+const TRACK_HEIGHT = 5;
+const THUMB_SIZE = 14;
+const TOUCH_PADDING = 12;
+
 const styles = StyleSheet.create({
   track: {
-    height: 8,
+    height: TRACK_HEIGHT,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.10)",
     overflow: "visible",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: TOUCH_PADDING,
   },
   fill: {
     position: "absolute",
     left: 0,
-    top: 8,
-    height: 8,
+    top: TOUCH_PADDING,
+    height: TRACK_HEIGHT,
     borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
   },
   thumb: {
     position: "absolute",
-    top: 4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.motivationOrange,
-    marginLeft: -8,
-    borderWidth: 2,
-    borderColor: colors.textPrimary,
+    top: TOUCH_PADDING - (THUMB_SIZE - TRACK_HEIGHT) / 2,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    backgroundColor: "#FFFFFF",
+    marginLeft: -(THUMB_SIZE / 2),
+    borderWidth: 2.5,
+    borderColor: colors.motivationOrange,
+    shadowColor: colors.motivationOrange,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
   },
   pulse: {
     position: "absolute",
     left: 0,
-    top: 8,
+    top: TOUCH_PADDING,
     right: 0,
-    height: 8,
+    height: TRACK_HEIGHT,
     borderRadius: radius.pill,
     backgroundColor: "rgba(191,95,62,0.25)",
   },

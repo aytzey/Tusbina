@@ -118,12 +118,12 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.sm,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl,
   },
   emptyCard: {
     marginTop: spacing.xxl,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.xl,
     gap: spacing.sm,
     alignItems: "center",
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.md,
     flexDirection: "row",
     alignItems: "center",

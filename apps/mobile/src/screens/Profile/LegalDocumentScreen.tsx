@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: radius.lg,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.lg,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.lg,

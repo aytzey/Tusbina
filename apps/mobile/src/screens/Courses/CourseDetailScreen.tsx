@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useCoursesStore, usePlayerStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, shadows, spacing, typography } from "@/theme";
 import { formatDuration } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -18,6 +18,8 @@ const specialtyColors: Record<string, string> = {
   Mikrobiyoloji: "#4A90D9",
   Fizyoloji: "#9B59B6",
   Biyokimya: "#E67E22",
+  Histoloji: "#E74C8B",
+  Patoloji: "#8E44AD",
 };
 
 const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -26,6 +28,8 @@ const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   Mikrobiyoloji: "bug-outline",
   Fizyoloji: "pulse-outline",
   Biyokimya: "beaker-outline",
+  Histoloji: "cellular-outline",
+  Patoloji: "medkit-outline",
 };
 
 function getSpecialtyColor(title: string): string {
@@ -113,8 +117,8 @@ export function CourseDetailScreen() {
     <ScreenContainer contentStyle={styles.container}>
       {/* Course header with icon and title */}
       <View style={styles.headerRow}>
-        <View style={[styles.headerIcon, { backgroundColor: courseColor + "1A" }]}>
-          <Ionicons name={courseIcon} size={28} color={courseColor} />
+        <View style={[styles.headerIcon, { backgroundColor: courseColor }]}>
+          <Ionicons name={courseIcon} size={26} color="#FFFFFF" />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.courseTitle}>{selectedCourse.title}</Text>
@@ -160,7 +164,11 @@ export function CourseDetailScreen() {
           return (
             <Pressable
               key={part.id}
-              style={[styles.chapterCard, isLocked && styles.chapterLocked]}
+              style={[
+                styles.chapterCard,
+                isInProgress && styles.chapterInProgress,
+                isLocked && styles.chapterLocked,
+              ]}
               onPress={() => openPart(part.id)}
             >
               {/* Left indicator circle */}
@@ -220,9 +228,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -240,7 +248,7 @@ const styles = StyleSheet.create({
   },
   /* Progress */
   progressBlock: {
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     padding: spacing.md,
   },
@@ -261,13 +269,14 @@ const styles = StyleSheet.create({
   },
   /* Play all button */
   playAllButton: {
-    height: 52,
-    borderRadius: radius.md,
+    height: 54,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
+    ...shadows.subtle,
   },
   playAllLabel: {
     ...typography.button,
@@ -281,24 +290,30 @@ const styles = StyleSheet.create({
   },
   /* Chapter list */
   chapterList: {
-    gap: 10,
+    gap: 8,
   },
   chapterCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  chapterInProgress: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.motivationOrange,
   },
   chapterLocked: {
     opacity: 0.5,
   },
   /* Circle indicators */
   chapterCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -309,7 +324,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.motivationOrange,
   },
   circleDefault: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   circleNumber: {
     ...typography.caption,

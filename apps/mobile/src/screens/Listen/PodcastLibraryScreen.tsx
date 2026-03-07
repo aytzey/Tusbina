@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 import { PodcastCover, ScreenContainer } from "@/components";
 import { Podcast } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
@@ -201,18 +202,26 @@ export function PodcastLibraryScreen() {
                 </View>
 
                 <View style={styles.cardActions}>
-                  <Pressable onPress={() => void updateFavoriteState(item)}>
-                    <Text style={styles.cardAction}>{item.isFavorite ? "★" : "☆"}</Text>
+                  <Pressable style={styles.actionBtn} onPress={() => void updateFavoriteState(item)} hitSlop={6}>
+                    <Ionicons
+                      name={item.isFavorite ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.isFavorite ? colors.motivationOrange : colors.textSecondary}
+                    />
                   </Pressable>
-                  <Pressable onPress={() => void toggleDownloadState(item)} disabled={isDownloading}>
-                    <Text style={styles.cardAction}>
-                      {isDownloading ? "İndiriliyor..." : item.isDownloaded ? "Kaldır" : "İndir"}
-                    </Text>
+                  <Pressable style={styles.actionBtn} onPress={() => void toggleDownloadState(item)} disabled={isDownloading} hitSlop={6}>
+                    <Ionicons
+                      name={item.isDownloaded ? "cloud-done" : "cloud-download-outline"}
+                      size={20}
+                      color={item.isDownloaded ? colors.success : colors.textSecondary}
+                    />
                   </Pressable>
-                  <Pressable onPress={() => void handleDeletePodcast(item)} disabled={deletingPodcastId === item.id}>
-                    <Text style={styles.deleteAction}>
-                      {deletingPodcastId === item.id ? "Siliniyor..." : "Sil"}
-                    </Text>
+                  <Pressable style={styles.actionBtn} onPress={() => void handleDeletePodcast(item)} disabled={deletingPodcastId === item.id} hitSlop={6}>
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={deletingPodcastId === item.id ? colors.textSecondary : colors.danger}
+                    />
                   </Pressable>
                 </View>
               </Pressable>
@@ -241,13 +250,13 @@ const styles = StyleSheet.create({
   filterChip: {
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.divider,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    borderColor: colors.dividerStrong,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   filterChipActive: {
     borderColor: colors.motivationOrange,
-    backgroundColor: "rgba(191,95,62,0.18)",
+    backgroundColor: colors.motivationOrange,
   },
   filterLabel: {
     ...typography.caption,
@@ -260,9 +269,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.dividerStrong,
     padding: spacing.lg,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
   },
   emptyFilteredText: {
     ...typography.body,
@@ -271,13 +280,13 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.sm,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl,
   },
   card: {
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.md,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -299,7 +308,7 @@ const styles = StyleSheet.create({
     color: colors.premiumGold,
   },
   cardTitle: {
-    ...typography.body,
+    ...typography.bodyMedium,
     color: colors.textPrimary,
     fontWeight: "700",
   },
@@ -312,9 +321,9 @@ const styles = StyleSheet.create({
     color: colors.motivationOrange,
   },
   progressTrack: {
-    height: 5,
+    height: 4,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     overflow: "hidden",
     marginTop: spacing.xs,
   },
@@ -323,17 +332,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.motivationOrange,
   },
   cardActions: {
-    gap: spacing.xs,
-    alignItems: "flex-end",
+    gap: spacing.sm,
+    alignItems: "center",
   },
-  cardAction: {
-    ...typography.caption,
-    color: colors.motivationOrange,
-    fontWeight: "700",
-  },
-  deleteAction: {
-    ...typography.caption,
-    color: "#DF4A4A",
-    fontWeight: "700",
+  actionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

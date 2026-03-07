@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { colors } from "@/theme";
+import { colors, spacing, typography } from "@/theme";
 import { useAuthStore } from "@/state/stores/authStore";
 import { MainTabNavigator } from "./MainTabNavigator";
 import { RootStackParamList } from "./types";
@@ -40,8 +40,15 @@ export function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.primaryNavy, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.motivationOrange} />
+      <View style={splashStyles.container}>
+        <Image
+          source={require("../../assets/logo.png")}
+          style={splashStyles.logo}
+          resizeMode="contain"
+        />
+        <Text style={splashStyles.brand}>TUSBINA</Text>
+        <Text style={splashStyles.tagline}>Başarının Sesi</Text>
+        <ActivityIndicator size="small" color={colors.motivationOrange} style={splashStyles.loader} />
       </View>
     );
   }
@@ -104,3 +111,32 @@ export function RootNavigator() {
     </Stack.Navigator>
   );
 }
+
+const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.primaryNavy,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: spacing.sm,
+  },
+  brand: {
+    ...typography.hero,
+    color: colors.textPrimary,
+    letterSpacing: 4,
+  },
+  tagline: {
+    ...typography.bodyMedium,
+    color: colors.motivationOrange,
+    letterSpacing: 1.5,
+  },
+  loader: {
+    marginTop: spacing.xl,
+  },
+});

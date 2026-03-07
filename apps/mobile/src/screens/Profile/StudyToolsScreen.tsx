@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.lg,
     gap: spacing.sm,
   },
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 10,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     overflow: "hidden",
   },
   progressFill: {

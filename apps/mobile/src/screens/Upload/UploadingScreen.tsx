@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     gap: spacing.xs
   },
   summaryChipLabel: {
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     padding: spacing.md
   },
   partIndex: {

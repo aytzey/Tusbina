@@ -8,7 +8,7 @@ interface WizardProgressProps {
   totalSteps: number;
 }
 
-const STEP_LABELS = ["Yükle", "Ayarla", "Oluştur"];
+const STEP_LABELS = ["Yukle", "Ayarla", "Olustur"];
 
 export function WizardProgress({ label, step, totalSteps }: WizardProgressProps) {
   const safeTotal = Math.max(totalSteps, 1);
@@ -62,7 +62,7 @@ export function WizardProgress({ label, step, totalSteps }: WizardProgressProps)
                     isUpcoming && styles.stepLabelUpcoming
                   ]}
                 >
-                  {STEP_LABELS[idx] ?? `Adım ${stepNum}`}
+                  {STEP_LABELS[idx] ?? `Adim ${stepNum}`}
                 </Text>
               </View>
 
@@ -83,7 +83,7 @@ export function WizardProgress({ label, step, totalSteps }: WizardProgressProps)
   );
 }
 
-const CIRCLE_SIZE = 36;
+const CIRCLE_SIZE = 34;
 
 const styles = StyleSheet.create({
   container: {
@@ -129,9 +129,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success
   },
   circleUpcoming: {
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderWidth: 1,
-    borderColor: colors.divider
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: colors.dividerStrong
   },
 
   /* Circle text */
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   connector: {
     flex: 1,
     height: 2,
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: colors.dividerStrong,
     marginTop: CIRCLE_SIZE / 2 - 1,
     marginHorizontal: spacing.xs
   },

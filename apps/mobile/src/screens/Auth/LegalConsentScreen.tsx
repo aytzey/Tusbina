@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: radius.lg,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.lg,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.lg,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 52,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",

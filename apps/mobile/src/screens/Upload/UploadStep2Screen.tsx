@@ -161,7 +161,7 @@ export function UploadStep2Screen() {
               >
                 <Ionicons
                   name={isPreviewing ? "pause-circle" : "play-circle-outline"}
-                  size={30}
+                  size={32}
                   color={isSelected || isPreviewing ? colors.motivationOrange : colors.textSecondary}
                 />
               </Pressable>
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   sectionTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.textPrimary,
     marginTop: spacing.sm,
   },
@@ -237,13 +237,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    borderColor: colors.dividerStrong,
+    backgroundColor: colors.cardBg,
     padding: spacing.md,
   },
   voiceOptionSelected: {
     borderColor: colors.motivationOrange,
-    backgroundColor: "rgba(191,95,62,0.12)",
+    backgroundColor: colors.orangeTint,
   },
   voiceLeft: {
     flexDirection: "row",
@@ -252,15 +252,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   voiceIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
     justifyContent: "center",
   },
   voiceIconWrapSelected: {
-    backgroundColor: "rgba(191,95,62,0.2)",
+    backgroundColor: colors.orangeTint,
   },
   voiceText: {
     flex: 1,
@@ -290,8 +290,8 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    borderColor: colors.dividerStrong,
+    backgroundColor: colors.cardBg,
     paddingVertical: spacing.lg,
     alignItems: "center",
     gap: spacing.sm,

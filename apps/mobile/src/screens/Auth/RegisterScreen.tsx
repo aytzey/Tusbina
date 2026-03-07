@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
   input: {
     height: 48,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     color: colors.textPrimary,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   legalCard: {
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.md,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   error: { ...typography.caption, color: colors.danger, textAlign: "center" },
   button: {
     height: 52,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",

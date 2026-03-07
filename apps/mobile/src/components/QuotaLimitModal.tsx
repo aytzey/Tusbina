@@ -4,16 +4,16 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useUserStore } from "@/state/stores";
 import { RootStackParamList } from "@/navigation/types";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, shadows, spacing, typography } from "@/theme";
 
 const LOGO = require("../../assets/logo.png");
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const BENEFITS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: "time-outline", label: "Ayda 10 saat dinleme hakkı" },
-  { icon: "book-outline", label: "Tüm derslere sınırsız erişim" },
-  { icon: "cloud-upload-outline", label: "500 MB'a kadar dosya yükleme" }
+  { icon: "time-outline", label: "Ayda 10 saat dinleme hakki" },
+  { icon: "book-outline", label: "Tum derslere sinirsiz erisim" },
+  { icon: "cloud-upload-outline", label: "500 MB'a kadar dosya yukleme" }
 ];
 
 export function QuotaLimitModal() {
@@ -25,16 +25,19 @@ export function QuotaLimitModal() {
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
+          {/* Handle bar */}
+          <View style={styles.handleBar} />
+
           {/* Logo */}
           <Image source={LOGO} style={styles.logo} resizeMode="contain" />
 
           {/* Title */}
-          <Text style={styles.title}>Demo Limitine Ulaştın!</Text>
+          <Text style={styles.title}>Demo Limitine Ulastin!</Text>
 
           {/* Description */}
           <Text style={styles.description}>
-            Demo sürümüyle yalnızca 5 dakika dinleyebilir ve 50 MB dosya yükleyebilirsin.
-            Premium&apos;a geçerek tüm özelliklerin kilidini aç!
+            Demo surumuyle yalnizca 5 dakika dinleyebilir ve 50 MB dosya yukleyebilirsin.
+            Premium&apos;a gecerek tum ozelliklerin kilidini ac!
           </Text>
 
           {/* Benefits card */}
@@ -51,13 +54,13 @@ export function QuotaLimitModal() {
 
           {/* CTA button */}
           <Pressable
-            style={styles.primary}
+            style={[styles.primary, shadows.glow(colors.premiumGold)]}
             onPress={() => {
               close();
               navigation.navigate("Premium");
             }}
           >
-            <Text style={styles.primaryLabel}>Premium&apos;a Geç - 250 TL/Ay</Text>
+            <Text style={styles.primaryLabel}>Premium&apos;a Gec - 250 TL/Ay</Text>
           </Pressable>
 
           {/* Later link */}
@@ -78,13 +81,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg
   },
   card: {
-    backgroundColor: colors.primaryNavy,
-    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceNavy,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.xl,
     gap: spacing.md,
     alignItems: "center"
+  },
+
+  /* Handle bar */
+  handleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.dividerStrong,
+    alignSelf: "center",
+    marginBottom: spacing.xs
   },
 
   /* Logo */
@@ -112,7 +125,7 @@ const styles = StyleSheet.create({
   /* Benefits card */
   benefitsCard: {
     width: "100%",
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     padding: spacing.lg,
     gap: spacing.md
@@ -126,7 +139,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(191,95,62,0.15)",
+    backgroundColor: colors.orangeTint,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -140,8 +153,8 @@ const styles = StyleSheet.create({
   primary: {
     width: "100%",
     marginTop: spacing.xs,
-    height: 52,
-    borderRadius: radius.md,
+    height: 54,
+    borderRadius: radius.pill,
     backgroundColor: colors.premiumGold,
     alignItems: "center",
     justifyContent: "center"

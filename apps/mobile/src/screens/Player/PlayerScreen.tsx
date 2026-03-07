@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,7 +7,7 @@ import { FeedbackModal, PodcastCover, ProgressBar, ScreenContainer } from "@/com
 import { RootStackParamList } from "@/navigation/types";
 import { prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
 import { useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, shadows, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer, getPodcastPartStatusLabel, stripDownloadState } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -92,6 +92,12 @@ export function PlayerScreen() {
         // Best-effort background prioritization. The queue still updates on polling.
       });
   }, [replacePodcast, syncPodcastQueue, track]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: track?.sourceType === "ai" ? "Özel Podcast" : "Şimdi Dinleniyor",
+    });
+  }, [navigation, track?.sourceType]);
 
   if (!track) {
     return (
@@ -256,13 +262,14 @@ export function PlayerScreen() {
     <ScreenContainer scroll contentStyle={styles.container}>
       {/* --- Cover Art --- */}
       <View style={styles.coverWrapper}>
+        <View style={styles.coverGlow} />
         <View style={styles.cover}>
           <PodcastCover
             uri={track.coverImageUrl}
             title={track.title}
             subtitle={track.subtitle}
             voice={track.voice}
-            size={240}
+            size={260}
           />
         </View>
         {track.sourceType === "ai" && (
@@ -354,7 +361,7 @@ export function PlayerScreen() {
       {/* --- Secondary Controls --- */}
       <View style={styles.secondaryControls}>
         <Pressable style={styles.secondaryBtn} onPress={cycleRate}>
-          <Text style={styles.rateLabel}>{rate}x</Text>
+          <Text style={styles.rateLabel}>Hız: {rate}x</Text>
         </Pressable>
 
         <Pressable style={styles.secondaryBtn} onPress={onToggleBookmark}>
@@ -422,7 +429,7 @@ export function PlayerScreen() {
       {/* --- Queue / Bolumler --- */}
       {queue.length > 1 ? (
         <View style={styles.queueSection}>
-          <Text style={styles.queueTitle}>Bölümler</Text>
+          <Text style={styles.queueTitle}>Bölümler - Atlayarak Dinle</Text>
           {queue.map((item, index) => {
             const isActive = index === queueIndex;
             const isCompleted = index < queueIndex;
@@ -545,7 +552,7 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
 const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl,
     gap: spacing.sm
   },
   empty: {
@@ -558,16 +565,26 @@ const styles = StyleSheet.create({
   /* ---- Cover ---- */
   coverWrapper: {
     alignItems: "center",
-    marginBottom: spacing.md
+    marginBottom: spacing.lg,
+  },
+  coverGlow: {
+    position: "absolute",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: colors.orangeTint,
+    top: 30,
   },
   cover: {
-    width: 240,
-    height: 240,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceNavy,
+    width: 260,
+    height: 260,
+    borderRadius: radius.xl,
+    backgroundColor: colors.cardBg,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   coverImage: {
     width: "100%",
@@ -589,7 +606,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(189,148,101,0.15)"
+    backgroundColor: colors.goldTint
   },
   aiBadgeText: {
     ...typography.caption,
@@ -634,7 +651,7 @@ const styles = StyleSheet.create({
 
   /* ---- Seekbar ---- */
   seekSection: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     marginTop: spacing.md,
     gap: spacing.xs
   },
@@ -656,23 +673,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xl,
-    paddingVertical: spacing.md
+    gap: 30,
+    paddingVertical: spacing.lg,
   },
   navButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    ...shadows.glow(colors.motivationOrange),
   },
   playButtonQueued: {
     opacity: 0.72
@@ -686,7 +705,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.lg,
+    gap: spacing.xl,
     paddingVertical: spacing.xs
   },
   secondaryBtn: {
@@ -717,8 +736,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    height: 30,
-    paddingHorizontal: spacing.sm,
+    height: 32,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.motivationOrange
@@ -737,7 +756,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.success,
     textAlign: "center",
-    backgroundColor: "rgba(46,158,87,0.12)",
+    backgroundColor: "rgba(46,158,87,0.14)",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
@@ -747,11 +766,11 @@ const styles = StyleSheet.create({
   /* ---- Queue ---- */
   queueSection: {
     marginTop: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     gap: spacing.xs
   },
   queueTitle: {
-    ...typography.body,
+    ...typography.h3,
     color: colors.textPrimary,
     fontWeight: "700",
     marginBottom: spacing.xs
@@ -763,13 +782,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderLeftWidth: 3,
     borderLeftColor: "transparent"
   },
   queueItemActive: {
     borderLeftColor: colors.motivationOrange,
-    backgroundColor: "rgba(191,95,62,0.08)"
+    backgroundColor: colors.cardBgElevated
   },
   queueIndex: {
     width: 24,

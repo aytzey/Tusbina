@@ -20,6 +20,8 @@ const specialtyColors: Record<string, string> = {
   Mikrobiyoloji: "#4A90D9",
   Fizyoloji: "#9B59B6",
   Biyokimya: "#E67E22",
+  Histoloji: "#E74C8B",
+  Patoloji: "#8E44AD",
 };
 
 const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -28,6 +30,8 @@ const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   Mikrobiyoloji: "bug-outline",
   Fizyoloji: "pulse-outline",
   Biyokimya: "beaker-outline",
+  Histoloji: "cellular-outline",
+  Patoloji: "medkit-outline",
 };
 
 function getSpecialtyColor(title: string): string {
@@ -107,9 +111,12 @@ export function CoursesCatalogScreen() {
             const iconName = getSpecialtyIcon(item.title);
 
             return (
-              <Pressable style={styles.card} onPress={() => void openCourse(item.id)}>
-                <View style={[styles.cardIcon, { backgroundColor: iconColor + "1A" }]}>
-                  <Ionicons name={iconName} size={22} color={iconColor} />
+              <Pressable
+                style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}
+                onPress={() => void openCourse(item.id)}
+              >
+                <View style={[styles.cardIcon, { backgroundColor: iconColor }]}>
+                  <Ionicons name={iconName} size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.cardMain}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
@@ -140,11 +147,11 @@ const styles = StyleSheet.create({
   searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: 44,
+    height: 46,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    borderColor: colors.dividerStrong,
+    backgroundColor: colors.cardBg,
     paddingHorizontal: spacing.md,
   },
   searchIcon: {
@@ -166,7 +173,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.dividerStrong,
   },
   chipActive: {
     backgroundColor: colors.motivationOrange,
@@ -180,21 +187,23 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   listContent: {
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl,
     gap: 10,
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   cardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -203,7 +212,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   cardTitle: {
-    ...typography.body,
+    ...typography.bodyMedium,
     color: colors.textPrimary,
     fontWeight: "700",
   },

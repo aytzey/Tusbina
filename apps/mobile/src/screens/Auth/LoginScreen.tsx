@@ -13,40 +13,12 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { LEGAL_DOCUMENT_LINKS } from "@/content/legal";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/state/stores/authStore";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, shadows, spacing, typography } from "@/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-function SocialButton({
-  icon,
-  label,
-  onPress,
-  disabled,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.socialButton,
-        disabled && styles.buttonDisabled,
-        pressed && styles.buttonPressed,
-      ]}
-    >
-      <Ionicons name={icon} size={20} color={colors.textPrimary} />
-      <Text style={styles.socialLabel}>{label}</Text>
-    </Pressable>
-  );
-}
 
 export function LoginScreen() {
   const navigation = useNavigation<Nav>();
@@ -59,231 +31,349 @@ export function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   const canSubmit = email.trim().length > 0 && password.length >= 6 && !isLoading;
 
   const handleLogin = async () => {
-    if (!canSubmit) {
-      return;
-    }
+    if (!canSubmit) return;
     await signIn(email.trim(), password);
   };
 
   return (
-    <ScreenContainer scroll contentStyle={styles.container}>
+    <ScreenContainer scroll contentStyle={styles.scrollContent}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.inner}
       >
-        <View style={styles.header}>
-          <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>TUSBINA</Text>
-          <Text style={styles.subtitle}>Hesabınıza giriş yapın</Text>
-        </View>
-
-        <View style={styles.socialRow}>
-          <SocialButton
-            icon="logo-google"
-            label="Google"
-            onPress={signInWithGoogle}
-            disabled={isLoading}
-          />
-          {Platform.OS === "ios" ? (
-            <SocialButton
-              icon="logo-apple"
-              label="Apple"
-              onPress={signInWithApple}
-              disabled={isLoading}
+        {/* ---- Hero Section ---- */}
+        <View style={styles.hero}>
+          <View style={styles.logoRing}>
+            <Image
+              source={require("../../../assets/logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
             />
-          ) : null}
+          </View>
+          <Text style={styles.brandTitle}>TUSBINA</Text>
+          <Text style={styles.brandSubtitle}>Başarının Sesi</Text>
         </View>
 
-        <Text style={styles.helperText}>
-          Sosyal girişte gerekli yasal onaylar eksikse uygulama seni önce onay ekranına yönlendirir.
-        </Text>
+        {/* ---- Primary CTA ---- */}
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
+          onPress={() => navigation.navigate("Register")}
+          disabled={isLoading}
+        >
+          <Text style={styles.primaryBtnLabel}>Hemen Başla</Text>
+        </Pressable>
 
+        {/* ---- Divider ---- */}
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>veya</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>E-posta</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="ornek@email.com"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              editable={!isLoading}
-            />
-          </View>
+        {/* ---- Social Buttons ---- */}
+        {Platform.OS === "ios" ? (
+          <Pressable
+            disabled={isLoading}
+            onPress={signInWithApple}
+            style={({ pressed }) => [styles.socialBtn, styles.appleBtn, pressed && styles.btnPressed]}
+          >
+            <Ionicons name="logo-apple" size={20} color="#1D1D1F" />
+            <Text style={[styles.socialLabel, styles.appleBtnLabel]}>Apple ile Devam Et</Text>
+          </Pressable>
+        ) : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Şifre</Text>
-            <View style={styles.passwordRow}>
+        <Pressable
+          disabled={isLoading}
+          onPress={signInWithGoogle}
+          style={({ pressed }) => [styles.socialBtn, styles.googleBtn, pressed && styles.btnPressed]}
+        >
+          <Ionicons name="logo-google" size={18} color={colors.textPrimary} />
+          <Text style={styles.socialLabel}>Google ile Devam Et</Text>
+        </Pressable>
+
+        {/* ---- Email Login Toggle ---- */}
+        {!showEmailForm ? (
+          <Pressable onPress={() => setShowEmailForm(true)} style={styles.emailToggle}>
+            <Ionicons name="mail-outline" size={16} color={colors.motivationOrange} />
+            <Text style={styles.emailToggleText}>E-posta ile giriş yap</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.emailForm}>
+            <View style={styles.inputGroup}>
               <TextInput
-                style={[styles.input, styles.passwordInput]}
-                placeholder="En az 6 karakter"
+                style={styles.input}
+                placeholder="E-posta adresiniz"
                 placeholderTextColor={colors.textSecondary}
-                secureTextEntry={!showPassword}
+                keyboardType="email-address"
                 autoCapitalize="none"
-                value={password}
-                onChangeText={setPassword}
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
                 editable={!isLoading}
               />
-              <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={colors.textSecondary}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Şifre (en az 6 karakter)"
+                  placeholderTextColor={colors.textSecondary}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!isLoading}
                 />
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={styles.legalCard}>
-            <Text style={styles.legalTitle}>Yasal metinlere hızlı erişim</Text>
-            <View style={styles.linkWrap}>
-              {LEGAL_DOCUMENT_LINKS.slice(0, 3).map((item) => (
                 <Pressable
-                  key={item.id}
-                  style={styles.linkChip}
-                  onPress={() => navigation.navigate("LegalDocument", { documentId: item.id, title: item.title })}
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Text style={styles.linkChipText}>{item.title}</Text>
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={colors.textSecondary}
+                  />
                 </Pressable>
-              ))}
-              <Pressable style={styles.linkChip} onPress={() => navigation.navigate("LegalCenter")}>
-                <Text style={styles.linkChipText}>Tüm Metinler</Text>
-              </Pressable>
+              </View>
             </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <Pressable
+              disabled={!canSubmit}
+              onPress={() => void handleLogin()}
+              style={({ pressed }) => [
+                styles.loginBtn,
+                !canSubmit && styles.btnDisabled,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={colors.textPrimary} />
+              ) : (
+                <Text style={styles.loginBtnLabel}>Giriş Yap</Text>
+              )}
+            </Pressable>
           </View>
+        )}
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <Pressable
-            disabled={!canSubmit}
-            onPress={() => void handleLogin()}
-            style={({ pressed }) => [
-              styles.button,
-              !canSubmit && styles.buttonDisabled,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={colors.textPrimary} />
-            ) : (
-              <Text style={styles.buttonLabel}>Giriş Yap</Text>
-            )}
-          </Pressable>
-        </View>
-
+        {/* ---- Footer ---- */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Hesabınız yok mu?</Text>
           <Pressable onPress={() => navigation.navigate("Register")}>
             <Text style={styles.footerLink}> Kayıt Ol</Text>
           </Pressable>
         </View>
+
+        <Text style={styles.tagline}>TUS'u Dinle, Başarıyı Yakala.</Text>
       </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center" },
-  inner: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center", gap: spacing.lg },
-  header: { alignItems: "center", gap: spacing.sm },
-  logo: { width: 150, height: 100 },
-  title: { ...typography.title, color: colors.textPrimary, fontSize: 32 },
-  subtitle: { ...typography.body, color: colors.textSecondary },
-  socialRow: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },
-  socialButton: {
+  scrollContent: {
     flex: 1,
-    height: 48,
+    justifyContent: "center",
+  },
+  inner: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    justifyContent: "center",
+    gap: spacing.lg,
+  },
+
+  /* ---- Hero ---- */
+  hero: {
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  logoRing: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 2,
+    borderColor: colors.premiumGold,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(189,148,101,0.06)",
+    marginBottom: spacing.sm,
+    shadowColor: colors.premiumGold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  brandTitle: {
+    ...typography.hero,
+    color: colors.textPrimary,
+    letterSpacing: 4,
+  },
+  brandSubtitle: {
+    ...typography.bodyMedium,
+    color: colors.motivationOrange,
+    letterSpacing: 1.5,
+  },
+
+  /* ---- Primary CTA ---- */
+  primaryBtn: {
+    height: 54,
+    borderRadius: radius.pill,
+    backgroundColor: colors.motivationOrange,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadows.subtle,
+  },
+  primaryBtnLabel: {
+    ...typography.button,
+    color: colors.textPrimary,
+  },
+
+  /* ---- Divider ---- */
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.divider,
+  },
+  dividerText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+
+  /* ---- Social Buttons ---- */
+  socialBtn: {
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    backgroundColor: colors.surfaceNavy,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.dividerStrong,
   },
-  socialLabel: { ...typography.body, color: colors.textPrimary, fontWeight: "600" },
-  helperText: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
-  dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
-  dividerText: { ...typography.caption, color: colors.textSecondary },
-  form: { gap: spacing.md },
-  inputGroup: { gap: spacing.xs },
-  label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
+  appleBtn: {
+    backgroundColor: "#F5F5F7",
+    borderColor: "#F5F5F7",
+  },
+  appleBtnLabel: {
+    color: "#1D1D1F",
+  },
+  googleBtn: {
+    backgroundColor: colors.cardBg,
+  },
+  socialLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "600",
+  },
+
+  /* ---- Email Toggle ---- */
+  emailToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  emailToggleText: {
+    ...typography.body,
+    color: colors.motivationOrange,
+    fontWeight: "600",
+  },
+
+  /* ---- Email Form ---- */
+  emailForm: {
+    gap: spacing.md,
+  },
+  inputGroup: {
+    gap: spacing.xs,
+  },
   input: {
-    height: 48,
-    backgroundColor: colors.surfaceNavy,
-    borderRadius: radius.md,
+    height: 52,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.lg,
     color: colors.textPrimary,
     ...typography.body,
+    borderWidth: 1,
+    borderColor: colors.dividerStrong,
   },
-  passwordRow: { position: "relative" },
-  passwordInput: { paddingRight: 48 },
+  passwordRow: {
+    position: "relative",
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
   eyeButton: {
     position: "absolute",
     right: 0,
     top: 0,
-    height: 48,
+    height: 52,
     width: 48,
     alignItems: "center",
     justifyContent: "center",
   },
-  legalCard: {
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceNavy,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  legalTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  linkWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  linkChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  linkChipText: {
+  error: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.danger,
+    textAlign: "center",
   },
-  error: { ...typography.caption, color: colors.danger, textAlign: "center" },
-  button: {
-    height: 52,
-    borderRadius: radius.md,
+  loginBtn: {
+    height: 54,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing.xs,
   },
-  buttonDisabled: { opacity: 0.4 },
-  buttonPressed: { opacity: 0.8 },
-  buttonLabel: { ...typography.button, color: colors.textPrimary },
-  footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
-  footerText: { ...typography.body, color: colors.textSecondary },
-  footerLink: { ...typography.body, color: colors.motivationOrange, fontWeight: "700" },
+  loginBtnLabel: {
+    ...typography.button,
+    color: colors.textPrimary,
+  },
+
+  /* ---- Shared ---- */
+  btnPressed: {
+    opacity: 0.8,
+  },
+  btnDisabled: {
+    opacity: 0.4,
+  },
+
+  /* ---- Footer ---- */
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footerText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  footerLink: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    fontWeight: "700",
+  },
+  tagline: {
+    ...typography.small,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: spacing.sm,
+  },
 });

@@ -11,18 +11,18 @@ interface FeedbackModalProps {
 
 const TAGS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: "headset-outline", label: "Ses Kalitesi" },
-  { icon: "checkmark-circle-outline", label: "İçerik Doğruluğu" },
-  { icon: "speedometer-outline", label: "Hız" },
+  { icon: "checkmark-circle-outline", label: "Icerik Dogrulugu" },
+  { icon: "speedometer-outline", label: "Hiz" },
   { icon: "mic-outline", label: "Telaffuz" },
-  { icon: "list-outline", label: "Bölüm Sırası" },
-  { icon: "ellipsis-horizontal-outline", label: "Diğer" }
+  { icon: "list-outline", label: "Bolum Sirasi" },
+  { icon: "ellipsis-horizontal-outline", label: "Diger" }
 ];
 
 const RATING_LABELS: Record<number, string> = {
-  1: "Kötü",
+  1: "Kotu",
   2: "Vasat",
   3: "Orta",
-  4: "İyi",
+  4: "Iyi",
   5: "Harika"
 };
 
@@ -50,7 +50,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      setError("Göndermek için yıldız puanı zorunlu.");
+      setError("Gondermek icin yildiz puani zorunlu.");
       return;
     }
 
@@ -61,7 +61,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
       await onSubmit({ rating, tags: selectedTags, text });
       closeAndReset();
     } catch {
-      setError("Geri bildirim gönderilemedi.");
+      setError("Geri bildirim gonderilemedi.");
       setSending(false);
     }
   };
@@ -72,6 +72,9 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
+          {/* Handle bar */}
+          <View style={styles.handleBar} />
+
           {/* Header with title and close button */}
           <View style={styles.header}>
             <Text style={styles.title}>Geri Bildirim</Text>
@@ -82,7 +85,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
 
           {/* Subtitle */}
           <Text style={styles.subtitle}>
-            Bu podcast deneyiminizi nasıl değerlendirirsiniz?
+            Bu podcast deneyiminizi nasil degerlendirirsiniz?
           </Text>
 
           {/* Star rating */}
@@ -92,7 +95,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
                 <Pressable key={value} onPress={() => setRating(value)} style={styles.starButton}>
                   <Ionicons
                     name={value <= rating ? "star" : "star-outline"}
-                    size={32}
+                    size={36}
                     color={value <= rating ? colors.premiumGold : colors.textSecondary}
                   />
                 </Pressable>
@@ -102,7 +105,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
           </View>
 
           {/* Tags section */}
-          <Text style={styles.sectionTitle}>Neler iyileştirilebilir?</Text>
+          <Text style={styles.sectionTitle}>Neler iyilestirilebilir?</Text>
           <View style={styles.tagsContainer}>
             {TAGS.map(({ icon, label }) => {
               const active = selectedTags.includes(label);
@@ -128,7 +131,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
             style={styles.input}
             multiline
             numberOfLines={4}
-            placeholder="Detaylı geri bildiriminizi yazın..."
+            placeholder="Detayli geri bildiriminizi yazin..."
             placeholderTextColor={colors.textSecondary}
             value={text}
             onChangeText={setText}
@@ -142,7 +145,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
             onPress={() => void handleSubmit()}
           >
             <Text style={styles.primaryLabel}>
-              {sending ? "Gönderiliyor..." : "Geri Bildirimi Gönder"}
+              {sending ? "Gonderiliyor..." : "Geri Bildirimi Gonder"}
             </Text>
           </Pressable>
         </View>
@@ -159,12 +162,22 @@ const styles = StyleSheet.create({
     padding: spacing.lg
   },
   card: {
-    backgroundColor: colors.primaryNavy,
-    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceNavy,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.divider,
     padding: spacing.xl,
     gap: spacing.md
+  },
+
+  /* Handle bar */
+  handleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.dividerStrong,
+    alignSelf: "center",
+    marginBottom: spacing.xs
   },
 
   /* Header */
@@ -253,7 +266,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
@@ -270,8 +283,8 @@ const styles = StyleSheet.create({
   /* Submit button */
   primary: {
     marginTop: spacing.xs,
-    height: 50,
-    borderRadius: radius.md,
+    height: 54,
+    borderRadius: radius.pill,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center"

@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore, useDownloadsStore, useLearningToolsStore, useUserStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, shadows, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -69,7 +69,7 @@ export function ProfileScreen() {
 
       <View style={styles.profileHeader}>
         <View style={styles.avatarCircle}>
-          <Ionicons name="person-outline" size={36} color={colors.textPrimary} />
+          <Ionicons name="person-outline" size={38} color={colors.textPrimary} />
         </View>
 
         <Text style={styles.userName}>{displayName}</Text>
@@ -156,8 +156,8 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.xl,
   },
   title: {
     ...typography.title,
@@ -169,9 +169,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
@@ -195,12 +195,14 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     alignItems: "center",
     gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   statValue: {
     fontSize: 18,
@@ -214,10 +216,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   usageCard: {
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   usageHeader: {
     flexDirection: "row",
@@ -248,10 +252,12 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   toolsCard: {
-    backgroundColor: colors.surfaceNavy,
+    backgroundColor: colors.cardBg,
     borderRadius: radius.md,
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   toolsHeader: {
     flexDirection: "row",
@@ -268,7 +274,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   progressTrack: {
-    height: 8,
+    height: 6,
     borderRadius: radius.pill,
     backgroundColor: "rgba(255,255,255,0.1)",
     overflow: "hidden",
@@ -287,16 +293,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   menuSection: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.surfaceNavy,
-    borderRadius: radius.md,
-    paddingVertical: 14,
+    backgroundColor: colors.cardBg,
+    borderRadius: radius.sm,
+    paddingVertical: 15,
     paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   menuLeft: {
     flexDirection: "row",
