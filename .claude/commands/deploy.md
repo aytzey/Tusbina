@@ -9,7 +9,7 @@ Deploy the current development branch to production. Follow these steps exactly:
    - git push origin main
    - git checkout development
 5. Then SSH into production server and deploy:
-   - SSH: `ssh -p 2022 dkmserver@78.186.120.189` (password: `dkmtne2024.`)
+   - SSH: `ssh -p $DEPLOY_SSH_PORT $DEPLOY_SSH_USER@$DEPLOY_SSH_HOST` (credentials in environment or password manager — never store in repo)
    - `cd ~/Desktop/Machinity/landing/tusbina && git pull origin main`
    - `cd ~/Desktop/Machinity/landing && docker compose -f tusbina-compose.yml --env-file tusbina/.env up -d --build`
    - Verify: `docker ps | grep tusbina` (should show 5 containers)
