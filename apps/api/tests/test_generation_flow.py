@@ -808,3 +808,60 @@ def test_unlabeled_multiline_qa_falls_back_to_single_voice(monkeypatch) -> None:
     )
 
     assert tts.voices == ["Elif"]
+
+
+def test_lazy_tts_sliding_window_processes_all_parts_beyond_initial_window() -> None:
+    """Regression: with 5 sections and window=3, all parts must eventually reach 'ready'."""
+    user_id = f"window-user-{uuid4().hex[:8]}"
+    user_headers = {"x-user-id": user_id}
+
+    upload_response = client.post(
+        "/api/v1/upload",
+        files=[("files", ("window.pdf", DUMMY_PDF, "application/pdf"))],
+        headers=user_headers,
+    )
+    assert upload_response.status_code == 200
+    file_ids = upload_response.json()["file_ids"]
+
+    sections = [
+        {"id": f"s{i}", "title": f"Bolum {i}", "enabled": True}
+        for i in range(1, 6)
+    ]
+    generation_response = client.post(
+        "/api/v1/generatePodcast",
+        json={
+            "title": "Sliding Window Test",
+            "voice": "Dr. Selin",
+            "format": "summary",
+            "file_ids": file_ids,
+            "sections": sections,
+        },
+        headers=user_headers,
+    )
+    assert generation_response.status_code == 200
+    job_id = generation_response.json()["job_id"]
+
+    with SessionLocal() as db:
+        assert process_next_generation_job(db, storage=get_storage_client()) is True
+
+    status_response = client.get(f"/api/v1/generatePodcast/{job_id}/status", headers=user_headers)
+    assert status_response.status_code == 200
+    podcast_id = status_response.json()["result_podcast_id"]
+    assert podcast_id
+
+    # Process all 5 parts — each call should succeed and advance the window.
+    for iteration in range(5):
+        with SessionLocal() as db:
+            result = process_next_podcast_part_generation(db, storage=get_storage_client())
+            assert result is True, f"Part generation stalled at iteration {iteration}"
+
+    podcast_response = client.get(f"/api/v1/podcasts/{podcast_id}", headers=user_headers)
+    assert podcast_response.status_code == 200
+    parts = podcast_response.json()["parts"]
+    assert len(parts) == 5
+
+    for part in parts:
+        assert part["status"] == "ready", (
+            f"Part '{part['title']}' stuck in status '{part['status']}' — "
+            "sliding window did not advance past initial priority window"
+        )
