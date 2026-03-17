@@ -16,17 +16,20 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Load deploy SSH key
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.TUSBINA_DEPLOY_SSH_KEY }}
+      - name: Install deploy SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.TUSBINA_DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
 
       - name: Add deploy host to known_hosts
         env:
           DEPLOY_HOST: ${{ secrets.TUSBINA_DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.TUSBINA_DEPLOY_PORT }}
         run: |
-          mkdir -p ~/.ssh
           ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy backend on production
@@ -39,6 +42,8 @@ jobs:
           ssh \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=3 \
+            -o IdentitiesOnly=yes \
+            -i ~/.ssh/id_ed25519 \
             -p "$DEPLOY_PORT" \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd ~/Desktop/Machinity/landing/tusbina && \
