@@ -1,9 +1,9 @@
 name: deploy-backend
 
 on:
-  workflow_run:
-    workflows: ["ci"]
-    types: [completed]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-backend-main
@@ -11,10 +11,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -38,7 +34,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.TUSBINA_DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.TUSBINA_DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.TUSBINA_DEPLOY_USER }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          TARGET_SHA: ${{ github.sha }}
         run: |
           ssh \
             -o ServerAliveInterval=30 \
