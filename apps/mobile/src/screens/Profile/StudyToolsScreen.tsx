@@ -162,13 +162,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     padding: spacing.md,
     textAlignVertical: "top",
-    ...typography.body,
+    ...typography.input,
   },
   stopwatchValue: {
     fontSize: 40,
     lineHeight: 46,
     fontWeight: "800",
     color: colors.textPrimary,
+    fontVariant: ["tabular-nums"] as const,
   },
   stopwatchActions: {
     flexDirection: "row",
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
     backgroundColor: colors.motivationOrange,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     alignItems: "center",
   },
   actionButtonMuted: {
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     alignItems: "center",
   },
   secondaryLabel: {

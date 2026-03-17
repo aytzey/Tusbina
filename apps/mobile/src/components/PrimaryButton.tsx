@@ -1,12 +1,13 @@
-import { Animated, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text } from "react-native";
 import { useRef } from "react";
-import { colors, radius, spacing, shadows, typography } from "@/theme";
+import { colors, radius, spacing, shadows, touch, typography } from "@/theme";
 
 type ButtonVariant = "primary" | "gold" | "outline";
 
 interface PrimaryButtonProps {
   label: string;
   disabled?: boolean;
+  loading?: boolean;
   onPress: () => void;
   variant?: ButtonVariant;
 }
@@ -14,6 +15,7 @@ interface PrimaryButtonProps {
 export function PrimaryButton({
   label,
   disabled = false,
+  loading = false,
   onPress,
   variant = "primary",
 }: PrimaryButtonProps) {
@@ -62,18 +64,24 @@ export function PrimaryButton({
       ]}
     >
       <Pressable
-        disabled={disabled}
+        disabled={disabled || loading}
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={({ pressed }) => [
           styles.button,
           variantStyle,
-          disabled && styles.disabled,
+          (disabled || loading) && styles.disabled,
           pressed && styles.pressed,
         ]}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: disabled || loading, busy: loading }}
       >
-        <Text style={[styles.label, labelStyle]}>{label}</Text>
+        {loading ? (
+          <ActivityIndicator color={variant === "outline" ? colors.textSecondary : colors.textPrimary} />
+        ) : (
+          <Text style={[styles.label, labelStyle]}>{label}</Text>
+        )}
       </Pressable>
     </Animated.View>
   );

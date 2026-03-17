@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { usePlayerStore, useUserStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, radius, spacing, touch, typography } from "@/theme";
 
 export function MiniPlayerBar() {
   const track = usePlayerStore((s) => s.activeTrack);
@@ -58,7 +58,13 @@ export function MiniPlayerBar() {
         </View>
 
         {/* Play / Pause */}
-        <Pressable style={styles.playBtn} onPress={handleTogglePlay} hitSlop={8}>
+        <Pressable
+          style={({ pressed }) => [styles.playBtn, pressed && styles.pressed]}
+          onPress={handleTogglePlay}
+          hitSlop={touch.hitSlop}
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? "Duraklat" : "Oynat"}
+        >
           <Ionicons
             name={isPlaying ? "pause" : "play"}
             size={20}
@@ -67,8 +73,14 @@ export function MiniPlayerBar() {
         </Pressable>
 
         {/* Close */}
-        <Pressable style={styles.closeBtn} onPress={stop} hitSlop={8}>
-          <Ionicons name="close" size={16} color={colors.textSecondary} />
+        <Pressable
+          style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
+          onPress={stop}
+          hitSlop={touch.hitSlop}
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
+        >
+          <Ionicons name="close" size={18} color={colors.textSecondary} />
         </Pressable>
       </Pressable>
     </View>
@@ -120,17 +132,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   playBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: touch.minSize,
+    height: touch.minSize,
+    borderRadius: touch.minSize / 2,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
   },
   closeBtn: {
-    width: 26,
-    height: 26,
+    width: touch.minSize,
+    height: touch.minSize,
     alignItems: "center",
     justifyContent: "center",
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

@@ -72,4 +72,15 @@ export const typography = {
     letterSpacing: 0.1,
     fontFamily,
   } satisfies TextStyle,
+  /** Use for TextInput fields — 16px prevents iOS auto-zoom on focus. */
+  input: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "400",
+    fontFamily,
+  } satisfies TextStyle,
+  /** Use on dynamic numeric displays (timers, stats) to prevent layout shift. */
+  mono: {
+    fontVariant: ["tabular-nums"],
+  } satisfies TextStyle,
 };

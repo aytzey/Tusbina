@@ -54,7 +54,7 @@ export function QuotaLimitModal() {
 
           {/* CTA button */}
           <Pressable
-            style={[styles.primary, shadows.glow(colors.premiumGold)]}
+            style={({ pressed }) => [styles.primary, shadows.glow(colors.premiumGold), pressed && styles.primaryPressed]}
             onPress={() => {
               close();
               navigation.navigate("Premium");
@@ -64,7 +64,7 @@ export function QuotaLimitModal() {
           </Pressable>
 
           {/* Later link */}
-          <Pressable style={styles.secondary} onPress={close}>
+          <Pressable style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]} onPress={close}>
             <Text style={styles.secondaryLabel}>Daha Sonra</Text>
           </Pressable>
         </View>
@@ -163,12 +163,18 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: "#FFFFFF"
   },
+  primaryPressed: {
+    opacity: 0.85
+  },
 
   /* Later link */
   secondary: {
     height: 44,
     alignItems: "center",
     justifyContent: "center"
+  },
+  secondaryPressed: {
+    opacity: 0.7
   },
   secondaryLabel: {
     ...typography.body,

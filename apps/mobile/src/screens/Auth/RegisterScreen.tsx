@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     color: colors.textPrimary,
-    ...typography.body,
+    ...typography.input,
   },
   passwordRow: { position: "relative" },
   passwordInput: { paddingRight: 48 },

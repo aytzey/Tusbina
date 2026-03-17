@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.dividerStrong,
     backgroundColor: colors.cardBg,
-    paddingVertical: 6,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
   voiceOptionSelected: {
@@ -289,9 +289,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   voiceIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
     justifyContent: "center",

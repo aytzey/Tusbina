@@ -127,3 +127,9 @@ export const timing = {
   normal: 200,
   slow: 350,
 } as const;
+
+/** Minimum interactive touch-target dimensions (Apple HIG: 44pt, Material: 48dp). */
+export const touch = {
+  minSize: 44,
+  hitSlop: { top: 8, right: 8, bottom: 8, left: 8 } as const,
+} as const;

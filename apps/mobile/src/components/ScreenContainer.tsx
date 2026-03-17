@@ -1,23 +1,25 @@
 import { PropsWithChildren } from "react";
 import { ScrollView, StyleSheet, ViewStyle } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Edge, SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing } from "@/theme";
 
 interface ScreenContainerProps extends PropsWithChildren {
   scroll?: boolean;
   contentStyle?: ViewStyle;
+  /** Which safe-area edges to respect. Defaults to all edges. */
+  edges?: Edge[];
 }
 
-export function ScreenContainer({ children, scroll = false, contentStyle }: ScreenContainerProps) {
+export function ScreenContainer({ children, scroll = false, contentStyle, edges }: ScreenContainerProps) {
   if (scroll) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, contentStyle]}>{children}</ScrollView>
+      <SafeAreaView style={styles.safeArea} edges={edges}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, contentStyle]} keyboardShouldPersistTaps="handled">{children}</ScrollView>
       </SafeAreaView>
     );
   }
 
-  return <SafeAreaView style={[styles.safeArea, contentStyle]}>{children}</SafeAreaView>;
+  return <SafeAreaView style={[styles.safeArea, contentStyle]} edges={edges}>{children}</SafeAreaView>;
 }
 
 const styles = StyleSheet.create({

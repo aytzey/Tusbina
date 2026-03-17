@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.cardBg,
-    ...typography.body,
+    ...typography.input,
   },
   infoCard: {
     borderRadius: radius.md,
@@ -157,6 +157,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     fontWeight: "800",
     color: colors.textPrimary,
+    fontVariant: ["tabular-nums"] as const,
   },
   summaryValueSmall: {
     ...typography.body,

@@ -289,11 +289,13 @@ const styles = StyleSheet.create({
   questionBadgeText: {
     ...typography.caption,
     color: colors.textPrimary,
-    fontWeight: "700"
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"] as const
   },
   scoreText: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontVariant: ["tabular-nums"] as const
   },
 
   /* Question card */
@@ -407,7 +409,8 @@ const styles = StyleSheet.create({
   footerCounter: {
     ...typography.body,
     color: colors.textSecondary,
-    fontWeight: "600"
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"] as const
   },
   navBtnFilled: {
     flexDirection: "row",

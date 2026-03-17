@@ -155,7 +155,7 @@ export function PodcastLibraryScreen() {
         {FILTERS.map((item) => (
           <Pressable
             key={item.key}
-            style={[styles.filterChip, filter === item.key && styles.filterChipActive]}
+            style={({ pressed }) => [styles.filterChip, filter === item.key && styles.filterChipActive, pressed && styles.filterChipPressed]}
             onPress={() => setFilter(item.key)}
           >
             <Text style={[styles.filterLabel, filter === item.key && styles.filterLabelActive]}>{item.label}</Text>
@@ -180,7 +180,7 @@ export function PodcastLibraryScreen() {
             const dlProgress = isDownloading ? getDownloadProgress(item.id) : null;
 
             return (
-              <Pressable style={styles.card} onPress={() => handleOpenPodcast(item)}>
+              <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={() => handleOpenPodcast(item)}>
                 <PodcastCover
                   uri={item.coverImageUrl}
                   title={item.title}
@@ -220,14 +220,14 @@ export function PodcastLibraryScreen() {
                 </View>
 
                 <View style={styles.cardActions}>
-                  <Pressable style={styles.actionBtn} onPress={() => void updateFavoriteState(item)} hitSlop={6}>
+                  <Pressable style={styles.actionBtn} onPress={() => void updateFavoriteState(item)} hitSlop={8}>
                     <Ionicons
                       name={item.isFavorite ? "heart" : "heart-outline"}
                       size={20}
                       color={item.isFavorite ? colors.motivationOrange : colors.textSecondary}
                     />
                   </Pressable>
-                  <Pressable style={styles.actionBtn} onPress={() => void toggleDownloadState(item)} disabled={isDownloading} hitSlop={6}>
+                  <Pressable style={styles.actionBtn} onPress={() => void toggleDownloadState(item)} disabled={isDownloading} hitSlop={8}>
                     {isDownloading ? (
                       <ActivityIndicator size={16} color={colors.motivationOrange} />
                     ) : (
@@ -238,7 +238,7 @@ export function PodcastLibraryScreen() {
                       />
                     )}
                   </Pressable>
-                  <Pressable style={styles.actionBtn} onPress={() => void handleDeletePodcast(item)} disabled={deletingPodcastId === item.id} hitSlop={6}>
+                  <Pressable style={styles.actionBtn} onPress={() => void handleDeletePodcast(item)} disabled={deletingPodcastId === item.id} hitSlop={8}>
                     <Ionicons
                       name="trash-outline"
                       size={18}
@@ -358,11 +358,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cardPressed: {
+    opacity: 0.85,
+  },
+  filterChipPressed: {
+    opacity: 0.7,
   },
 });

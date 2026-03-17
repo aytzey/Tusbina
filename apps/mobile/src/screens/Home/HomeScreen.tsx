@@ -11,7 +11,7 @@ import {
   useUserStore,
 } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
-import { formatDuration } from "@/utils";
+import { formatDuration, getSpecialtyColor, getSpecialtyIcon } from "@/utils";
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -19,40 +19,6 @@ function getGreeting(): string {
   if (h < 12) return "Günaydın";
   if (h < 18) return "İyi Günler";
   return "İyi Akşamlar";
-}
-
-const specialtyColors: Record<string, string> = {
-  Anatomi: "#BF5F3E",
-  Farmakoloji: "#2E9E57",
-  Mikrobiyoloji: "#4A90D9",
-  Fizyoloji: "#9B59B6",
-  Biyokimya: "#E67E22",
-  Histoloji: "#E74C8B",
-  Patoloji: "#8E44AD",
-};
-
-const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
-  Anatomi: "body-outline",
-  Farmakoloji: "flask-outline",
-  Mikrobiyoloji: "bug-outline",
-  Fizyoloji: "pulse-outline",
-  Biyokimya: "beaker-outline",
-  Histoloji: "cellular-outline",
-  Patoloji: "medkit-outline",
-};
-
-function getSpecialtyColor(title: string): string {
-  for (const key of Object.keys(specialtyColors)) {
-    if (title.includes(key)) return specialtyColors[key];
-  }
-  return "#BD9465";
-}
-
-function getSpecialtyIcon(title: string): keyof typeof Ionicons.glyphMap {
-  for (const key of Object.keys(specialtyIcons)) {
-    if (title.includes(key)) return specialtyIcons[key];
-  }
-  return "book-outline";
 }
 
 export function HomeScreen() {
@@ -134,14 +100,14 @@ export function HomeScreen() {
 
       {/* ---- Search Bar ---- */}
       <Pressable
-        style={styles.searchBar}
+        style={({ pressed }) => [styles.searchBar, pressed && styles.searchBarPressed]}
         onPress={() => navigation.navigate("CoursesTab")}
       >
         <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
         <Text style={styles.searchPlaceholder}>Ders veya konu ara...</Text>
       </Pressable>
 
-      <Pressable style={styles.goalCard} onPress={() => navigation.navigate("StudyTools")}>
+      <Pressable style={({ pressed }) => [styles.goalCard, pressed && styles.goalCardPressed]} onPress={() => navigation.navigate("StudyTools")}>
         <View style={styles.goalHeader}>
           <View style={styles.goalTitleRow}>
             <View style={styles.goalIconWrap}>
@@ -168,17 +134,17 @@ export function HomeScreen() {
 
       {/* ---- Quick Stats ---- */}
       <View style={styles.quickStats}>
-        <Pressable style={[styles.quickStatCard, styles.quickStatCourses]} onPress={() => navigation.navigate("CoursesTab")}>
+        <Pressable style={({ pressed }) => [styles.quickStatCard, styles.quickStatCourses, pressed && styles.quickStatPressed]} onPress={() => navigation.navigate("CoursesTab")}>
           <Ionicons name="book-outline" size={20} color={colors.success} />
           <Text style={styles.quickStatValue}>{courses.length}</Text>
           <Text style={styles.quickStatLabel}>Ders</Text>
         </Pressable>
-        <Pressable style={[styles.quickStatCard, styles.quickStatUpload]} onPress={() => navigation.navigate("UploadTab")}>
+        <Pressable style={({ pressed }) => [styles.quickStatCard, styles.quickStatUpload, pressed && styles.quickStatPressed]} onPress={() => navigation.navigate("UploadTab")}>
           <Ionicons name="cloud-upload-outline" size={20} color={colors.premiumGold} />
           <Text style={styles.quickStatValue}>Yükle</Text>
           <Text style={styles.quickStatLabel}>PDF</Text>
         </Pressable>
-        <Pressable style={[styles.quickStatCard, styles.quickStatStatus]} onPress={() => navigation.navigate("Notifications")}>
+        <Pressable style={({ pressed }) => [styles.quickStatCard, styles.quickStatStatus, pressed && styles.quickStatPressed]} onPress={() => navigation.navigate("Notifications")}>
           <Ionicons name="sync-outline" size={20} color={colors.textPrimary} />
           <Text style={styles.quickStatValue}>Aç</Text>
           <Text style={styles.quickStatLabel}>İşlemler</Text>
@@ -248,7 +214,7 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.lg,
-    paddingBottom: 110,
+    paddingBottom: 120,
     gap: spacing.sm,
   },
 
@@ -276,9 +242,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   notifButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.cardBg,
     alignItems: "center",
     justifyContent: "center",
@@ -355,6 +321,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.motivationOrange,
     fontWeight: "700",
+    fontVariant: ["tabular-nums"] as const,
   },
   goalProgressTrack: {
     height: 8,
@@ -403,6 +370,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
+    fontVariant: ["tabular-nums"] as const,
   },
   quickStatLabel: {
     ...typography.caption,
@@ -467,7 +435,7 @@ const styles = StyleSheet.create({
 
   /* ---- Course Cards ---- */
   courseList: {
-    gap: 10,
+    gap: spacing.sm,
   },
   courseCard: {
     flexDirection: "row",
@@ -481,6 +449,15 @@ const styles = StyleSheet.create({
   },
   courseCardPressed: {
     opacity: 0.8,
+  },
+  searchBarPressed: {
+    opacity: 0.7,
+  },
+  goalCardPressed: {
+    opacity: 0.85,
+  },
+  quickStatPressed: {
+    opacity: 0.75,
   },
   courseIcon: {
     width: 46,

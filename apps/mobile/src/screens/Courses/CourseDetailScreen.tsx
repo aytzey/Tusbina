@@ -7,48 +7,10 @@ import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useCoursesStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
 import { colors, radius, shadows, spacing, typography } from "@/theme";
-import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart } from "@/utils";
+import { buildPodcastQueue, formatDuration, getSpecialtyColor, getSpecialtyIcon, resolvePodcastQueueStart } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRoute = RouteProp<RootStackParamList, "CourseDetail">;
-
-const specialtyColors: Record<string, string> = {
-  Anatomi: "#BF5F3E",
-  Farmakoloji: "#2E9E57",
-  Mikrobiyoloji: "#4A90D9",
-  Fizyoloji: "#9B59B6",
-  Biyokimya: "#E67E22",
-  Histoloji: "#E74C8B",
-  Patoloji: "#8E44AD",
-};
-
-const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
-  Anatomi: "body-outline",
-  Farmakoloji: "flask-outline",
-  Mikrobiyoloji: "bug-outline",
-  Fizyoloji: "pulse-outline",
-  Biyokimya: "beaker-outline",
-  Histoloji: "cellular-outline",
-  Patoloji: "medkit-outline",
-};
-
-function getSpecialtyColor(title: string): string {
-  for (const key of Object.keys(specialtyColors)) {
-    if (title.includes(key)) {
-      return specialtyColors[key];
-    }
-  }
-  return "#BD9465";
-}
-
-function getSpecialtyIcon(title: string): keyof typeof Ionicons.glyphMap {
-  for (const key of Object.keys(specialtyIcons)) {
-    if (title.includes(key)) {
-      return specialtyIcons[key];
-    }
-  }
-  return "book-outline";
-}
 
 function formatRemaining(remainingSec: number): string {
   const minutes = Math.floor(remainingSec / 60);
@@ -299,6 +261,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     minWidth: 36,
     textAlign: "right",
+    fontVariant: ["tabular-nums"] as const,
   },
   /* Play all button */
   playAllButton: {
@@ -323,7 +286,7 @@ const styles = StyleSheet.create({
   },
   /* Chapter list */
   chapterList: {
-    gap: 8,
+    gap: spacing.sm,
   },
   chapterCard: {
     flexDirection: "row",

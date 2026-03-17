@@ -27,7 +27,7 @@ interface MenuItemProps {
 
 function MenuItem({ icon, label, onPress, danger = false, badge = null }: MenuItemProps) {
   return (
-    <Pressable style={styles.menuItem} onPress={onPress}>
+    <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]} onPress={onPress}>
       <View style={styles.menuLeft}>
         <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.textSecondary} />
         <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>{label}</Text>
@@ -132,7 +132,7 @@ export function ProfileScreen() {
         {usageError ? <Text style={styles.error}>{usageError}</Text> : null}
       </View>
 
-      <Pressable style={styles.toolsCard} onPress={() => navigation.navigate("StudyTools")}>
+      <Pressable style={({ pressed }) => [styles.toolsCard, pressed && styles.toolsCardPressed]} onPress={() => navigation.navigate("StudyTools")}>
         <View style={styles.toolsHeader}>
           <Text style={styles.toolsTitle}>Çalışma araçları</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "700",
     textAlign: "center",
+    fontVariant: ["tabular-nums"] as const,
   },
   statLabel: {
     ...typography.caption,
@@ -288,6 +289,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
+  toolsCardPressed: {
+    opacity: 0.85,
+  },
   toolsHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -330,7 +334,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: colors.cardBg,
     borderRadius: radius.sm,
-    paddingVertical: 15,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.divider,
@@ -362,6 +366,9 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.motivationOrange,
     fontWeight: "700",
+  },
+  menuItemPressed: {
+    opacity: 0.8,
   },
   dangerLabel: {
     color: colors.danger,

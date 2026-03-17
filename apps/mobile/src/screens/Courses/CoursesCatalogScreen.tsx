@@ -8,49 +8,11 @@ import { RootStackParamList } from "@/navigation/types";
 import { useCoursesStore } from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 import { EmptyCoursesScreen } from "@/screens/States/EmptyCoursesScreen";
-import { formatDuration } from "@/utils";
+import { formatDuration, getSpecialtyColor, getSpecialtyIcon } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const categories = ["Tümü", "Temel Tıp", "Klinik", "Cerrahi"];
-
-const specialtyColors: Record<string, string> = {
-  Anatomi: "#BF5F3E",
-  Farmakoloji: "#2E9E57",
-  Mikrobiyoloji: "#4A90D9",
-  Fizyoloji: "#9B59B6",
-  Biyokimya: "#E67E22",
-  Histoloji: "#E74C8B",
-  Patoloji: "#8E44AD",
-};
-
-const specialtyIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
-  Anatomi: "body-outline",
-  Farmakoloji: "flask-outline",
-  Mikrobiyoloji: "bug-outline",
-  Fizyoloji: "pulse-outline",
-  Biyokimya: "beaker-outline",
-  Histoloji: "cellular-outline",
-  Patoloji: "medkit-outline",
-};
-
-function getSpecialtyColor(title: string): string {
-  for (const key of Object.keys(specialtyColors)) {
-    if (title.includes(key)) {
-      return specialtyColors[key];
-    }
-  }
-  return "#BD9465";
-}
-
-function getSpecialtyIcon(title: string): keyof typeof Ionicons.glyphMap {
-  for (const key of Object.keys(specialtyIcons)) {
-    if (title.includes(key)) {
-      return specialtyIcons[key];
-    }
-  }
-  return "book-outline";
-}
 
 export function CoursesCatalogScreen() {
   const navigation = useNavigation<Navigation>();
@@ -91,7 +53,7 @@ export function CoursesCatalogScreen() {
         {categories.map((chip) => (
           <Pressable
             key={chip}
-            style={[styles.chip, chip === category && styles.chipActive]}
+            style={({ pressed }) => [styles.chip, chip === category && styles.chipActive, pressed && styles.chipPressed]}
             onPress={() => setCategory(chip)}
           >
             <Text style={[styles.chipLabel, chip === category && styles.chipLabelActive]}>{chip}</Text>
@@ -161,7 +123,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     color: colors.textPrimary,
-    ...typography.body,
+    ...typography.input,
   },
   categoryRow: {
     flexDirection: "row",
@@ -179,6 +141,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.motivationOrange,
     borderColor: colors.motivationOrange,
   },
+  chipPressed: {
+    opacity: 0.7,
+  },
   chipLabel: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -188,7 +153,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: spacing.xxxl,
-    gap: 10,
+    gap: spacing.sm,
   },
   card: {
     flexDirection: "row",

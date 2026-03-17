@@ -831,7 +831,8 @@ const styles = StyleSheet.create({
   },
   timer: {
     ...typography.caption,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontVariant: ["tabular-nums"] as const,
   },
   bufferingLabel: {
     ...typography.caption,
@@ -866,6 +867,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     fontWeight: "700",
+    fontVariant: ["tabular-nums"] as const,
   },
   modeChipLabelActive: {
     color: colors.motivationOrange,
@@ -874,7 +876,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 30,
+    gap: spacing.xxl,
     paddingVertical: spacing.md,
   },
   navButton: {
@@ -1051,7 +1053,8 @@ const styles = StyleSheet.create({
   queueItemDuration: {
     fontSize: 11,
     lineHeight: 14,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontVariant: ["tabular-nums"] as const,
   },
   queueMetaRow: {
     flexDirection: "row",

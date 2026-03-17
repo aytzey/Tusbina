@@ -112,7 +112,7 @@ export function FeedbackModal({ visible, onClose, onSubmit }: FeedbackModalProps
               return (
                 <Pressable
                   key={label}
-                  style={[styles.tag, active && styles.tagActive]}
+                  style={({ pressed }) => [styles.tag, active && styles.tagActive, pressed && styles.tagPressed]}
                   onPress={() => toggleTag(label)}
                 >
                   <Ionicons
@@ -191,9 +191,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center"
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   starButton: {
-    padding: spacing.xs
+    padding: spacing.sm
   },
   ratingLabel: {
     ...typography.caption,
@@ -259,6 +259,9 @@ const styles = StyleSheet.create({
   tagLabelActive: {
     color: "#FFFFFF"
   },
+  tagPressed: {
+    opacity: 0.7
+  },
 
   /* Text input */
   input: {
@@ -271,7 +274,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     textAlignVertical: "top",
-    ...typography.body
+    ...typography.input
   },
 
   /* Error */

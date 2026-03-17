@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing.lg,
     color: colors.textPrimary,
-    ...typography.body,
+    ...typography.input,
     borderWidth: 1,
     borderColor: colors.dividerStrong,
   },
