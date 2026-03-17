@@ -299,8 +299,10 @@ export function UploadingScreen() {
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
       <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-      <Text style={styles.title}>{podcast ? "Planın hazır" : "İçeriğin hazırlanıyor..."}</Text>
-      <Text style={styles.subtitle}>{error ?? statusText}</Text>
+      <Text style={styles.title}>
+        {error ? "Yükleme başarısız" : podcast ? "Planın hazır" : "İçeriğin hazırlanıyor..."}
+      </Text>
+      <Text style={[styles.subtitle, error && styles.subtitleError]}>{error ?? statusText}</Text>
       {podcast ? <Text style={styles.voicePill}>Ses modu: {podcast.voice}</Text> : null}
       {phase === "tracking" ? (
         <Text style={styles.helperText}>
@@ -495,6 +497,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     textAlign: "center"
+  },
+  subtitleError: {
+    color: colors.danger,
   },
   helperText: {
     ...typography.caption,
