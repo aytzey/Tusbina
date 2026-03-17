@@ -1,0 +1,52 @@
+name: deploy-backend
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+
+concurrency:
+  group: deploy-backend-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.TUSBINA_DEPLOY_SSH_KEY }}
+
+      - name: Add deploy host to known_hosts
+        env:
+          DEPLOY_HOST: ${{ secrets.TUSBINA_DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.TUSBINA_DEPLOY_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy backend on production
+        env:
+          DEPLOY_HOST: ${{ secrets.TUSBINA_DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.TUSBINA_DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.TUSBINA_DEPLOY_USER }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          ssh \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd ~/Desktop/Machinity/landing/tusbina && \
+            git fetch origin main && \
+            git checkout main && \
+            git merge --ff-only \"$TARGET_SHA\" && \
+            SKIP_GIT_SYNC=1 TARGET_REF=\"$TARGET_SHA\" bash scripts/deploy_backend.sh"
