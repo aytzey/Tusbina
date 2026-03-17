@@ -1,5 +1,6 @@
 import { BottomTabBar, createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MiniPlayerBar } from "@/components/MiniPlayerBar";
 import { colors, typography } from "@/theme";
 import { MainTabParamList } from "./types";
@@ -23,6 +24,8 @@ const TAB_ICONS: Record<
 };
 
 export function MainTabNavigator() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       tabBar={(props) => (
@@ -38,8 +41,8 @@ export function MainTabNavigator() {
           borderTopColor: colors.divider,
           borderTopWidth: 0.5,
           paddingTop: 6,
-          paddingBottom: 6,
-          height: 62,
+          paddingBottom: Math.max(insets.bottom, 10),
+          height: 56 + Math.max(insets.bottom, 10),
         },
         tabBarActiveTintColor: colors.motivationOrange,
         tabBarInactiveTintColor: colors.textTertiary,

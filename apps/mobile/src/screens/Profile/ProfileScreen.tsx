@@ -5,7 +5,13 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { useAuthStore, useDownloadsStore, useLearningToolsStore, useUserStore } from "@/state/stores";
+import {
+  useAuthStore,
+  useDownloadsStore,
+  useLearningToolsStore,
+  usePodcastsStore,
+  useUserStore,
+} from "@/state/stores";
 import { colors, radius, shadows, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer } from "@/utils";
 
@@ -16,16 +22,24 @@ interface MenuItemProps {
   label: string;
   onPress: () => void;
   danger?: boolean;
+  badge?: string | null;
 }
 
-function MenuItem({ icon, label, onPress, danger = false }: MenuItemProps) {
+function MenuItem({ icon, label, onPress, danger = false, badge = null }: MenuItemProps) {
   return (
     <Pressable style={styles.menuItem} onPress={onPress}>
       <View style={styles.menuLeft}>
         <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.textSecondary} />
         <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>{label}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+      <View style={styles.menuRight}>
+        {badge ? (
+          <View style={styles.menuBadge}>
+            <Text style={styles.menuBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+      </View>
     </Pressable>
   );
 }
@@ -39,6 +53,7 @@ export function ProfileScreen() {
   const signOut = useAuthStore((state) => state.signOut);
   const authUser = useAuthStore((state) => state.user);
   const downloads = useDownloadsStore((state) => state.downloads);
+  const podcasts = usePodcastsStore((state) => state.podcasts);
   const dailyGoalMin = useLearningToolsStore((state) => state.dailyGoalMin);
   const todayListenedSec = useLearningToolsStore((state) => state.todayListenedSec);
   const studyPlan = useLearningToolsStore((state) => state.studyPlan);
@@ -58,6 +73,9 @@ export function ProfileScreen() {
   const usageProgress = quota > 0 ? (used / quota) * 100 : 0;
   const dailyGoalSec = dailyGoalMin * 60;
   const dailyProgress = Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100));
+  const processingCount = podcasts.filter((podcast) =>
+    podcast.parts.some((part) => part.status === "queued" || part.status === "processing" || part.status === "failed")
+  ).length;
   const displayName = useMemo(
     () => authUser?.user_metadata?.display_name || authUser?.email?.split("@")[0] || user.name,
     [authUser?.email, authUser?.user_metadata?.display_name, user.name]
@@ -132,9 +150,20 @@ export function ProfileScreen() {
       </Pressable>
 
       <View style={styles.menuSection}>
+        <MenuItem
+          icon="download-outline"
+          label="İndirilenler"
+          badge={downloads.length > 0 ? `${downloads.length}` : null}
+          onPress={() => navigation.navigate("Downloads")}
+        />
+        <MenuItem
+          icon="sync-outline"
+          label="İşlem Durumu"
+          badge={processingCount > 0 ? `${processingCount}` : null}
+          onPress={() => navigation.navigate("Notifications")}
+        />
         <MenuItem icon="settings-outline" label="Hesap Ayarları" onPress={() => navigation.navigate("AccountSettings")} />
         <MenuItem icon="shield-checkmark-outline" label="Hukuk & Gizlilik" onPress={() => navigation.navigate("LegalCenter")} />
-        <MenuItem icon="download-outline" label="İndirilenler" onPress={() => navigation.navigate("Downloads")} />
         <MenuItem icon="timer-outline" label="Çalışma Araçları" onPress={() => navigation.navigate("StudyTools")} />
         <MenuItem icon="card-outline" label="Abonelik Yönetimi" onPress={() => navigation.navigate("Premium")} />
         <MenuItem icon="help-circle-outline" label="Yardım & Destek" onPress={() => navigation.navigate("Support")} />
@@ -311,9 +340,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
   },
+  menuRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   menuLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  menuBadge: {
+    minWidth: 24,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: colors.orangeTint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuBadgeText: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    fontWeight: "700",
   },
   dangerLabel: {
     color: colors.danger,

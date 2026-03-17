@@ -301,6 +301,7 @@ export function UploadingScreen() {
       <Image source={LOGO} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>{podcast ? "Planın hazır" : "İçeriğin hazırlanıyor..."}</Text>
       <Text style={styles.subtitle}>{error ?? statusText}</Text>
+      {podcast ? <Text style={styles.voicePill}>Ses modu: {podcast.voice}</Text> : null}
       {phase === "tracking" ? (
         <Text style={styles.helperText}>
           Sesler artık tek seferde değil, dinleme sırasına göre üretiliyor. İstersen hazır içeriklerinle devam et,
@@ -354,6 +355,9 @@ export function UploadingScreen() {
                     <Text style={styles.partIndexText}>{index + 1}</Text>
                   </View>
                   <View style={styles.partBody}>
+                    <Text style={styles.partMeta}>
+                      Bölüm {index + 1}/{podcast.parts.length}
+                    </Text>
                     <Text style={styles.partTitle} numberOfLines={1}>
                       {part.title}
                     </Text>
@@ -497,6 +501,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center"
   },
+  voicePill: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    textAlign: "center",
+    alignSelf: "center",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: "rgba(191,95,62,0.35)",
+    backgroundColor: colors.orangeTint,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
   progressBlock: {
     gap: spacing.sm
   },
@@ -567,6 +583,10 @@ const styles = StyleSheet.create({
   partBody: {
     flex: 1,
     gap: 2
+  },
+  partMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   partTitle: {
     ...typography.body,

@@ -9,6 +9,8 @@ interface PlaybackSnapshot {
   positionSec?: number;
 }
 
+type RepeatMode = "off" | "all" | "one";
+
 interface PlayerState {
   queue: Track[];
   queueIndex: number;
@@ -22,6 +24,8 @@ interface PlayerState {
   isBuffering: boolean;
   isLoaded: boolean;
   rate: 1 | 1.25 | 1.5 | 2;
+  shuffleEnabled: boolean;
+  repeatMode: RepeatMode;
   setTrack: (track: Track, startPositionSec?: number) => void;
   setQueue: (tracks: Track[], startIndex?: number, startPositionSec?: number) => void;
   selectQueueIndex: (index: number, startPositionSec?: number) => void;
@@ -30,6 +34,8 @@ interface PlayerState {
   pause: () => void;
   playPrevious: () => void;
   playNext: () => void;
+  toggleShuffle: () => void;
+  cycleRepeatMode: () => void;
   addBookmarkAtCurrent: () => number | null;
   removeBookmark: (trackId: string, second: number) => void;
   seekTo: (seconds: number) => void;
@@ -89,6 +95,44 @@ function playbackStateForTrack(track: Track | null, startPositionSec = 0) {
   };
 }
 
+function pickRandomQueueIndex(length: number, currentIndex: number): number | null {
+  if (length <= 1) {
+    return null;
+  }
+
+  let nextIndex = currentIndex;
+  while (nextIndex === currentIndex) {
+    nextIndex = Math.floor(Math.random() * length);
+  }
+  return nextIndex;
+}
+
+function resolveAdjacentQueueIndex(
+  state: Pick<PlayerState, "queue" | "queueIndex" | "shuffleEnabled" | "repeatMode">,
+  direction: "previous" | "next"
+): number | null {
+  const { queue, queueIndex, repeatMode, shuffleEnabled } = state;
+  if (queue.length === 0) {
+    return null;
+  }
+
+  if (shuffleEnabled) {
+    return pickRandomQueueIndex(queue.length, queueIndex);
+  }
+
+  if (direction === "previous") {
+    if (queueIndex > 0) {
+      return queueIndex - 1;
+    }
+    return repeatMode === "all" && queue.length > 0 ? queue.length - 1 : null;
+  }
+
+  if (queueIndex < queue.length - 1) {
+    return queueIndex + 1;
+  }
+  return repeatMode === "all" && queue.length > 0 ? 0 : null;
+}
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   queue: [],
   queueIndex: 0,
@@ -102,6 +146,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isBuffering: false,
   isLoaded: false,
   rate: 1,
+  shuffleEnabled: false,
+  repeatMode: "off",
   setTrack: (track, startPositionSec) =>
     set({
       queue: [track],
@@ -184,11 +230,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   pause: () => set({ isPlaying: false }),
   playPrevious: () =>
     set((state) => {
-      if (state.queueIndex <= 0) {
+      const nextIndex = resolveAdjacentQueueIndex(state, "previous");
+      if (nextIndex === null) {
         return state;
       }
 
-      const nextIndex = state.queueIndex - 1;
       const track = state.queue[nextIndex];
       return {
         queueIndex: nextIndex,
@@ -199,11 +245,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }),
   playNext: () =>
     set((state) => {
-      if (state.queueIndex >= state.queue.length - 1) {
+      const nextIndex = resolveAdjacentQueueIndex(state, "next");
+      if (nextIndex === null) {
         return state;
       }
 
-      const nextIndex = state.queueIndex + 1;
       const track = state.queue[nextIndex];
       return {
         queueIndex: nextIndex,
@@ -212,6 +258,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         ...playbackStateForTrack(track, defaultStartPosition(track))
       };
     }),
+  toggleShuffle: () =>
+    set((state) => ({
+      shuffleEnabled: !state.shuffleEnabled,
+    })),
+  cycleRepeatMode: () => {
+    const nextMode: Record<RepeatMode, RepeatMode> = {
+      off: "all",
+      all: "one",
+      one: "off",
+    };
+    set({ repeatMode: nextMode[get().repeatMode] });
+  },
   addBookmarkAtCurrent: () => {
     const { activeTrack, positionSec } = get();
     if (!activeTrack) {

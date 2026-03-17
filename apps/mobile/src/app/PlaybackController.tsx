@@ -72,6 +72,8 @@ export function PlaybackController() {
   const positionSec = usePlayerStore((state) => state.positionSec);
   const pendingSeekSec = usePlayerStore((state) => state.pendingSeekSec);
   const rate = usePlayerStore((state) => state.rate);
+  const shuffleEnabled = usePlayerStore((state) => state.shuffleEnabled);
+  const repeatMode = usePlayerStore((state) => state.repeatMode);
   const queue = usePlayerStore((state) => state.queue);
   const queueIndex = usePlayerStore((state) => state.queueIndex);
   const queueLength = usePlayerStore((state) => state.queue.length);
@@ -91,7 +93,8 @@ export function PlaybackController() {
 
   const remoteAudioSource = track?.audioUrl ?? null;
   const hasRemoteAudio = Boolean(track?.audioUrl);
-  const hasNext = queueIndex < queueLength - 1;
+  const canAdvanceAfterFinish =
+    queueLength > 1 && (shuffleEnabled || queueIndex < queueLength - 1 || repeatMode === "all");
   const audioPlayer = useAudioPlayer(remoteAudioSource, {
     updateInterval: 250,
     downloadFirst: true,
@@ -553,7 +556,21 @@ export function PlaybackController() {
     void persistCurrentProgress(track, finalPositionSec);
     void flushUsageConsumption();
 
-    if (hasNext) {
+    if (repeatMode === "one") {
+      logPlayerDebug("repeat-current-after-finish");
+      setPlaybackSnapshot({
+        isPlaying: false,
+        positionSec: 0,
+      });
+      void safeAudioPlayerAsyncCall(async () => {
+        await audioPlayer.seekTo(0);
+        audioPlayer.play();
+      });
+      play();
+      return;
+    }
+
+    if (canAdvanceAfterFinish) {
       logPlayerDebug("advance-next-after-finish");
       playNext();
       play();
@@ -567,7 +584,7 @@ export function PlaybackController() {
     audioStatus.currentTime,
     audioPlayer,
     flushUsageConsumption,
-    hasNext,
+    canAdvanceAfterFinish,
     hasRemoteAudio,
     logPlayerDebug,
     pause,
@@ -575,7 +592,9 @@ export function PlaybackController() {
     persistCurrentProgress,
     play,
     playNext,
+    repeatMode,
     setPlaybackSnapshot,
+    shuffleEnabled,
     track
   ]);
 

@@ -14,9 +14,12 @@ import type { Session, User } from "@supabase/supabase-js";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectTo = makeRedirectUri();
+const redirectTo = makeRedirectUri({ scheme: "tusbina", path: "auth/callback" });
 const DEV_AUTH_BYPASS_ENABLED = process.env.EXPO_PUBLIC_ENABLE_DEV_AUTH_BYPASS === "true";
 const DEV_AUTH_BYPASS_USER_ID = process.env.EXPO_PUBLIC_DEMO_USER_ID ?? "demo-user";
+const SUPABASE_CONFIGURED = Boolean(
+  process.env.EXPO_PUBLIC_SUPABASE_URL && process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+);
 
 interface AuthState {
   session: Session | null;
@@ -153,7 +156,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
       return !!session;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Kayıt başarısız";
+      const message = normalizeAuthErrorMessage(err, "Kayıt tamamlanamadı.");
       set({ isLoading: false, error: message });
       return false;
     }
@@ -182,7 +185,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
       return !!session;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Giriş başarısız";
+      const message = normalizeAuthErrorMessage(err, "Giriş yapılamadı.");
       set({ isLoading: false, error: message });
       return false;
     }
@@ -191,10 +194,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   signInWithGoogle: async () => {
     set({ isLoading: true, error: null, confirmationPending: false });
     try {
+      assertSupabaseConfigured();
+
       if (Platform.OS === "web") {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
-          options: { redirectTo: window.location.origin },
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
         });
         if (error) {
           throw error;
@@ -214,29 +219,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-      if (result.type === "success") {
-        const url = result.url;
-        const hashParams = extractHashParams(url);
-        const access_token = hashParams.get("access_token");
-        const refresh_token = hashParams.get("refresh_token");
+      if (result.type !== "success") {
+        set({ isLoading: false });
+        return false;
+      }
 
-        if (access_token && refresh_token) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
-          });
-          if (sessionError) {
-            throw sessionError;
-          }
-          set({ isLoading: false });
-          return true;
-        }
+      const didAuthenticate = await applyAuthSessionFromRedirect(result.url);
+      if (!didAuthenticate) {
+        throw new Error("Google oturumu tamamlanamadı. Lütfen tekrar dene.");
       }
 
       set({ isLoading: false });
-      return false;
+      return true;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Google giriş başarısız";
+      const message = normalizeAuthErrorMessage(err, "Google ile giriş yapılamadı.");
       set({ isLoading: false, error: message });
       return false;
     }
@@ -250,6 +246,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     set({ isLoading: true, error: null, confirmationPending: false });
     try {
+      assertSupabaseConfigured();
       const AppleAuth = await import("expo-apple-authentication");
       const credential = await AppleAuth.signInAsync({
         requestedScopes: [
@@ -273,7 +270,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       set({ isLoading: false });
       return true;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Apple giriş başarısız";
+      const message = normalizeAuthErrorMessage(err, "Apple ile giriş yapılamadı.");
       if (message.includes("cancelled") || message.includes("ERR_CANCELED")) {
         set({ isLoading: false });
         return false;
@@ -404,13 +401,28 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 }));
 
 function extractHashParams(url: string): Map<string, string> {
+  return extractUrlParams(url, "hash");
+}
+
+function extractQueryParams(url: string): Map<string, string> {
+  return extractUrlParams(url, "query");
+}
+
+function extractUrlParams(url: string, source: "hash" | "query"): Map<string, string> {
   const map = new Map<string, string>();
   try {
-    const hash = url.includes("#") ? url.split("#")[1] : "";
-    if (!hash) {
+    const target =
+      source === "hash"
+        ? url.includes("#")
+          ? url.split("#")[1]
+          : ""
+        : url.includes("?")
+          ? url.split("?")[1]?.split("#")[0] ?? ""
+          : "";
+    if (!target) {
       return map;
     }
-    for (const pair of hash.split("&")) {
+    for (const pair of target.split("&")) {
       const [key, val] = pair.split("=");
       if (key && val) {
         map.set(decodeURIComponent(key), decodeURIComponent(val));
@@ -420,6 +432,89 @@ function extractHashParams(url: string): Map<string, string> {
     // ignore parse errors
   }
   return map;
+}
+
+async function applyAuthSessionFromRedirect(url: string): Promise<boolean> {
+  const redirectError = extractRedirectError(url);
+  if (redirectError) {
+    throw new Error(redirectError);
+  }
+
+  const queryParams = extractQueryParams(url);
+  const code = queryParams.get("code");
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      throw error;
+    }
+    return Boolean(data.session);
+  }
+
+  const hashParams = extractHashParams(url);
+  const accessToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
+  if (accessToken && refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) {
+      throw error;
+    }
+    return Boolean(data.session);
+  }
+
+  return false;
+}
+
+function extractRedirectError(url: string): string | null {
+  const queryParams = extractQueryParams(url);
+  const hashParams = extractHashParams(url);
+  const message =
+    queryParams.get("error_description") ??
+    hashParams.get("error_description") ??
+    queryParams.get("error") ??
+    hashParams.get("error");
+
+  return message ? decodeURIComponent(message.replace(/\+/g, " ")) : null;
+}
+
+function assertSupabaseConfigured() {
+  if (!SUPABASE_CONFIGURED) {
+    throw new Error("Sosyal giriş şu anda yapılandırılmamış. Lütfen destek ekibiyle iletişime geç.");
+  }
+}
+
+function normalizeAuthErrorMessage(error: unknown, fallback: string): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const message = raw.trim();
+  const lower = message.toLowerCase();
+
+  if (!message) {
+    return fallback;
+  }
+  if (lower.includes("invalid login credentials")) {
+    return "E-posta veya şifre hatalı.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "E-posta adresini onayladıktan sonra giriş yapabilirsin.";
+  }
+  if (lower.includes("user already registered")) {
+    return "Bu e-posta adresiyle daha önce hesap oluşturulmuş.";
+  }
+  if (lower.includes("password should be at least")) {
+    return "Şifre en az 6 karakter olmalı.";
+  }
+  if (lower.includes("provider is not enabled")) {
+    return "Google ile giriş henüz aktif değil.";
+  }
+  if (lower.includes("network request failed") || lower.includes("fetch failed")) {
+    return "Bağlantı kurulamadı. İnternet erişimini kontrol edip tekrar dene.";
+  }
+  if (lower.includes("oauth") || lower.includes("redirect")) {
+    return "Sosyal giriş yönlendirmesi tamamlanamadı. Lütfen tekrar dene.";
+  }
+  return message;
 }
 
 async function syncProfileToBackend(accessToken: string, displayName?: string) {

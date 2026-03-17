@@ -50,6 +50,27 @@ _HEADING_KEYWORD_RE = re.compile(
     r"\b(bolum|bölüm|unit[eé]|unite|konu|baslik|başlık|chapter|section|adim|adım|olgu)\b",
     flags=re.IGNORECASE,
 )
+_COVER_RESTRICTED_MARKERS = ("®", "™", "©")
+_COVER_RESTRICTED_TERMS = (
+    "adidas",
+    "apple",
+    "barbie",
+    "batman",
+    "chatgpt",
+    "coca cola",
+    "disney",
+    "google",
+    "harry potter",
+    "instagram",
+    "marvel",
+    "netflix",
+    "nike",
+    "spotify",
+    "star wars",
+    "superman",
+    "tiktok",
+    "youtube",
+)
 
 
 @dataclass(frozen=True)
@@ -765,11 +786,11 @@ def _build_generated_cover_svg(
     format_name: str,
     lead_part_title: str | None,
 ) -> bytes:
-    safe_title = _truncate_cover_text(title or "Yeni Podcast", limit=38)
+    safe_title = _sanitize_cover_text(title, limit=38, fallback="TUSBINA İçeriği")
     safe_voice = _truncate_cover_text(voice or "Elif", limit=22)
     safe_format = _truncate_cover_text(_format_label(format_name), limit=18)
-    safe_lead = _truncate_cover_text(lead_part_title or "Akıllı bölümleme", limit=34)
-    initials = _cover_initials(title)
+    safe_lead = _sanitize_cover_text(lead_part_title, limit=34, fallback="Akıllı bölümleme")
+    initials = _cover_initials(safe_title)
 
     svg = f"""
 <svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -807,6 +828,20 @@ def _truncate_cover_text(value: str, *, limit: int) -> str:
     if len(compact) <= limit:
         return compact
     return compact[: max(1, limit - 1)].rstrip() + "…"
+
+
+def _sanitize_cover_text(value: str | None, *, limit: int, fallback: str) -> str:
+    compact = re.sub(r"\s+", " ", (value or "").strip())
+    if not compact or _contains_restricted_cover_reference(compact):
+        compact = fallback
+    return _truncate_cover_text(compact, limit=limit)
+
+
+def _contains_restricted_cover_reference(value: str) -> bool:
+    normalized = (value or "").casefold()
+    if any(marker in value for marker in _COVER_RESTRICTED_MARKERS):
+        return True
+    return any(term in normalized for term in _COVER_RESTRICTED_TERMS)
 
 
 def _cover_initials(title: str) -> str:

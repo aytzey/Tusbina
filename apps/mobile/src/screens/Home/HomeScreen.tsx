@@ -3,7 +3,13 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
-import { useAuthStore, useCoursesStore, usePlayerStore, useUserStore } from "@/state/stores";
+import {
+  useAuthStore,
+  useCoursesStore,
+  useLearningToolsStore,
+  usePlayerStore,
+  useUserStore,
+} from "@/state/stores";
 import { colors, radius, spacing, typography } from "@/theme";
 import { formatDuration } from "@/utils";
 
@@ -57,6 +63,8 @@ export function HomeScreen() {
   const activeTrack = usePlayerStore((s) => s.activeTrack);
   const positionSec = usePlayerStore((s) => s.positionSec);
   const user = useUserStore((s) => s.user);
+  const dailyGoalMin = useLearningToolsStore((s) => s.dailyGoalMin);
+  const todayListenedSec = useLearningToolsStore((s) => s.todayListenedSec);
 
   const displayName = useMemo(
     () => authUser?.user_metadata?.display_name || authUser?.email?.split("@")[0] || "Doktor",
@@ -64,6 +72,9 @@ export function HomeScreen() {
   );
 
   const greeting = useMemo(() => getGreeting(), []);
+  const dailyGoalSec = dailyGoalMin * 60;
+  const dailyGoalProgress = dailyGoalSec > 0 ? Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100)) : 0;
+  const remainingGoalSec = Math.max(0, dailyGoalSec - todayListenedSec);
 
   const continueItem = useMemo(() => {
     if (activeTrack) {
@@ -113,7 +124,7 @@ export function HomeScreen() {
           <Text style={styles.headerBrand}>TUSBINA</Text>
         </View>
         <Pressable style={styles.notifButton} hitSlop={8} onPress={() => navigation.navigate("Notifications")}>
-          <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
+          <Ionicons name="sync-outline" size={22} color={colors.textPrimary} />
         </Pressable>
       </View>
 
@@ -130,13 +141,33 @@ export function HomeScreen() {
         <Text style={styles.searchPlaceholder}>Ders veya konu ara...</Text>
       </Pressable>
 
+      <Pressable style={styles.goalCard} onPress={() => navigation.navigate("StudyTools")}>
+        <View style={styles.goalHeader}>
+          <View style={styles.goalTitleRow}>
+            <View style={styles.goalIconWrap}>
+              <Ionicons name="headset-outline" size={18} color={colors.motivationOrange} />
+            </View>
+            <View style={styles.goalTitleBlock}>
+              <Text style={styles.goalTitle}>Günlük dinleme hedefi</Text>
+              <Text style={styles.goalSubtitle}>
+                {formatDuration(todayListenedSec)} / {dailyGoalMin} dk
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </View>
+        <View style={styles.goalProgressTrack}>
+          <View style={[styles.goalProgressFill, { width: `${dailyGoalProgress}%` as const }]} />
+        </View>
+        <Text style={styles.goalHint}>
+          {remainingGoalSec > 0
+            ? `${formatDuration(remainingGoalSec)} kaldı. Çalışma sayfasını aç`
+            : "Bugünkü hedef tamamlandı. Çalışma sayfasından planını güncelle"}
+        </Text>
+      </Pressable>
+
       {/* ---- Quick Stats ---- */}
       <View style={styles.quickStats}>
-        <Pressable style={[styles.quickStatCard, styles.quickStatTime]} onPress={() => navigation.navigate("ProfileTab")}>
-          <Ionicons name="time-outline" size={20} color={colors.motivationOrange} />
-          <Text style={styles.quickStatValue}>{formatDuration(user.monthlyUsedSec)}</Text>
-          <Text style={styles.quickStatLabel}>Bu ay</Text>
-        </Pressable>
         <Pressable style={[styles.quickStatCard, styles.quickStatCourses]} onPress={() => navigation.navigate("CoursesTab")}>
           <Ionicons name="book-outline" size={20} color={colors.success} />
           <Text style={styles.quickStatValue}>{courses.length}</Text>
@@ -146,6 +177,11 @@ export function HomeScreen() {
           <Ionicons name="cloud-upload-outline" size={20} color={colors.premiumGold} />
           <Text style={styles.quickStatValue}>Yükle</Text>
           <Text style={styles.quickStatLabel}>PDF</Text>
+        </Pressable>
+        <Pressable style={[styles.quickStatCard, styles.quickStatStatus]} onPress={() => navigation.navigate("Notifications")}>
+          <Ionicons name="sync-outline" size={20} color={colors.textPrimary} />
+          <Text style={styles.quickStatValue}>Aç</Text>
+          <Text style={styles.quickStatLabel}>İşlemler</Text>
         </Pressable>
       </View>
 
@@ -278,6 +314,63 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  goalCard: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.cardBgElevated,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  goalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  goalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    flex: 1,
+  },
+  goalIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.orangeTint,
+  },
+  goalTitleBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  goalTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  goalSubtitle: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    fontWeight: "700",
+  },
+  goalProgressTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+  },
+  goalProgressFill: {
+    height: "100%",
+    backgroundColor: colors.motivationOrange,
+  },
+  goalHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+
   /* ---- Quick Stats ---- */
   quickStats: {
     flexDirection: "row",
@@ -294,10 +387,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
-  quickStatTime: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.motivationOrange,
-  },
   quickStatCourses: {
     borderLeftWidth: 3,
     borderLeftColor: colors.success,
@@ -305,6 +394,10 @@ const styles = StyleSheet.create({
   quickStatUpload: {
     borderLeftWidth: 3,
     borderLeftColor: colors.premiumGold,
+  },
+  quickStatStatus: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.textPrimary,
   },
   quickStatValue: {
     fontSize: 16,

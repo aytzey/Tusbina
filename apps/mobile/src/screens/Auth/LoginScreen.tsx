@@ -25,6 +25,7 @@ export function LoginScreen() {
   const signIn = useAuthStore((state) => state.signIn);
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const signInWithApple = useAuthStore((state) => state.signInWithApple);
+  const clearError = useAuthStore((state) => state.clearError);
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
 
@@ -95,16 +96,26 @@ export function LoginScreen() {
           <Ionicons name="logo-google" size={18} color={colors.textPrimary} />
           <Text style={styles.socialLabel}>Google ile Devam Et</Text>
         </Pressable>
+        <Text style={styles.socialHint}>
+          Sosyal giriş cihaz tarayıcısında açılır. Dönüşte oturum otomatik tamamlanır.
+        </Text>
 
         {/* ---- Email Login Toggle ---- */}
         {!showEmailForm ? (
-          <Pressable onPress={() => setShowEmailForm(true)} style={styles.emailToggle}>
+          <Pressable
+            onPress={() => {
+              clearError();
+              setShowEmailForm(true);
+            }}
+            style={styles.emailToggle}
+          >
             <Ionicons name="mail-outline" size={16} color={colors.motivationOrange} />
             <Text style={styles.emailToggleText}>E-posta ile giriş yap</Text>
           </Pressable>
         ) : (
           <View style={styles.emailForm}>
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>E-posta</Text>
               <TextInput
                 style={styles.input}
                 placeholder="E-posta adresiniz"
@@ -113,12 +124,16 @@ export function LoginScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  clearError();
+                  setEmail(value);
+                }}
                 editable={!isLoading}
               />
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>Şifre</Text>
               <View style={styles.passwordRow}>
                 <TextInput
                   style={[styles.input, styles.passwordInput]}
@@ -127,7 +142,10 @@ export function LoginScreen() {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(value) => {
+                    clearError();
+                    setPassword(value);
+                  }}
                   editable={!isLoading}
                 />
                 <Pressable
@@ -143,7 +161,12 @@ export function LoginScreen() {
               </View>
             </View>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorCard}>
+                <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            ) : null}
 
             <Pressable
               disabled={!canSubmit}
@@ -284,6 +307,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: "600",
   },
+  socialHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: spacing.xs,
+  },
 
   /* ---- Email Toggle ---- */
   emailToggle: {
@@ -305,6 +334,11 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     gap: spacing.xs,
+  },
+  label: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "600",
   },
   input: {
     height: 52,
@@ -334,7 +368,18 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.danger,
-    textAlign: "center",
+    flex: 1,
+  },
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(183,68,68,0.35)",
+    backgroundColor: "rgba(183,68,68,0.12)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   loginBtn: {
     height: 54,

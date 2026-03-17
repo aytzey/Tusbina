@@ -30,6 +30,10 @@ export function PlayerScreen() {
   const syncPodcastQueue = usePlayerStore((state) => state.syncPodcastQueue);
   const seekTo = usePlayerStore((state) => state.seekTo);
   const cycleRate = usePlayerStore((state) => state.cycleRate);
+  const shuffleEnabled = usePlayerStore((state) => state.shuffleEnabled);
+  const repeatMode = usePlayerStore((state) => state.repeatMode);
+  const toggleShuffle = usePlayerStore((state) => state.toggleShuffle);
+  const cycleRepeatMode = usePlayerStore((state) => state.cycleRepeatMode);
   const addBookmarkAtCurrent = usePlayerStore((state) => state.addBookmarkAtCurrent);
   const removeBookmark = usePlayerStore((state) => state.removeBookmark);
   const bookmarksByTrack = usePlayerStore((state) => state.bookmarksByTrack);
@@ -46,12 +50,13 @@ export function PlayerScreen() {
   const canPlay = useUserStore((state) => state.canPlay);
   const openLimitModal = useUserStore((state) => state.openLimitModal);
 
-  const hasPrevious = queueIndex > 0;
-  const hasNext = queueIndex < queue.length - 1;
+  const hasPrevious = queue.length > 1 && (shuffleEnabled || queueIndex > 0 || repeatMode === "all");
+  const hasNext = queue.length > 1 && (shuffleEnabled || queueIndex < queue.length - 1 || repeatMode === "all");
   const bookmarks = track ? bookmarksByTrack[track.id] ?? [] : [];
   const [modalVisible, setModalVisible] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
   const [draggedPartId, setDraggedPartId] = useState<string | null>(null);
+  const [pendingMovePartId, setPendingMovePartId] = useState<string | null>(null);
   const hasRemoteAudio = Boolean(track?.audioUrl);
   const isBuffering = hasRemoteAudio && isPlaybackBuffering;
   const isAudioLoading = hasRemoteAudio && !isPlaybackLoaded;
@@ -65,9 +70,11 @@ export function PlayerScreen() {
     [getDownloadedPodcast, podcasts, track?.parentId, track?.sourceType]
   );
   const queueIds = useMemo(() => queue.map((item) => item.id), [queue]);
-  const canReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
+  const canWebReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
+  const canNativeReorderQueue = Platform.OS !== "web" && Boolean(currentPodcast);
   const isCurrentPodcastDownloading = currentPodcast ? downloadingIds.includes(currentPodcast.id) : false;
   const currentDownloadProgress = currentPodcast && isCurrentPodcastDownloading ? getDownloadProgress(currentPodcast.id) : null;
+  const currentPartBadge = queue.length > 1 ? `Bölüm ${queueIndex + 1}/${queue.length}` : undefined;
 
   useEffect(() => {
     if (!currentPodcast) {
@@ -78,6 +85,10 @@ export function PlayerScreen() {
 
   useEffect(() => {
     lookAheadPriorityRef.current.clear();
+  }, [currentPodcast?.id]);
+
+  useEffect(() => {
+    setPendingMovePartId(null);
   }, [currentPodcast?.id]);
 
   useEffect(() => {
@@ -161,6 +172,11 @@ export function PlayerScreen() {
         })
       : null;
 
+  const showToast = (message: string, durationMs = 1800) => {
+    setFeedbackToast(message);
+    setTimeout(() => setFeedbackToast(null), durationMs);
+  };
+
   const prioritizeAiPart = async (partId: string, podcastId: string) => {
     if (!podcastId) {
       return;
@@ -184,10 +200,47 @@ export function PlayerScreen() {
       return;
     }
 
+    if (pendingMovePartId && currentPodcast) {
+      if (pendingMovePartId === selected.id) {
+        setPendingMovePartId(null);
+        showToast("Taşıma iptal edildi.");
+        return;
+      }
+
+      const draggedIndex = queue.findIndex((queueItem) => queueItem.id === pendingMovePartId);
+      if (draggedIndex >= 0 && draggedIndex !== index) {
+        void handleReorderQueue(moveItem(queueIds, draggedIndex, index));
+        setPendingMovePartId(null);
+        showToast(`Bölüm ${index + 1}. sıraya taşındı.`);
+        return;
+      }
+    }
+
     selectQueueIndex(index, 0);
     if (selected.sourceType === "ai" && !selected.audioUrl && selected.parentId) {
       void prioritizeAiPart(selected.id, selected.parentId);
     }
+  };
+
+  const handleQueueItemLongPress = (index: number) => {
+    if (!canNativeReorderQueue) {
+      return;
+    }
+
+    const selected = queue[index];
+    if (!selected) {
+      return;
+    }
+
+    setPendingMovePartId((current) => {
+      const nextValue = current === selected.id ? null : selected.id;
+      showToast(
+        nextValue
+          ? `"${selected.title}" seçildi. Hedef bölüme dokunarak sırayı değiştir.`
+          : "Taşıma modu kapatıldı."
+      );
+      return nextValue;
+    });
   };
 
   const handleReorderQueue = async (nextIds: string[]) => {
@@ -199,6 +252,7 @@ export function PlayerScreen() {
       const updatedPodcast = await reorderPodcastParts(currentPodcast.id, { part_ids: nextIds });
       replacePodcast(updatedPodcast);
       syncPodcastQueue(updatedPodcast);
+      setPendingMovePartId(null);
     } catch {
       setFeedbackToast("Bölüm sırası kaydedilemedi.");
       setTimeout(() => setFeedbackToast(null), 1800);
@@ -319,6 +373,7 @@ export function PlayerScreen() {
             subtitle={track.subtitle}
             voice={track.voice}
             size={260}
+            badgeText={currentPartBadge}
           />
         </View>
         {track.sourceType === "ai" && (
@@ -367,11 +422,40 @@ export function PlayerScreen() {
       </View>
 
       {/* --- Main Controls --- */}
-      <View style={styles.mainControls}>
-        <Pressable onPress={cycleRate} hitSlop={8}>
-          <Ionicons name="shuffle" size={24} color={colors.textSecondary} />
+      <View style={styles.modeRow}>
+        <Pressable style={[styles.modeChip, styles.modeChipActive]} onPress={cycleRate}>
+          <Ionicons name="speedometer-outline" size={16} color={colors.motivationOrange} />
+          <Text style={[styles.modeChipLabel, styles.modeChipLabelActive]}>Hız {rate}x</Text>
         </Pressable>
+        <Pressable
+          style={[styles.modeChip, repeatMode !== "off" && styles.modeChipActive]}
+          onPress={cycleRepeatMode}
+        >
+          <Ionicons
+            name={repeatMode === "one" ? "repeat-outline" : "repeat"}
+            size={16}
+            color={repeatMode !== "off" ? colors.motivationOrange : colors.textSecondary}
+          />
+          <Text style={[styles.modeChipLabel, repeatMode !== "off" && styles.modeChipLabelActive]}>
+            Tekrar {getRepeatModeLabel(repeatMode)}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.modeChip, shuffleEnabled && styles.modeChipActive]}
+          onPress={toggleShuffle}
+        >
+          <Ionicons
+            name="shuffle"
+            size={16}
+            color={shuffleEnabled ? colors.motivationOrange : colors.textSecondary}
+          />
+          <Text style={[styles.modeChipLabel, shuffleEnabled && styles.modeChipLabelActive]}>
+            Karışık {shuffleEnabled ? "Açık" : "Kapalı"}
+          </Text>
+        </Pressable>
+      </View>
 
+      <View style={styles.mainControls}>
         <Pressable
           style={[styles.navButton, !hasPrevious && styles.controlDisabled]}
           onPress={onPrevious}
@@ -399,36 +483,39 @@ export function PlayerScreen() {
         >
           <Ionicons name="play-skip-forward" size={28} color={colors.textPrimary} />
         </Pressable>
-
-        <Pressable hitSlop={8}>
-          <Ionicons name="repeat" size={24} color={colors.textSecondary} />
-        </Pressable>
       </View>
 
       {/* --- Secondary Controls --- */}
       <View style={styles.secondaryControls}>
-        <Pressable style={styles.secondaryBtn} onPress={cycleRate}>
-          <Text style={styles.rateLabel}>Hız: {rate}x</Text>
-        </Pressable>
-
-        <Pressable style={styles.secondaryBtn} onPress={onToggleBookmark}>
+        <Pressable
+          style={[styles.secondaryBtn, isCurrentBookmarked && styles.secondaryBtnActive]}
+          onPress={onToggleBookmark}
+        >
           <Ionicons
             name={isCurrentBookmarked ? "bookmark" : "bookmark-outline"}
-            size={22}
+            size={18}
             color={isCurrentBookmarked ? colors.motivationOrange : colors.textSecondary}
           />
+          <Text style={[styles.secondaryBtnLabel, isCurrentBookmarked && styles.secondaryBtnLabelActive]}>
+            Kayıt
+          </Text>
         </Pressable>
 
         <Pressable style={styles.secondaryBtn} onPress={() => void onShare()}>
-          <Ionicons name="share-outline" size={22} color={colors.textSecondary} />
+          <Ionicons name="share-outline" size={18} color={colors.textSecondary} />
+          <Text style={styles.secondaryBtnLabel}>Paylaş</Text>
         </Pressable>
 
         {track.sourceType === "ai" && currentPodcast ? (
-          <Pressable style={styles.secondaryBtn} onPress={() => void handleToggleDownload()} disabled={isCurrentPodcastDownloading}>
+          <Pressable
+            style={[styles.secondaryBtn, currentPodcast.isDownloaded && styles.secondaryBtnActive]}
+            onPress={() => void handleToggleDownload()}
+            disabled={isCurrentPodcastDownloading}
+          >
             <Ionicons
               name={currentPodcast.isDownloaded ? "download" : "download-outline"}
               size={18}
-              color={colors.textSecondary}
+              color={currentPodcast.isDownloaded ? colors.motivationOrange : colors.textSecondary}
             />
             <Text style={styles.secondaryBtnLabel}>
               {isCurrentPodcastDownloading
@@ -480,10 +567,19 @@ export function PlayerScreen() {
       {/* --- Queue / Bolumler --- */}
       {queue.length > 1 ? (
         <View style={styles.queueSection}>
-          <Text style={styles.queueTitle}>Bölümler - Atlayarak Dinle</Text>
+          <Text style={styles.queueTitle}>Bölümler</Text>
+          <Text style={styles.queueHint}>
+            {canWebReorderQueue
+              ? "Sıralamayı sürükle-bırak ile değiştirebilirsin."
+              : canNativeReorderQueue
+                ? "Bir bölüme uzun bas, sonra hedef bölüme dokunarak sırayı değiştir."
+                : "İstediğin bölüme dokunarak oynat."}
+          </Text>
           {queue.map((item, index) => {
             const isActive = index === queueIndex;
             const isCompleted = index < queueIndex;
+            const isPendingMove = pendingMovePartId === item.id;
+            const isDropTarget = Boolean(pendingMovePartId) && pendingMovePartId !== item.id;
             const statusLabel =
               item.sourceType === "ai"
                 ? getPodcastPartStatusLabel(item.partStatus, {
@@ -494,12 +590,8 @@ export function PlayerScreen() {
                 : isCompleted
                   ? "Dinlendi"
                   : "Hazır";
-            const canMoveUp = currentPodcast !== null && index > 0;
-            const canMoveDown = currentPodcast !== null && index < queue.length - 1;
-            const nextIdsUp = canMoveUp ? moveItem(queueIds, index, index - 1) : null;
-            const nextIdsDown = canMoveDown ? moveItem(queueIds, index, index + 1) : null;
             const queueItemProps =
-              canReorderQueue && item.sourceType === "ai"
+              canWebReorderQueue && item.sourceType === "ai"
                 ? {
                     draggable: true,
                     onDragStart: () => setDraggedPartId(item.id),
@@ -522,8 +614,15 @@ export function PlayerScreen() {
             return (
               <DraggablePressable
                 key={item.id}
-                style={[styles.queueItem, isActive && styles.queueItemActive]}
+                style={[
+                  styles.queueItem,
+                  isActive && styles.queueItemActive,
+                  isPendingMove && styles.queueItemMoving,
+                  isDropTarget && styles.queueItemDropTarget,
+                ]}
                 onPress={() => handleSelectQueueItem(index)}
+                onLongPress={() => handleQueueItemLongPress(index)}
+                delayLongPress={180}
                 {...queueItemProps}
               >
                 <View style={styles.queueIndex}>
@@ -536,6 +635,9 @@ export function PlayerScreen() {
                   )}
                 </View>
                 <View style={styles.queueItemBody}>
+                  <Text style={styles.queuePartLabel}>
+                    Bölüm {index + 1}/{queue.length}
+                  </Text>
                   <Text
                     style={[styles.queueItemTitle, isActive && styles.queueItemTitleActive]}
                     numberOfLines={1}
@@ -551,31 +653,12 @@ export function PlayerScreen() {
                   {currentPodcast ? (
                     Platform.OS === "web" ? (
                       <Ionicons name="reorder-three-outline" size={18} color={colors.textSecondary} />
+                    ) : isPendingMove ? (
+                      <Text style={styles.queueMoveLabel}>Seçildi</Text>
+                    ) : pendingMovePartId ? (
+                      <Text style={styles.queueMoveLabel}>Buraya bırak</Text>
                     ) : (
-                      <View style={styles.queueMoveColumn}>
-                        <Pressable
-                          disabled={!canMoveUp}
-                          onPress={() => nextIdsUp && void handleReorderQueue(nextIdsUp)}
-                          hitSlop={6}
-                        >
-                          <Ionicons
-                            name="chevron-up"
-                            size={16}
-                            color={canMoveUp ? colors.textSecondary : "rgba(255,255,255,0.15)"}
-                          />
-                        </Pressable>
-                        <Pressable
-                          disabled={!canMoveDown}
-                          onPress={() => nextIdsDown && void handleReorderQueue(nextIdsDown)}
-                          hitSlop={6}
-                        >
-                          <Ionicons
-                            name="chevron-down"
-                            size={16}
-                            color={canMoveDown ? colors.textSecondary : "rgba(255,255,255,0.15)"}
-                          />
-                        </Pressable>
-                      </View>
+                      <Ionicons name="reorder-three-outline" size={18} color={colors.textSecondary} />
                     )
                   ) : null}
                   {isActive ? <Ionicons name="volume-high" size={16} color={colors.motivationOrange} /> : null}
@@ -596,6 +679,16 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   const [item] = clone.splice(fromIndex, 1);
   clone.splice(toIndex, 0, item);
   return clone;
+}
+
+function getRepeatModeLabel(mode: "off" | "all" | "one"): string {
+  if (mode === "all") {
+    return "Tümü";
+  }
+  if (mode === "one") {
+    return "Bu Bölüm";
+  }
+  return "Kapalı";
 }
 
 const styles = StyleSheet.create({
@@ -718,12 +811,43 @@ const styles = StyleSheet.create({
   },
 
   /* ---- Main Controls ---- */
+  modeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  modeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.cardBg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  modeChipActive: {
+    borderColor: "rgba(191,95,62,0.38)",
+    backgroundColor: colors.orangeTint,
+  },
+  modeChipLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "700",
+  },
+  modeChipLabelActive: {
+    color: colors.motivationOrange,
+  },
   mainControls: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 30,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   navButton: {
     width: 46,
@@ -757,26 +881,36 @@ const styles = StyleSheet.create({
   /* ---- Secondary Controls ---- */
   secondaryControls: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xl,
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs
   },
   secondaryBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm
+    justifyContent: "center",
+    gap: 6,
+    minWidth: 110,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.cardBg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md
   },
-  rateLabel: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    fontWeight: "700"
+  secondaryBtnActive: {
+    borderColor: "rgba(191,95,62,0.38)",
+    backgroundColor: colors.orangeTint,
   },
   secondaryBtnLabel: {
     ...typography.caption,
-    color: colors.premiumGold
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  secondaryBtnLabelActive: {
+    color: colors.motivationOrange,
   },
 
   /* ---- Bookmarks ---- */
@@ -829,6 +963,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: spacing.xs
   },
+  queueHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
   queueItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -843,6 +982,14 @@ const styles = StyleSheet.create({
   queueItemActive: {
     borderLeftColor: colors.motivationOrange,
     backgroundColor: colors.cardBgElevated
+  },
+  queueItemMoving: {
+    borderLeftColor: colors.premiumGold,
+    borderWidth: 1,
+    borderColor: "rgba(189,148,101,0.4)",
+  },
+  queueItemDropTarget: {
+    borderColor: "rgba(191,95,62,0.24)",
   },
   queueIndex: {
     width: 24,
@@ -860,6 +1007,10 @@ const styles = StyleSheet.create({
   queueItemBody: {
     flex: 1,
     gap: 2
+  },
+  queuePartLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   queueItemTitle: {
     ...typography.caption,
@@ -892,9 +1043,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.xs
   },
-  queueMoveColumn: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: -4
+  queueMoveLabel: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    fontWeight: "700",
   }
 });

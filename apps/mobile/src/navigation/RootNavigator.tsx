@@ -93,7 +93,7 @@ export function RootNavigator() {
             component={LegalDocumentScreen}
             options={({ route }) => ({ title: route.params.title ?? "Yasal Metin" })}
           />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Bildirimler" }} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "İşlem Durumu" }} />
           <Stack.Screen name="Support" component={SupportScreen} options={{ title: "Yardım & Destek" }} />
           <Stack.Screen name="GeneralError" component={GeneralErrorScreen} options={{ title: "Bir Hata Oluştu" }} />
           <Stack.Screen name="NoInternet" component={NoInternetScreen} options={{ title: "Bağlantı Yok" }} />

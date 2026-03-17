@@ -8,6 +8,11 @@ from app.db.models import CourseModel, CoursePartModel
 from app.models.schemas import Course, CoursePart, CoursePartPositionIn
 
 router = APIRouter(prefix="/courses", tags=["courses"])
+COMPLETION_THRESHOLD = 0.95
+
+
+def _is_completed(duration_sec: int, position_sec: int) -> bool:
+    return duration_sec > 0 and (position_sec / duration_sec) >= COMPLETION_THRESHOLD
 
 
 def _serialize_course(course: CourseModel) -> Course:
@@ -62,7 +67,7 @@ def update_course_part_position(
     clamped_position = min(payload.last_position_sec, part.duration_sec)
     part.last_position_sec = clamped_position
     if part.status != "locked":
-        if clamped_position >= part.duration_sec:
+        if _is_completed(part.duration_sec, clamped_position):
             part.status = "completed"
         elif clamped_position > 0:
             part.status = "inProgress"
@@ -74,7 +79,9 @@ def update_course_part_position(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    completed_parts = sum(1 for course_part in course.parts if course_part.last_position_sec >= course_part.duration_sec)
+    completed_parts = sum(
+        1 for course_part in course.parts if _is_completed(course_part.duration_sec, course_part.last_position_sec)
+    )
     course.progress_pct = round((completed_parts / course.total_parts) * 100) if course.total_parts > 0 else 0
 
     db.commit()

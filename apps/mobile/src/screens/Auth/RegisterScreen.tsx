@@ -53,6 +53,7 @@ export function RegisterScreen() {
   const signUp = useAuthStore((state) => state.signUp);
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const signInWithApple = useAuthStore((state) => state.signInWithApple);
+  const clearError = useAuthStore((state) => state.clearError);
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
   const confirmationPending = useAuthStore((state) => state.confirmationPending);
@@ -140,7 +141,7 @@ export function RegisterScreen() {
         </View>
 
         <Text style={styles.helperText}>
-          Google veya Apple ile devam edersen zorunlu yasal onay ekranı ilk oturumda ayrıca gösterilir.
+          Google veya Apple ile devam edersen giriş cihaz tarayıcısında açılır ve zorunlu yasal onay ilk oturumda ayrıca gösterilir.
         </Text>
 
         <View style={styles.dividerRow}>
@@ -158,7 +159,10 @@ export function RegisterScreen() {
               placeholderTextColor={colors.textSecondary}
               autoCapitalize="words"
               value={displayName}
-              onChangeText={setDisplayName}
+              onChangeText={(value) => {
+                clearError();
+                setDisplayName(value);
+              }}
               editable={!isLoading}
             />
           </View>
@@ -173,7 +177,10 @@ export function RegisterScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => {
+                clearError();
+                setEmail(value);
+              }}
               editable={!isLoading}
             />
           </View>
@@ -188,7 +195,10 @@ export function RegisterScreen() {
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => {
+                  clearError();
+                  setPassword(value);
+                }}
                 editable={!isLoading}
               />
               <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
@@ -238,7 +248,12 @@ export function RegisterScreen() {
             </Pressable>
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <View style={styles.errorCard}>
+              <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          ) : null}
 
           <Pressable
             disabled={!canSubmit}
@@ -295,7 +310,7 @@ const styles = StyleSheet.create({
   dividerText: { ...typography.caption, color: colors.textSecondary },
   form: { gap: spacing.md },
   inputGroup: { gap: spacing.xs },
-  label: { ...typography.caption, color: colors.textSecondary, textTransform: "uppercase" },
+  label: { ...typography.caption, color: colors.textSecondary, fontWeight: "600" },
   input: {
     height: 48,
     backgroundColor: colors.cardBg,
@@ -355,7 +370,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  error: { ...typography.caption, color: colors.danger, textAlign: "center" },
+  error: { ...typography.caption, color: colors.danger, flex: 1 },
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(183,68,68,0.35)",
+    backgroundColor: "rgba(183,68,68,0.12)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   button: {
     height: 52,
     borderRadius: radius.pill,

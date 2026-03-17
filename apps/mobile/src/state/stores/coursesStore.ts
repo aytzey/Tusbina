@@ -13,8 +13,14 @@ interface CoursesState {
   patchCoursePartPosition: (courseId: string, partId: string, positionSec: number) => void;
 }
 
+const COMPLETION_THRESHOLD = 0.95;
+
+function isCompletedByThreshold(durationSec: number, positionSec: number): boolean {
+  return durationSec > 0 && positionSec / durationSec >= COMPLETION_THRESHOLD;
+}
+
 function updateCourseProgress(course: Course): Course {
-  const completedParts = course.parts.filter((part) => part.lastPositionSec >= part.durationSec).length;
+  const completedParts = course.parts.filter((part) => isCompletedByThreshold(part.durationSec, part.lastPositionSec)).length;
   const progressPct = course.totalParts > 0 ? Math.round((completedParts / course.totalParts) * 100) : 0;
   return {
     ...course,
@@ -30,7 +36,13 @@ function applyPartPosition(course: Course, partId: string, positionSec: number):
 
     const clamped = Math.min(Math.max(positionSec, 0), part.durationSec);
     const nextStatus: CoursePartStatus =
-      clamped >= part.durationSec ? "completed" : clamped > 0 ? "inProgress" : part.status === "locked" ? "locked" : "new";
+      isCompletedByThreshold(part.durationSec, clamped)
+        ? "completed"
+        : clamped > 0
+          ? "inProgress"
+          : part.status === "locked"
+            ? "locked"
+            : "new";
 
     return {
       ...part,

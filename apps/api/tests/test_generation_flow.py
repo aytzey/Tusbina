@@ -17,6 +17,7 @@ from app.main import app
 from app.services import tts as tts_module
 from app.services.generation import (
     _build_auto_part_plan,
+    _build_generated_cover_svg,
     _duration_from_audio_bytes,
     _extract_heading_titles,
     _is_dialogue_mode,
@@ -691,6 +692,21 @@ def test_extract_heading_titles_prefers_structured_lines() -> None:
         "2. HEMODINAMIK PARAMETRELER",
         "3. VAKA ODAKLI YORUM",
     ]
+
+
+def test_generated_cover_sanitizes_restricted_titles() -> None:
+    svg = _build_generated_cover_svg(
+        title="Spotify Marvel ™ Anatomi",
+        voice="Elif",
+        format_name="narrative",
+        lead_part_title="Harry Potter benzeri kapak",
+    ).decode("utf-8")
+
+    assert "Spotify" not in svg
+    assert "Marvel" not in svg
+    assert "Harry Potter" not in svg
+    assert "TUSBINA İçeriği" in svg
+    assert "Akıllı bölümleme" in svg
 
 
 def test_is_dialogue_mode_by_voice_or_format() -> None:
