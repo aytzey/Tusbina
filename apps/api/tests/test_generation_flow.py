@@ -51,6 +51,19 @@ def clean_generation_tables() -> None:
         db.commit()
 
 
+@pytest.fixture(autouse=True)
+def stub_generation_tts(monkeypatch) -> None:
+    class _DeterministicTTS:
+        def synthesize(self, text: str, *, voice: str | None = None) -> TTSResult:
+            return TTSResult(
+                content=tts_module._build_sine_wav(duration_sec=1, frequency=440),
+                extension="wav",
+                content_type="audio/wav",
+            )
+
+    monkeypatch.setattr("app.services.generation.get_tts_service", lambda: _DeterministicTTS())
+
+
 def test_upload_generate_plans_immediately_and_generates_prioritized_parts() -> None:
     user_id = f"test-user-{uuid4().hex[:8]}"
     user_headers = {"x-user-id": user_id}

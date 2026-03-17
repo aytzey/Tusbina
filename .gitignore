@@ -33,7 +33,7 @@ dist/
 
 # Runtime data / uploads / models
 apps/api/data/
-data/
+/data/
 
 # Docker
 postgres_data/

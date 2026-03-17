@@ -11,8 +11,14 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings
 from app.core.database import SessionLocal, init_db
-from app.db.models import PodcastModel, PodcastPartModel, PodcastUserStateModel, UserLegalConsentModel, UserProfileModel
-from app.db.models import utcnow
+from app.db.models import (
+    PodcastModel,
+    PodcastPartModel,
+    PodcastUserStateModel,
+    UserLegalConsentModel,
+    UserProfileModel,
+    utcnow,
+)
 
 PODCAST_ID = "pod-e2e-player"
 PART_IDS = (
