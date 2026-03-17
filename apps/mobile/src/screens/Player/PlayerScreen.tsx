@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -11,7 +11,6 @@ import { colors, radius, shadows, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer, getPodcastPartStatusLabel, stripDownloadState } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
-const DraggablePressable = Pressable as unknown as any;
 
 export function PlayerScreen() {
   const navigation = useNavigation<Navigation>();
@@ -590,41 +589,8 @@ export function PlayerScreen() {
                 : isCompleted
                   ? "Dinlendi"
                   : "Hazır";
-            const queueItemProps =
-              canWebReorderQueue && item.sourceType === "ai"
-                ? {
-                    draggable: true,
-                    onDragStart: () => setDraggedPartId(item.id),
-                    onDragOver: (event: { preventDefault?: () => void }) => event.preventDefault?.(),
-                    onDrop: () => {
-                      if (!draggedPartId || draggedPartId === item.id) {
-                        return;
-                      }
-                      const draggedIndex = queue.findIndex((queueItem) => queueItem.id === draggedPartId);
-                      if (draggedIndex < 0) {
-                        return;
-                      }
-                      void handleReorderQueue(moveItem(queueIds, draggedIndex, index));
-                      setDraggedPartId(null);
-                    },
-                    onDragEnd: () => setDraggedPartId(null)
-                  }
-                : {};
-
-            return (
-              <DraggablePressable
-                key={item.id}
-                style={[
-                  styles.queueItem,
-                  isActive && styles.queueItemActive,
-                  isPendingMove && styles.queueItemMoving,
-                  isDropTarget && styles.queueItemDropTarget,
-                ]}
-                onPress={() => handleSelectQueueItem(index)}
-                onLongPress={() => handleQueueItemLongPress(index)}
-                delayLongPress={180}
-                {...queueItemProps}
-              >
+            const queueItemContent = (
+              <>
                 <View style={styles.queueIndex}>
                   {isCompleted ? (
                     <Ionicons name="checkmark-circle" size={20} color={colors.success} />
@@ -663,7 +629,69 @@ export function PlayerScreen() {
                   ) : null}
                   {isActive ? <Ionicons name="volume-high" size={16} color={colors.motivationOrange} /> : null}
                 </View>
-              </DraggablePressable>
+              </>
+            );
+
+            if (canWebReorderQueue && item.sourceType === "ai") {
+              const webQueueStyle: CSSProperties = {
+                ...(StyleSheet.flatten(styles.queueItem) as Record<string, unknown>),
+                ...(isActive ? (StyleSheet.flatten(styles.queueItemActive) as Record<string, unknown>) : {}),
+                ...(isPendingMove ? (StyleSheet.flatten(styles.queueItemMoving) as Record<string, unknown>) : {}),
+                ...(isDropTarget ? (StyleSheet.flatten(styles.queueItemDropTarget) as Record<string, unknown>) : {}),
+                cursor: draggedPartId === item.id ? "grabbing" : "grab",
+                userSelect: "none",
+              };
+
+              return (
+                <div
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  style={webQueueStyle}
+                  draggable
+                  onClick={() => handleSelectQueueItem(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleSelectQueueItem(index);
+                    }
+                  }}
+                  onDragStart={() => setDraggedPartId(item.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (!draggedPartId || draggedPartId === item.id) {
+                      return;
+                    }
+                    const draggedIndex = queue.findIndex((queueItem) => queueItem.id === draggedPartId);
+                    if (draggedIndex < 0) {
+                      return;
+                    }
+                    void handleReorderQueue(moveItem(queueIds, draggedIndex, index));
+                    setDraggedPartId(null);
+                  }}
+                  onDragEnd={() => setDraggedPartId(null)}
+                >
+                  {queueItemContent}
+                </div>
+              );
+            }
+
+            return (
+              <Pressable
+                key={item.id}
+                style={[
+                  styles.queueItem,
+                  isActive && styles.queueItemActive,
+                  isPendingMove && styles.queueItemMoving,
+                  isDropTarget && styles.queueItemDropTarget,
+                ]}
+                onPress={() => handleSelectQueueItem(index)}
+                onLongPress={() => handleQueueItemLongPress(index)}
+                delayLongPress={180}
+              >
+                {queueItemContent}
+              </Pressable>
             );
           })}
         </View>

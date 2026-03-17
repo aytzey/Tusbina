@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { activatePremiumUsage, addUsagePackage, consumeUsage, fetchUsage } from "@/services/api";
+import { createJSONStorage, persist } from "@/state/zustandMiddleware";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const DEFAULT_QUOTA_SEC = 60 * 60;
 const PREMIUM_QUOTA_SEC = 10 * 60 * 60;

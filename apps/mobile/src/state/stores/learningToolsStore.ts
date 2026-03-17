@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createJSONStorage, persist } from "@/state/zustandMiddleware";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 interface LearningToolsState {
   ownerUserId: string | null;

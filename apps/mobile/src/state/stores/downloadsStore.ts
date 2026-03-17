@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import { Podcast } from "@/domain/models";
+import { createJSONStorage, persist } from "@/state/zustandMiddleware";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 type DownloadablePodcast = Podcast;
 const DOWNLOAD_CONCURRENCY = 3;
