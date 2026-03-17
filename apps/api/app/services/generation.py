@@ -363,6 +363,17 @@ def process_next_podcast_part_generation(
         part.queue_priority = 0
         part.updated_at = datetime.now(UTC)
         podcast.total_duration_sec = max(0, podcast.total_duration_sec - previous_duration_sec + part_duration_sec)
+        db.flush()
+
+        # Advance the priority window so parts beyond the initial window get scheduled.
+        next_queued = _find_next_queued_part(db, podcast_id=podcast.id)
+        if next_queued is not None:
+            prioritize_podcast_part_window(
+                db,
+                podcast_id=podcast.id,
+                part_id=next_queued.id,
+                commit=False,
+            )
         db.commit()
         _trace_generation(
             part.id,
@@ -641,6 +652,19 @@ def _claim_next_podcast_part(db: Session) -> PodcastPartModel | None:
     db.commit()
     db.refresh(part)
     return part
+
+
+def _find_next_queued_part(db: Session, *, podcast_id: str) -> PodcastPartModel | None:
+    """Return the first queued part (by sort_order) for the given podcast, or None."""
+    return db.execute(
+        select(PodcastPartModel)
+        .where(
+            PodcastPartModel.podcast_id == podcast_id,
+            PodcastPartModel.status == "queued",
+        )
+        .order_by(PodcastPartModel.sort_order.asc())
+        .limit(1)
+    ).scalar_one_or_none()
 
 
 def _build_auto_part_plan(
