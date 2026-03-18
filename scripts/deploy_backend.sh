@@ -64,6 +64,13 @@ build_backend() {
   APP_GIT_SHA="$(git rev-parse HEAD)"
   export COMPOSE_IGNORE_ORPHANS=1
 
+  # Ensure CORS_HANDLED_BY_PROXY is in the env file so Cloudflare's own
+  # CORS headers aren't duplicated by FastAPI's CORSMiddleware.
+  if ! grep -q "CORS_HANDLED_BY_PROXY" "${ENV_FILE}" 2>/dev/null; then
+    log "adding CORS_HANDLED_BY_PROXY=1 to ${ENV_FILE}"
+    printf '\nCORS_HANDLED_BY_PROXY=1\n' >> "${ENV_FILE}"
+  fi
+
   log "building backend images for ${APP_GIT_SHA}"
   docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --pull api worker
 

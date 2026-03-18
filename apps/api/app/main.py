@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -42,51 +43,22 @@ for logger_name in list(logging.Logger.manager.loggerDict):
 origins = [origin.strip() for origin in settings.app_cors_origins.split(",") if origin.strip()]
 allow_all_origins = not origins or "*" in origins
 
-
-class _DeduplicateCORSHeadersMiddleware:
-    """Strip duplicate Access-Control-Allow-Origin headers.
-
-    When the app sits behind a reverse-proxy (e.g. Cloudflare) that injects
-    its own CORS headers *and* FastAPI's CORSMiddleware also adds them, the
-    browser sees ``*, *`` and rejects the response.  This middleware runs
-    outermost so it can collapse duplicates back to a single value.
-    """
-
-    def __init__(self, app):  # noqa: D107
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        async def dedup_send(message):
-            if message["type"] == "http.response.start":
-                raw_headers = message.get("headers", [])
-                seen_cors = False
-                cleaned = []
-                for key, value in raw_headers:
-                    if key == b"access-control-allow-origin":
-                        if seen_cors:
-                            continue  # drop duplicate
-                        seen_cors = True
-                    cleaned.append((key, value))
-                message["headers"] = cleaned
-            await send(message)
-
-        await self.app(scope, receive, dedup_send)
-
-
-# Dedup middleware is added first so it wraps outermost (ASGI onion model).
-app.add_middleware(_DeduplicateCORSHeadersMiddleware)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if allow_all_origins else origins,
-    allow_credentials=not allow_all_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# When APP_CORS_ORIGINS is set to "proxy" (or CORS_HANDLED_BY_PROXY is set),
+# a reverse-proxy like Cloudflare already injects CORS headers.  Adding them
+# here too produces duplicate "Access-Control-Allow-Origin: *, *" which
+# browsers reject.  Skip the middleware in that case.
+_cors_delegated = (
+    settings.app_cors_origins.strip().lower() == "proxy"
+    or os.environ.get("CORS_HANDLED_BY_PROXY", "") != ""
 )
+if not _cors_delegated:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"] if allow_all_origins else origins,
+        allow_credentials=not allow_all_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 if settings.storage_backend.lower() == "local":
     local_upload_dir = Path(settings.local_upload_dir)
