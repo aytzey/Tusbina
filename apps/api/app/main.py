@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -42,13 +43,18 @@ for logger_name in list(logging.Logger.manager.loggerDict):
 origins = [origin.strip() for origin in settings.app_cors_origins.split(",") if origin.strip()]
 allow_all_origins = not origins or "*" in origins
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if allow_all_origins else origins,
-    allow_credentials=not allow_all_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# When behind a reverse proxy (e.g. Cloudflare) that already injects CORS
+# headers, the browser sees duplicate Access-Control-Allow-Origin values
+# ("*, *") and rejects the response.  Skip the FastAPI CORS middleware when
+# the CORS_HANDLED_BY_PROXY env flag is set; otherwise keep it for local dev.
+if not os.environ.get("CORS_HANDLED_BY_PROXY"):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"] if allow_all_origins else origins,
+        allow_credentials=not allow_all_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 if settings.storage_backend.lower() == "local":
     local_upload_dir = Path(settings.local_upload_dir)
