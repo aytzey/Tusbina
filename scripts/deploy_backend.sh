@@ -64,12 +64,17 @@ build_backend() {
   APP_GIT_SHA="$(git rev-parse HEAD)"
   export COMPOSE_IGNORE_ORPHANS=1
 
-  # Ensure CORS_HANDLED_BY_PROXY is in the env file so Cloudflare's own
-  # CORS headers aren't duplicated by FastAPI's CORSMiddleware.
-  if ! grep -q "CORS_HANDLED_BY_PROXY" "${ENV_FILE}" 2>/dev/null; then
-    log "adding CORS_HANDLED_BY_PROXY=1 to ${ENV_FILE}"
-    printf '\nCORS_HANDLED_BY_PROXY=1\n' >> "${ENV_FILE}"
+  # Cloudflare already injects CORS headers; tell FastAPI to skip its own
+  # CORSMiddleware by setting APP_CORS_ORIGINS=proxy in the env file.
+  if grep -q "^APP_CORS_ORIGINS=" "${ENV_FILE}" 2>/dev/null; then
+    sed -i 's/^APP_CORS_ORIGINS=.*/APP_CORS_ORIGINS=proxy/' "${ENV_FILE}"
+  else
+    printf '\nAPP_CORS_ORIGINS=proxy\n' >> "${ENV_FILE}"
   fi
+  if ! grep -q "CORS_HANDLED_BY_PROXY" "${ENV_FILE}" 2>/dev/null; then
+    printf 'CORS_HANDLED_BY_PROXY=1\n' >> "${ENV_FILE}"
+  fi
+  log "CORS delegation configured for proxy"
 
   log "building backend images for ${APP_GIT_SHA}"
   docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build --pull api worker
