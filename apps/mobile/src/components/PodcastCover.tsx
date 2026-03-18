@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { SvgUri } from "react-native-svg";
 import { PodcastArtwork } from "./PodcastArtwork";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 interface PodcastCoverProps {
   uri?: string;
@@ -68,6 +68,6 @@ const styles = StyleSheet.create({
   badgeText: {
     ...typography.caption,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
 });

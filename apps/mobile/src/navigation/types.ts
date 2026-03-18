@@ -16,7 +16,6 @@ export type RootStackParamList = {
   CourseDetail: { courseId: string };
   Player: { trackId?: string; sourceType?: "course" | "ai" } | undefined;
   UploadStep2: undefined;
-  UploadStep3: undefined;
   Uploading: undefined;
   Premium: undefined;
   Quiz: { podcastId: string };

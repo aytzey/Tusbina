@@ -7,7 +7,7 @@ import { LEGAL_DOCUMENT_LINKS } from "@/content/legal";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   docRow: {
     flexDirection: "row",
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   secondaryButton: {
     height: 48,

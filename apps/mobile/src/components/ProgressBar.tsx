@@ -1,6 +1,8 @@
-import { useRef } from "react";
-import { GestureResponderEvent, LayoutChangeEvent, StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, GestureResponderEvent, LayoutChangeEvent, StyleSheet, View } from "react-native";
 import { colors, radius } from "@/theme";
+
+const EASE_OUT_EXPO = Easing.bezier(0.16, 1, 0.3, 1);
 
 interface ProgressBarProps {
   progress: number;
@@ -9,8 +11,35 @@ interface ProgressBarProps {
 }
 
 export function ProgressBar({ progress, buffering, onSeek }: ProgressBarProps) {
-  const width = `${Math.max(0, Math.min(100, progress))}%` as `${number}%`;
   const trackWidth = useRef(0);
+  const animProgress = useRef(new Animated.Value(progress)).current;
+  const pulseOpacity = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    Animated.timing(animProgress, {
+      toValue: Math.max(0, Math.min(100, progress)),
+      duration: 350,
+      easing: EASE_OUT_EXPO,
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
+
+  /* Buffering pulse */
+  useEffect(() => {
+    pulseAnim.current?.stop();
+    if (buffering) {
+      pulseAnim.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseOpacity, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(pulseOpacity, { toValue: 0.3, duration: 600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        ]),
+      );
+      pulseAnim.current.start();
+    } else {
+      Animated.timing(pulseOpacity, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+    }
+  }, [buffering]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     trackWidth.current = e.nativeEvent.layout.width;
@@ -23,6 +52,20 @@ export function ProgressBar({ progress, buffering, onSeek }: ProgressBarProps) {
     onSeek(pct);
   };
 
+  const fillWidth = animProgress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+
+  const thumbLeft = animProgress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+
+  const showThumb = onSeek && progress > 0 && progress < 100;
+
   return (
     <View
       style={styles.track}
@@ -32,10 +75,10 @@ export function ProgressBar({ progress, buffering, onSeek }: ProgressBarProps) {
       onResponderGrant={handleTouch}
       onResponderMove={handleTouch}
     >
-      {buffering && <View style={styles.pulse} />}
-      <View style={[styles.fill, { width }]} />
-      {onSeek && progress > 0 && progress < 100 && (
-        <View style={[styles.thumb, { left: width }]} />
+      <Animated.View style={[styles.pulse, { opacity: pulseOpacity }]} />
+      <Animated.View style={[styles.fill, { width: fillWidth }]} />
+      {showThumb && (
+        <Animated.View style={[styles.thumb, { left: thumbLeft }]} />
       )}
     </View>
   );

@@ -17,7 +17,7 @@ import { LEGAL_DOCUMENT_LINKS } from "@/content/legal";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/state/stores/authStore";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
-  socialLabel: { ...typography.body, color: colors.textPrimary, fontWeight: "600" },
+  socialLabel: { ...typography.body, color: colors.textPrimary, ...fw.semiBold },
   helperText: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
   dividerText: { ...typography.caption, color: colors.textSecondary },
   form: { gap: spacing.md },
   inputGroup: { gap: spacing.xs },
-  label: { ...typography.caption, color: colors.textSecondary, fontWeight: "600" },
+  label: { ...typography.caption, color: colors.textSecondary, ...fw.semiBold },
   input: {
     height: 48,
     backgroundColor: colors.cardBg,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   legalTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   linkWrap: {
     flexDirection: "row",
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   buttonLabel: { ...typography.button, color: colors.textPrimary },
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   footerText: { ...typography.body, color: colors.textSecondary },
-  footerLink: { ...typography.body, color: colors.motivationOrange, fontWeight: "700" },
+  footerLink: { ...typography.body, color: colors.motivationOrange, ...fw.bold },
   confirmationBox: {
     flex: 1,
     alignItems: "center",
@@ -413,5 +413,5 @@ const styles = StyleSheet.create({
   },
   confirmTitle: { ...typography.title, color: colors.textPrimary, textAlign: "center" },
   confirmText: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
-  confirmHint: { ...typography.caption, color: colors.motivationOrange, textAlign: "center", fontWeight: "600" },
+  confirmHint: { ...typography.caption, color: colors.motivationOrange, textAlign: "center", ...fw.semiBold },
 });

@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { PrimaryButton, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { usePlayerStore, useQuizStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   questionBadgeText: {
     ...typography.caption,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
     fontVariant: ["tabular-nums"] as const
   },
   scoreText: {
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   letterText: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "700"
+    ...fw.bold,
   },
   optionLabel: {
     ...typography.body,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   explanationTitle: {
     ...typography.caption,
     color: colors.success,
-    fontWeight: "700",
+    ...fw.bold,
     fontSize: 14
   },
   explanationText: {
@@ -404,12 +404,12 @@ const styles = StyleSheet.create({
   navBtnOutlinedLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "600"
+    ...fw.semiBold,
   },
   footerCounter: {
     ...typography.body,
     color: colors.textSecondary,
-    fontWeight: "600",
+    ...fw.semiBold,
     fontVariant: ["tabular-nums"] as const
   },
   navBtnFilled: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   navBtnFilledLabel: {
     ...typography.body,
     color: "#FFFFFF",
-    fontWeight: "700"
+    ...fw.bold,
   },
   navBtnDisabled: {
     opacity: 0.4

@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useAuthStore } from "@/state/stores/authStore";
-import { colors, radius, shadows, spacing, typography } from "@/theme";
+import { FadeInView, colors, fw, radius, shadows, spacing, typography } from "@/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -83,7 +83,7 @@ export function LoginScreen() {
             onPress={signInWithApple}
             style={({ pressed }) => [styles.socialBtn, styles.appleBtn, pressed && styles.btnPressed]}
           >
-            <Ionicons name="logo-apple" size={20} color="#1D1D1F" />
+            <Ionicons name="logo-apple" size={20} color={colors.appleText} />
             <Text style={[styles.socialLabel, styles.appleBtnLabel]}>Apple ile Devam Et</Text>
           </Pressable>
         ) : null}
@@ -113,7 +113,7 @@ export function LoginScreen() {
             <Text style={styles.emailToggleText}>E-posta ile giriş yap</Text>
           </Pressable>
         ) : (
-          <View style={styles.emailForm}>
+          <FadeInView style={styles.emailForm}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>E-posta</Text>
               <TextInput
@@ -162,10 +162,10 @@ export function LoginScreen() {
             </View>
 
             {error ? (
-              <View style={styles.errorCard}>
+              <FadeInView style={styles.errorCard}>
                 <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
                 <Text style={styles.error}>{error}</Text>
-              </View>
+              </FadeInView>
             ) : null}
 
             <Pressable
@@ -183,7 +183,7 @@ export function LoginScreen() {
                 <Text style={styles.loginBtnLabel}>Giriş Yap</Text>
               )}
             </Pressable>
-          </View>
+          </FadeInView>
         )}
 
         {/* ---- Footer ---- */}
@@ -220,45 +220,42 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   logoRing: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 2,
-    borderColor: colors.premiumGold,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 1.5,
+    borderColor: "rgba(212,170,85,0.35)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(189,148,101,0.06)",
+    backgroundColor: colors.goldTint,
     marginBottom: spacing.sm,
-    shadowColor: colors.premiumGold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 6,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
   },
   brandTitle: {
-    ...typography.hero,
+    ...typography.title,
     color: colors.textPrimary,
-    letterSpacing: 4,
+    letterSpacing: 3,
+    fontSize: 32,
   },
   brandSubtitle: {
-    ...typography.bodyMedium,
+    ...typography.caption,
     color: colors.motivationOrange,
-    letterSpacing: 1.5,
+    letterSpacing: 2,
+    ...fw.semiBold,
   },
 
   /* ---- Primary CTA ---- */
   primaryBtn: {
-    height: 54,
-    borderRadius: radius.pill,
+    height: 56,
+    borderRadius: radius.md,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.subtle,
+    ...shadows.glow(colors.motivationOrange),
   },
   primaryBtnLabel: {
     ...typography.button,
@@ -288,16 +285,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.dividerStrong,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
   },
   appleBtn: {
-    backgroundColor: "#F5F5F7",
-    borderColor: "#F5F5F7",
+    backgroundColor: colors.appleSurface,
+    borderColor: colors.appleSurface,
   },
   appleBtnLabel: {
-    color: "#1D1D1F",
+    color: colors.appleText,
   },
   googleBtn: {
     backgroundColor: colors.cardBg,
@@ -305,7 +301,7 @@ const styles = StyleSheet.create({
   socialLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   socialHint: {
     ...typography.caption,
@@ -325,7 +321,7 @@ const styles = StyleSheet.create({
   emailToggleText: {
     ...typography.body,
     color: colors.motivationOrange,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
 
   /* ---- Email Form ---- */
@@ -338,7 +334,7 @@ const styles = StyleSheet.create({
   label: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   input: {
     height: 52,
@@ -376,17 +372,18 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(183,68,68,0.35)",
-    backgroundColor: "rgba(183,68,68,0.12)",
+    borderColor: "rgba(232,91,91,0.25)",
+    backgroundColor: colors.dangerTint,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   loginBtn: {
-    height: 54,
-    borderRadius: radius.pill,
+    height: 56,
+    borderRadius: radius.md,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.glow(colors.motivationOrange),
   },
   loginBtnLabel: {
     ...typography.button,
@@ -414,7 +411,7 @@ const styles = StyleSheet.create({
   footerLink: {
     ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "700",
+    ...fw.bold,
   },
   tagline: {
     ...typography.small,

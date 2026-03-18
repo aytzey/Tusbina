@@ -6,39 +6,40 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useCoursesStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { StaggerView, colors, fw, radius, spacing, typography } from "@/theme";
 import { EmptyCoursesScreen } from "@/screens/States/EmptyCoursesScreen";
 import { formatDuration, getSpecialtyColor, getSpecialtyIcon } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
-
-const categories = ["Tümü", "Temel Tıp", "Klinik", "Cerrahi"];
 
 export function CoursesCatalogScreen() {
   const navigation = useNavigation<Navigation>();
   const courses = useCoursesStore((state) => state.courses);
   const selectCourse = useCoursesStore((state) => state.selectCourse);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("Tümü");
 
   const filteredCourses = useMemo(() => {
-    return courses.filter((course) => {
-      const matchesCategory = category === "Tümü" || course.category === category;
-      const matchesQuery = course.title.toLowerCase().includes(query.toLowerCase());
-      return matchesCategory && matchesQuery;
-    });
-  }, [category, courses, query]);
+    if (!query) return courses;
+    const q = query.toLowerCase();
+    return courses.filter((course) => course.title.toLowerCase().includes(q));
+  }, [courses, query]);
 
   const openCourse = async (courseId: string) => {
     await selectCourse(courseId);
     navigation.navigate("CourseDetail", { courseId });
   };
 
+  if (courses.length === 0) {
+    return (
+      <ScreenContainer contentStyle={styles.container}>
+        <EmptyCoursesScreen onExplore={() => {}} />
+      </ScreenContainer>
+    );
+  }
+
   return (
     <ScreenContainer contentStyle={styles.container}>
-      <Text style={styles.title}>Dersler</Text>
-
-      <View style={styles.searchWrapper}>
+      <StaggerView index={0} style={styles.searchWrapper}>
         <Ionicons name="search-outline" size={18} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           placeholder="Ders ara..."
@@ -47,72 +48,56 @@ export function CoursesCatalogScreen() {
           value={query}
           onChangeText={setQuery}
         />
-      </View>
+      </StaggerView>
 
-      <View style={styles.categoryRow}>
-        {categories.map((chip) => (
-          <Pressable
-            key={chip}
-            style={({ pressed }) => [styles.chip, chip === category && styles.chipActive, pressed && styles.chipPressed]}
-            onPress={() => setCategory(chip)}
-          >
-            <Text style={[styles.chipLabel, chip === category && styles.chipLabelActive]}>{chip}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <FlatList
+        data={filteredCourses}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => {
+          const iconColor = getSpecialtyColor(item.title);
+          const iconName = getSpecialtyIcon(item.title);
 
-      {filteredCourses.length === 0 ? (
-        <EmptyCoursesScreen onExplore={() => setCategory("Tümü")} />
-      ) : (
-        <FlatList
-          data={filteredCourses}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const iconColor = getSpecialtyColor(item.title);
-            const iconName = getSpecialtyIcon(item.title);
-
-            return (
-              <Pressable
-                style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}
-                onPress={() => void openCourse(item.id)}
-              >
-                <View style={[styles.cardIcon, { backgroundColor: iconColor }]}>
-                  <Ionicons name={iconName} size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.cardMain}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={styles.cardMeta}>
-                    {item.totalParts} bölüm  ·  {formatDuration(item.totalDurationSec)}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-              </Pressable>
-            );
-          }}
-        />
-      )}
+          return (
+            <Pressable
+              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              onPress={() => void openCourse(item.id)}
+            >
+              <View style={[styles.cardIcon, { backgroundColor: iconColor }]}>
+                <Ionicons name={iconName} size={20} color={colors.textPrimary} />
+              </View>
+              <View style={styles.cardMain}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.cardMeta}>
+                  {item.totalParts} bölüm  ·  {formatDuration(item.totalDurationSec)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </Pressable>
+          );
+        }}
+        ListEmptyComponent={
+          <Text style={styles.noResults}>"{query}" ile eşleşen ders bulunamadı.</Text>
+        }
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  title: {
-    ...typography.title,
-    color: colors.textPrimary,
-    textAlign: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    gap: spacing.lg,
   },
   searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: 46,
-    borderRadius: radius.pill,
+    height: 48,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.dividerStrong,
+    borderColor: colors.divider,
     backgroundColor: colors.cardBg,
     paddingHorizontal: spacing.md,
   },
@@ -124,32 +109,6 @@ const styles = StyleSheet.create({
     height: "100%",
     color: colors.textPrimary,
     ...typography.input,
-  },
-  categoryRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.dividerStrong,
-  },
-  chipActive: {
-    backgroundColor: colors.motivationOrange,
-    borderColor: colors.motivationOrange,
-  },
-  chipPressed: {
-    opacity: 0.7,
-  },
-  chipLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  chipLabelActive: {
-    color: colors.textPrimary,
   },
   listContent: {
     paddingBottom: spacing.xxxl,
@@ -165,24 +124,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
+  cardPressed: {
+    opacity: 0.85,
+  },
   cardIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.md,
+    width: 42,
+    height: 42,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
   cardMain: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 3,
   },
   cardTitle: {
-    ...typography.bodyMedium,
+    ...typography.bodySmall,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.semiBold,
   },
   cardMeta: {
-    ...typography.caption,
+    ...typography.small,
     color: colors.textSecondary,
+  },
+  noResults: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: spacing.xxl,
   },
 });

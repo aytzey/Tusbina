@@ -51,9 +51,14 @@ export async function uploadPdfFiles(files: UploadFileItem[]): Promise<ApiUpload
   for (const file of files) {
     const normalizedName = normalizeUploadFilename(file.name, file.mimeType);
     if (isWeb) {
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-      formData.append("files", new File([blob], normalizedName, { type: file.mimeType || "application/pdf" }));
+      try {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        formData.append("files", new File([blob], normalizedName, { type: file.mimeType || "application/pdf" }));
+      } catch (blobError) {
+        console.error("[uploadPdfFiles] Failed to fetch blob from URI:", file.uri, blobError);
+        throw blobError;
+      }
     } else {
       formData.append(
         "files",
@@ -66,6 +71,7 @@ export async function uploadPdfFiles(files: UploadFileItem[]): Promise<ApiUpload
     }
   }
 
+  console.log("[uploadPdfFiles] Sending FormData with", files.length, "files to /upload");
   return apiRequest<ApiUploadResponse>("/upload", {
     method: "POST",
     body: formData,

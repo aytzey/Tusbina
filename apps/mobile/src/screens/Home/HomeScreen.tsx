@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { ScreenContainer } from "@/components";
+import { AnimatedProgressRing, RollingNumber, ScreenContainer } from "@/components";
 import {
   useAuthStore,
   useCoursesStore,
@@ -10,7 +10,7 @@ import {
   usePlayerStore,
   useUserStore,
 } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { StaggerView, colors, fw, radius, spacing, typography } from "@/theme";
 import { formatDuration, getSpecialtyColor, getSpecialtyIcon } from "@/utils";
 
 function getGreeting(): string {
@@ -27,6 +27,7 @@ export function HomeScreen() {
   const courses = useCoursesStore((s) => s.courses);
   const selectCourse = useCoursesStore((s) => s.selectCourse);
   const activeTrack = usePlayerStore((s) => s.activeTrack);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const positionSec = usePlayerStore((s) => s.positionSec);
   const user = useUserStore((s) => s.user);
   const dailyGoalMin = useLearningToolsStore((s) => s.dailyGoalMin);
@@ -34,13 +35,15 @@ export function HomeScreen() {
 
   const displayName = useMemo(
     () => authUser?.user_metadata?.display_name || authUser?.email?.split("@")[0] || "Doktor",
-    [authUser?.email, authUser?.user_metadata?.display_name]
+    [authUser?.email, authUser?.user_metadata?.display_name],
   );
 
   const greeting = useMemo(() => getGreeting(), []);
   const dailyGoalSec = dailyGoalMin * 60;
-  const dailyGoalProgress = dailyGoalSec > 0 ? Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100)) : 0;
+  const dailyGoalProgress =
+    dailyGoalSec > 0 ? Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100)) : 0;
   const remainingGoalSec = Math.max(0, dailyGoalSec - todayListenedSec);
+  const goalComplete = remainingGoalSec === 0 && dailyGoalSec > 0;
 
   const continueItem = useMemo(() => {
     if (activeTrack) {
@@ -77,10 +80,12 @@ export function HomeScreen() {
     navigation.navigate("CourseDetail", { courseId });
   };
 
+  let sectionIndex = 0;
+
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      {/* ---- Header ---- */}
-      <View style={styles.header}>
+      {/* ── Header ── */}
+      <StaggerView index={sectionIndex++} style={styles.header}>
         <View style={styles.headerLeft}>
           <Image
             source={require("../../../assets/logo.png")}
@@ -89,77 +94,72 @@ export function HomeScreen() {
           />
           <Text style={styles.headerBrand}>TUSBINA</Text>
         </View>
-        <Pressable style={styles.notifButton} hitSlop={8} onPress={() => navigation.navigate("Notifications")}>
-          <Ionicons name="sync-outline" size={22} color={colors.textPrimary} />
+        <Pressable
+          style={({ pressed }) => [styles.notifButton, pressed && { opacity: 0.7 }]}
+          hitSlop={8}
+          onPress={() => navigation.navigate("Notifications")}
+        >
+          <Ionicons name="sync-outline" size={20} color={colors.textSecondary} />
         </Pressable>
-      </View>
+      </StaggerView>
 
-      {/* ---- Greeting ---- */}
-      <Text style={styles.greeting}>{greeting}, {displayName}!</Text>
-      <Text style={styles.greetingSub}>Bugün ne dinlemek istersin?</Text>
+      {/* ── Greeting ── */}
+      <StaggerView index={sectionIndex++} style={styles.greetingBlock}>
+        <Text style={styles.greeting}>{greeting},</Text>
+        <Text style={styles.greetingName}>{displayName}</Text>
+        <Text style={styles.greetingSub}>Bugün ne dinlemek istersin?</Text>
+      </StaggerView>
 
-      {/* ---- Search Bar ---- */}
-      <Pressable
-        style={({ pressed }) => [styles.searchBar, pressed && styles.searchBarPressed]}
-        onPress={() => navigation.navigate("CoursesTab")}
-      >
-        <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
-        <Text style={styles.searchPlaceholder}>Ders veya konu ara...</Text>
-      </Pressable>
-
-      <Pressable style={({ pressed }) => [styles.goalCard, pressed && styles.goalCardPressed]} onPress={() => navigation.navigate("StudyTools")}>
-        <View style={styles.goalHeader}>
-          <View style={styles.goalTitleRow}>
-            <View style={styles.goalIconWrap}>
-              <Ionicons name="headset-outline" size={18} color={colors.motivationOrange} />
-            </View>
-            <View style={styles.goalTitleBlock}>
-              <Text style={styles.goalTitle}>Günlük dinleme hedefi</Text>
-              <Text style={styles.goalSubtitle}>
-                {formatDuration(todayListenedSec)} / {dailyGoalMin} dk
-              </Text>
-            </View>
+      {/* ── Goal Card with Progress Ring ── */}
+      <StaggerView index={sectionIndex++}>
+        <Pressable
+          style={({ pressed }) => [styles.goalCard, goalComplete && styles.goalCardComplete, pressed && { opacity: 0.9 }]}
+          onPress={() => navigation.navigate("StudyTools")}
+        >
+          <View style={styles.goalLeft}>
+            <AnimatedProgressRing
+              progress={dailyGoalProgress}
+              size={72}
+              strokeWidth={5}
+              breathing={isPlaying}
+            >
+              <RollingNumber
+                value={dailyGoalProgress}
+                prefix="%"
+                style={styles.ringPercent}
+              />
+            </AnimatedProgressRing>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-        </View>
-        <View style={styles.goalProgressTrack}>
-          <View style={[styles.goalProgressFill, { width: `${dailyGoalProgress}%` as const }]} />
-        </View>
-        <Text style={styles.goalHint}>
-          {remainingGoalSec > 0
-            ? `${formatDuration(remainingGoalSec)} kaldı. Çalışma sayfasını aç`
-            : "Bugünkü hedef tamamlandı. Çalışma sayfasından planını güncelle"}
-        </Text>
-      </Pressable>
 
-      {/* ---- Quick Stats ---- */}
-      <View style={styles.quickStats}>
-        <Pressable style={({ pressed }) => [styles.quickStatCard, styles.quickStatCourses, pressed && styles.quickStatPressed]} onPress={() => navigation.navigate("CoursesTab")}>
-          <Ionicons name="book-outline" size={20} color={colors.success} />
-          <Text style={styles.quickStatValue}>{courses.length}</Text>
-          <Text style={styles.quickStatLabel}>Ders</Text>
-        </Pressable>
-        <Pressable style={({ pressed }) => [styles.quickStatCard, styles.quickStatUpload, pressed && styles.quickStatPressed]} onPress={() => navigation.navigate("UploadTab")}>
-          <Ionicons name="cloud-upload-outline" size={20} color={colors.premiumGold} />
-          <Text style={styles.quickStatValue}>Yükle</Text>
-          <Text style={styles.quickStatLabel}>PDF</Text>
-        </Pressable>
-        <Pressable style={({ pressed }) => [styles.quickStatCard, styles.quickStatStatus, pressed && styles.quickStatPressed]} onPress={() => navigation.navigate("Notifications")}>
-          <Ionicons name="sync-outline" size={20} color={colors.textPrimary} />
-          <Text style={styles.quickStatValue}>Aç</Text>
-          <Text style={styles.quickStatLabel}>İşlemler</Text>
-        </Pressable>
-      </View>
+          <View style={styles.goalRight}>
+            <Text style={styles.goalLabel}>Günlük Hedef</Text>
+            <Text style={styles.goalTime}>
+              {formatDuration(todayListenedSec)}
+              <Text style={styles.goalTimeDim}> / {dailyGoalMin} dk</Text>
+            </Text>
+            <Text style={styles.goalHint}>
+              {goalComplete
+                ? "Bugünkü hedef tamamlandı!"
+                : `${formatDuration(remainingGoalSec)} kaldı`}
+            </Text>
+          </View>
 
-      {/* ---- Continue Listening ---- */}
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </Pressable>
+      </StaggerView>
+
+      {/* ── Continue Listening ── */}
       {continueItem ? (
-        <View style={styles.continueSection}>
-          <Text style={styles.sectionTitle}>Devam Et</Text>
-          <Pressable style={styles.continueCard} onPress={handleContinue}>
+        <StaggerView index={sectionIndex++}>
+          <Pressable
+            style={({ pressed }) => [styles.continueCard, pressed && { opacity: 0.9 }]}
+            onPress={handleContinue}
+          >
             <View style={styles.continuePlay}>
-              <Ionicons name="play" size={20} color={colors.textPrimary} />
+              <Ionicons name="play" size={18} color={colors.textPrimary} />
             </View>
             <View style={styles.continueInfo}>
+              <Text style={styles.continueLabel}>Kaldığın yerden</Text>
               <Text style={styles.continueTitle} numberOfLines={1}>
                 {continueItem.title}
               </Text>
@@ -167,43 +167,100 @@ export function HomeScreen() {
                 {continueItem.subtitle}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
           </Pressable>
-        </View>
+        </StaggerView>
       ) : null}
 
-      {/* ---- Courses Section ---- */}
-      <View style={styles.sectionHeader}>
+      {/* ── Quick Actions ── */}
+      <StaggerView index={sectionIndex++} style={styles.quickActions}>
+        <Pressable
+          style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.8 }]}
+          onPress={() => navigation.navigate("CoursesTab")}
+        >
+          <View style={[styles.quickActionIcon, { backgroundColor: colors.greenTint }]}>
+            <Ionicons name="book-outline" size={20} color={colors.success} />
+          </View>
+          <View style={styles.quickActionText}>
+            <RollingNumber value={courses.length} style={styles.quickActionValue} />
+            <Text style={styles.quickActionLabel}>Ders</Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.8 }]}
+          onPress={() => navigation.navigate("UploadTab")}
+        >
+          <View style={[styles.quickActionIcon, { backgroundColor: colors.goldTint }]}>
+            <Ionicons name="add-outline" size={22} color={colors.premiumGold} />
+          </View>
+          <View style={styles.quickActionText}>
+            <Text style={styles.quickActionValue}>Yükle</Text>
+            <Text style={styles.quickActionLabel}>PDF</Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.8 }]}
+          onPress={() => navigation.navigate("Notifications")}
+        >
+          <View style={[styles.quickActionIcon, { backgroundColor: colors.blueTint }]}>
+            <Ionicons name="sync-outline" size={20} color={colors.info} />
+          </View>
+          <View style={styles.quickActionText}>
+            <Text style={styles.quickActionValue}>Durum</Text>
+            <Text style={styles.quickActionLabel}>İşlemler</Text>
+          </View>
+        </Pressable>
+      </StaggerView>
+
+      {/* ── Courses Section ── */}
+      <StaggerView index={sectionIndex++} style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Dersler</Text>
-        <Pressable onPress={() => navigation.navigate("CoursesTab")}>
+        <Pressable
+          onPress={() => navigation.navigate("CoursesTab")}
+          hitSlop={8}
+        >
           <Text style={styles.seeAll}>Tümünü Gör</Text>
         </Pressable>
-      </View>
+      </StaggerView>
 
       <View style={styles.courseList}>
-        {courses.slice(0, 7).map((course) => {
+        {courses.slice(0, 7).map((course, i) => {
           const iconColor = getSpecialtyColor(course.title);
           const iconName = getSpecialtyIcon(course.title);
+          const completedParts = course.parts.filter((p) => p.status === "completed").length;
+          const progressPct = course.totalParts > 0 ? Math.round((completedParts / course.totalParts) * 100) : 0;
 
           return (
-            <Pressable
+            <StaggerView
               key={course.id}
-              style={({ pressed }) => [styles.courseCard, pressed && styles.courseCardPressed]}
-              onPress={() => void openCourse(course.id)}
+              index={sectionIndex + i}
             >
-              <View style={[styles.courseIcon, { backgroundColor: iconColor }]}>
-                <Ionicons name={iconName} size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.courseMain}>
-                <Text style={styles.courseTitle} numberOfLines={1}>
-                  {course.title}
-                </Text>
-                <Text style={styles.courseMeta}>
-                  {course.totalParts} Bölüm · {formatDuration(course.totalDurationSec)}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-            </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.courseCard, pressed && { opacity: 0.85 }]}
+                onPress={() => void openCourse(course.id)}
+              >
+                <View style={[styles.courseAccent, { backgroundColor: iconColor }]} />
+                <View style={[styles.courseIcon, { backgroundColor: `${iconColor}20` }]}>
+                  <Ionicons name={iconName} size={20} color={iconColor} />
+                </View>
+                <View style={styles.courseMain}>
+                  <Text style={styles.courseTitle} numberOfLines={1}>
+                    {course.title}
+                  </Text>
+                  <Text style={styles.courseMeta}>
+                    {course.totalParts} Bölüm · {formatDuration(course.totalDurationSec)}
+                  </Text>
+                  {progressPct > 0 ? (
+                    <View style={styles.courseProgressTrack}>
+                      <View style={[styles.courseProgressFill, { width: `${progressPct}%` as `${number}%`, backgroundColor: iconColor }]} />
+                    </View>
+                  ) : null}
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+              </Pressable>
+            </StaggerView>
           );
         })}
       </View>
@@ -218,7 +275,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
 
-  /* ---- Header ---- */
+  /* ── Header ── */
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -231,15 +288,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   headerLogo: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.sm,
+    width: 32,
+    height: 32,
+    borderRadius: radius.xs,
   },
   headerBrand: {
-    ...typography.body,
+    ...typography.h3,
     color: colors.textPrimary,
-    fontWeight: "700",
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   notifButton: {
     width: 44,
@@ -248,150 +304,93 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.divider,
   },
 
-  /* ---- Greeting ---- */
+  /* ── Greeting ── */
+  greetingBlock: {
+    marginBottom: spacing.sm,
+  },
   greeting: {
     ...typography.title,
+    color: colors.textSecondary,
+    fontSize: 24,
+    lineHeight: 30,
+  },
+  greetingName: {
+    ...typography.title,
     color: colors.textPrimary,
+    fontSize: 28,
+    lineHeight: 34,
+    marginBottom: spacing.xs,
   },
   greetingSub: {
     ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    color: colors.textTertiary,
   },
 
-  /* ---- Search ---- */
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 48,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.dividerStrong,
-    backgroundColor: colors.cardBg,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  searchPlaceholder: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-
+  /* ── Goal Card ── */
   goalCard: {
     borderRadius: radius.lg,
     backgroundColor: colors.cardBgElevated,
     padding: spacing.lg,
-    gap: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
     borderWidth: 1,
     borderColor: colors.divider,
   },
-  goalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
+  goalCardComplete: {
+    borderColor: "rgba(212,170,85,0.3)",
+    backgroundColor: colors.goldTint,
   },
-  goalTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    flex: 1,
-  },
-  goalIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  goalLeft: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.orangeTint,
   },
-  goalTitleBlock: {
+  goalRight: {
     flex: 1,
     gap: 2,
   },
-  goalTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  goalSubtitle: {
+  ringPercent: {
     ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "700",
+    ...fw.extraBold,
+    fontSize: 15,
     fontVariant: ["tabular-nums"] as const,
   },
-  goalProgressTrack: {
-    height: 8,
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-  },
-  goalProgressFill: {
-    height: "100%",
-    backgroundColor: colors.motivationOrange,
-  },
-  goalHint: {
+  goalLabel: {
     ...typography.caption,
     color: colors.textSecondary,
+    ...fw.semiBold,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+    fontSize: 11,
   },
-
-  /* ---- Quick Stats ---- */
-  quickStats: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginVertical: spacing.xs,
-  },
-  quickStatCard: {
-    flex: 1,
-    borderRadius: radius.md,
-    backgroundColor: colors.cardBg,
-    padding: spacing.md,
-    alignItems: "center",
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  quickStatCourses: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.success,
-  },
-  quickStatUpload: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.premiumGold,
-  },
-  quickStatStatus: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.textPrimary,
-  },
-  quickStatValue: {
-    fontSize: 16,
-    fontWeight: "700",
+  goalTime: {
+    ...typography.h3,
     color: colors.textPrimary,
     fontVariant: ["tabular-nums"] as const,
   },
-  quickStatLabel: {
-    ...typography.caption,
+  goalTimeDim: {
     color: colors.textSecondary,
-    fontSize: 11,
+    ...fw.regular,
+  },
+  goalHint: {
+    ...typography.small,
+    color: colors.motivationOrange,
+    marginTop: 2,
   },
 
-  /* ---- Continue ---- */
-  continueSection: {
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
+  /* ── Continue ── */
   continueCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.cardBgElevated,
+    backgroundColor: colors.orangeTint,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.motivationOrange,
+    borderWidth: 1,
+    borderColor: "rgba(232,130,74,0.15)",
   },
   continuePlay: {
     width: 44,
@@ -403,37 +402,82 @@ const styles = StyleSheet.create({
   },
   continueInfo: {
     flex: 1,
-    gap: 2,
+    gap: 1,
+  },
+  continueLabel: {
+    ...typography.small,
+    color: colors.motivationOrange,
+    ...fw.bold,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
   continueTitle: {
-    ...typography.body,
+    ...typography.bodyMedium,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.semiBold,
   },
   continueSub: {
     ...typography.caption,
-    color: colors.motivationOrange,
+    color: colors.textSecondary,
   },
 
-  /* ---- Section Header ---- */
+  /* ── Quick Actions ── */
+  quickActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginVertical: spacing.sm,
+  },
+  quickAction: {
+    flex: 1,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  quickActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickActionText: {
+    flex: 1,
+  },
+  quickActionValue: {
+    fontSize: 15,
+    ...fw.bold,
+    color: colors.textPrimary,
+    fontVariant: ["tabular-nums"] as const,
+  },
+  quickActionLabel: {
+    ...typography.small,
+    color: colors.textTertiary,
+  },
+
+  /* ── Section Header ── */
   sectionTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.textPrimary,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
   },
   seeAll: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
 
-  /* ---- Course Cards ---- */
+  /* ── Course Cards ── */
   courseList: {
     gap: spacing.sm,
   },
@@ -443,40 +487,45 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     borderRadius: radius.md,
     padding: spacing.md,
+    paddingLeft: 0,
     gap: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    overflow: "hidden",
   },
-  courseCardPressed: {
-    opacity: 0.8,
-  },
-  searchBarPressed: {
-    opacity: 0.7,
-  },
-  goalCardPressed: {
-    opacity: 0.85,
-  },
-  quickStatPressed: {
-    opacity: 0.75,
+  courseAccent: {
+    width: 3,
+    alignSelf: "stretch",
+    borderTopLeftRadius: radius.md,
+    borderBottomLeftRadius: radius.md,
   },
   courseIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.md,
+    width: 42,
+    height: 42,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
   courseMain: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 3,
   },
   courseTitle: {
-    ...typography.body,
+    ...typography.bodyMedium,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.semiBold,
   },
   courseMeta: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  courseProgressTrack: {
+    height: 3,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+    marginTop: 2,
+  },
+  courseProgressFill: {
+    height: "100%",
+    borderRadius: radius.pill,
   },
 });

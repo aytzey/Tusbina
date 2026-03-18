@@ -8,9 +8,9 @@ import { Podcast } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
 import { patchPodcastState } from "@/services/api";
 import { useCoursesStore, useDownloadsStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { PopView, StaggerView, configureListAnimation, colors, fw, radius, spacing, typography } from "@/theme";
+import { PrimaryButton } from "@/components";
 import { buildPodcastQueue, formatDuration, resolvePodcastQueueStart, stripDownloadState } from "@/utils";
-import { EmptyLibraryScreen } from "@/screens/States/EmptyLibraryScreen";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 type ListenFilter = "all" | "ai" | "favorites" | "downloaded";
@@ -38,6 +38,11 @@ export function PodcastLibraryScreen() {
   const courses = useCoursesStore((state) => state.courses);
 
   const [filter, setFilter] = useState<ListenFilter>("all");
+
+  const handleFilterChange = (key: ListenFilter) => {
+    configureListAnimation();
+    setFilter(key);
+  };
   const [deletingPodcastId, setDeletingPodcastId] = useState<string | null>(null);
 
   const filteredPodcasts = useMemo(() => {
@@ -141,30 +146,38 @@ export function PodcastLibraryScreen() {
 
   if (podcasts.length === 0) {
     return (
-      <ScreenContainer contentStyle={styles.container}>
-        <EmptyLibraryScreen onCreate={() => navigation.navigate("MainTabs", { screen: "UploadTab" })} />
+      <ScreenContainer contentStyle={styles.emptyContainer}>
+        <View style={styles.emptyIconCircle}>
+          <Ionicons name="musical-notes" size={36} color={colors.motivationOrange} />
+        </View>
+        <Text style={styles.emptyTitle}>Henüz podcast oluşturmadın</Text>
+        <Text style={styles.emptyDesc}>PDF yükleyip birkaç dakikada dinlenebilir içerik üretebilirsin.</Text>
+        <PrimaryButton label="PDF Yükle" onPress={() => navigation.navigate("MainTabs", { screen: "UploadTab" })} />
       </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer contentStyle={styles.container}>
-      <Text style={styles.title}>Podcast Kütüphanesi</Text>
+      <StaggerView index={0}>
+        <Text style={styles.title}>Podcast Kütüphanesi</Text>
+      </StaggerView>
 
-      <View style={styles.filtersRow}>
+      <StaggerView index={1} style={styles.filtersRow}>
         {FILTERS.map((item) => (
           <Pressable
             key={item.key}
             style={({ pressed }) => [styles.filterChip, filter === item.key && styles.filterChipActive, pressed && styles.filterChipPressed]}
-            onPress={() => setFilter(item.key)}
+            onPress={() => handleFilterChange(item.key)}
           >
             <Text style={[styles.filterLabel, filter === item.key && styles.filterLabelActive]}>{item.label}</Text>
           </Pressable>
         ))}
-      </View>
+      </StaggerView>
 
       {filteredPodcasts.length === 0 ? (
         <View style={styles.emptyFiltered}>
+          <Ionicons name="musical-notes-outline" size={32} color={colors.textTertiary} />
           <Text style={styles.emptyFilteredText}>Bu filtre için içerik bulunamadı.</Text>
         </View>
       ) : (
@@ -180,13 +193,13 @@ export function PodcastLibraryScreen() {
             const dlProgress = isDownloading ? getDownloadProgress(item.id) : null;
 
             return (
-              <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={() => handleOpenPodcast(item)}>
+              <Pressable style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]} onPress={() => handleOpenPodcast(item)}>
                 <PodcastCover
                   uri={item.coverImageUrl}
                   title={item.title}
                   subtitle="Podcast"
                   voice={item.voice}
-                  size={72}
+                  size={80}
                 />
 
                 <View style={styles.cardBody}>
@@ -195,37 +208,30 @@ export function PodcastLibraryScreen() {
                       ? courses.find((c) => c.id === item.courseId)?.title ?? "Üretildi"
                       : "Üretildi"}
                   </Text>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
                   <Text style={styles.cardMeta}>
-                    {item.voice} • {formatDuration(item.totalDurationSec)}
-                  </Text>
-                  <Text style={[styles.downloadMeta, isDownloading && { color: colors.premiumGold }]}>
-                    {isDownloading
-                      ? dlProgress
-                        ? `İndiriliyor... ${dlProgress.downloadedParts}/${dlProgress.totalParts} bölüm`
-                        : "İndiriliyor..."
-                      : offlinePartsCount > 0
-                        ? `${offlinePartsCount}/${item.parts.length} bölüm indirildi`
-                        : "Çevrimdışı kopya yok"}
+                    {item.voice} · {item.parts.length} bölüm · {formatDuration(item.totalDurationSec)}
                   </Text>
                   {isDownloading && dlProgress ? (
                     <View style={styles.progressTrack}>
                       <View style={[styles.progressFill, { width: `${Math.round((dlProgress.downloadedParts / Math.max(1, dlProgress.totalParts)) * 100)}%` as `${number}%`, backgroundColor: colors.premiumGold }]} />
                     </View>
-                  ) : (
+                  ) : progressPct > 0 ? (
                     <View style={styles.progressTrack}>
                       <View style={[styles.progressFill, { width: progressWidth }]} />
                     </View>
-                  )}
+                  ) : null}
                 </View>
 
                 <View style={styles.cardActions}>
                   <Pressable style={styles.actionBtn} onPress={() => void updateFavoriteState(item)} hitSlop={8}>
-                    <Ionicons
-                      name={item.isFavorite ? "heart" : "heart-outline"}
-                      size={20}
-                      color={item.isFavorite ? colors.motivationOrange : colors.textSecondary}
-                    />
+                    <PopView animKey={`fav-${item.id}-${item.isFavorite}`}>
+                      <Ionicons
+                        name={item.isFavorite ? "heart" : "heart-outline"}
+                        size={20}
+                        color={item.isFavorite ? colors.motivationOrange : colors.textSecondary}
+                      />
+                    </PopView>
                   </Pressable>
                   <Pressable style={styles.actionBtn} onPress={() => void toggleDownloadState(item)} disabled={isDownloading} hitSlop={8}>
                     {isDownloading ? (
@@ -242,7 +248,7 @@ export function PodcastLibraryScreen() {
                     <Ionicons
                       name="trash-outline"
                       size={18}
-                      color={deletingPodcastId === item.id ? colors.textSecondary : colors.danger}
+                      color={deletingPodcastId === item.id ? colors.textTertiary : colors.danger}
                     />
                   </Pressable>
                 </View>
@@ -257,11 +263,13 @@ export function PodcastLibraryScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    gap: spacing.lg,
   },
   title: {
-    ...typography.title,
+    ...typography.h2Small,
     color: colors.textPrimary,
   },
   filtersRow: {
@@ -274,7 +282,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.dividerStrong,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   filterChipActive: {
     borderColor: colors.motivationOrange,
@@ -283,17 +294,16 @@ const styles = StyleSheet.create({
   filterLabel: {
     ...typography.caption,
     color: colors.textSecondary,
+    ...fw.semiBold,
   },
   filterLabelActive: {
     color: colors.textPrimary,
   },
   emptyFiltered: {
-    marginTop: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.dividerStrong,
-    padding: spacing.lg,
-    backgroundColor: colors.cardBg,
+    marginTop: spacing.xxl,
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.xl,
   },
   emptyFilteredText: {
     ...typography.body,
@@ -306,69 +316,82 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
     backgroundColor: colors.cardBg,
     padding: spacing.md,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     gap: spacing.md,
-  },
-  coverImage: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.md,
-    backgroundColor: colors.primaryNavy,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   cardBody: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 3,
   },
   badge: {
-    ...typography.caption,
+    ...typography.small,
     color: colors.premiumGold,
+    ...fw.semiBold,
   },
   cardTitle: {
-    ...typography.bodyMedium,
+    ...typography.bodySmall,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.semiBold,
   },
   cardMeta: {
-    ...typography.caption,
+    ...typography.small,
     color: colors.textSecondary,
   },
-  downloadMeta: {
-    ...typography.caption,
-    color: colors.motivationOrange,
-  },
   progressTrack: {
-    height: 4,
+    height: 3,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     overflow: "hidden",
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
   progressFill: {
     height: "100%",
     backgroundColor: colors.motivationOrange,
+    borderRadius: radius.pill,
   },
   cardActions: {
-    gap: spacing.sm,
+    gap: spacing.xs,
     alignItems: "center",
   },
   actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  cardPressed: {
-    opacity: 0.85,
-  },
   filterChipPressed: {
     opacity: 0.7,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.orangeTint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: {
+    ...typography.h2Small,
+    color: colors.textPrimary,
+    textAlign: "center",
+  },
+  emptyDesc: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: "center",
   },
 });

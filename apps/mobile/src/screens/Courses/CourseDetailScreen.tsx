@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useCoursesStore, usePlayerStore, usePodcastsStore } from "@/state/stores";
-import { colors, radius, shadows, spacing, typography } from "@/theme";
+import { colors, fw, radius, shadows, spacing, typography } from "@/theme";
 import { buildPodcastQueue, formatDuration, getSpecialtyColor, getSpecialtyIcon, resolvePodcastQueueStart } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   progressValue: {
     ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "700",
+    ...fw.bold,
     minWidth: 36,
     textAlign: "right",
     fontVariant: ["tabular-nums"] as const,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   circleNumber: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   /* Chapter text */
   chapterTextBlock: {
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   chapterName: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   chapterDuration: {
     ...typography.caption,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   linkedCardTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   linkedCardMeta: {
     ...typography.caption,

@@ -2,7 +2,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { usePlayerStore, useDownloadsStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 import { buildPodcastQueue, formatDuration, resolveTrackQueueStart, stripDownloadState } from "@/utils";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
   },
   subtitle: {
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   emptyText: {
     ...typography.caption,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   cardMeta: {
     ...typography.caption,

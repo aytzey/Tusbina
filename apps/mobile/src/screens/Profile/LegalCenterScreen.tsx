@@ -7,7 +7,7 @@ import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { fetchLegalDocuments, type ApiLegalDocumentSummary } from "@/services/api";
 import { useAuthStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
   },
   subtitle: {
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   rowTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   rowTitleDanger: {
     color: colors.danger,

@@ -8,12 +8,11 @@ import { RootStackParamList } from "@/navigation/types";
 import {
   useAuthStore,
   useDownloadsStore,
-  useLearningToolsStore,
   usePodcastsStore,
   useUserStore,
 } from "@/state/stores";
-import { colors, radius, shadows, spacing, typography } from "@/theme";
-import { formatDuration, formatTimer } from "@/utils";
+import { StaggerView, colors, fw, radius, spacing, typography } from "@/theme";
+import { formatDuration } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -27,18 +26,18 @@ interface MenuItemProps {
 
 function MenuItem({ icon, label, onPress, danger = false, badge = null }: MenuItemProps) {
   return (
-    <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]} onPress={onPress}>
-      <View style={styles.menuLeft}>
-        <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.textSecondary} />
-        <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>{label}</Text>
+    <Pressable style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: colors.cardBgElevated }]} onPress={onPress}>
+      <View style={[styles.menuIconWrap, danger && { backgroundColor: colors.dangerTint }]}>
+        <Ionicons name={icon} size={18} color={danger ? colors.danger : colors.textSecondary} />
       </View>
+      <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>{label}</Text>
       <View style={styles.menuRight}>
         {badge ? (
           <View style={styles.menuBadge}>
             <Text style={styles.menuBadgeText}>{badge}</Text>
           </View>
         ) : null}
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
       </View>
     </Pressable>
   );
@@ -54,25 +53,17 @@ export function ProfileScreen() {
   const authUser = useAuthStore((state) => state.user);
   const downloads = useDownloadsStore((state) => state.downloads);
   const podcasts = usePodcastsStore((state) => state.podcasts);
-  const dailyGoalMin = useLearningToolsStore((state) => state.dailyGoalMin);
-  const todayListenedSec = useLearningToolsStore((state) => state.todayListenedSec);
-  const studyPlan = useLearningToolsStore((state) => state.studyPlan);
-  const stopwatchSec = useLearningToolsStore((state) => state.stopwatchSec);
-  const resetTodayIfNeeded = useLearningToolsStore((state) => state.resetTodayIfNeeded);
 
   useFocusEffect(
     useCallback(() => {
-      resetTodayIfNeeded();
       void syncUsage();
-    }, [resetTodayIfNeeded, syncUsage])
+    }, [syncUsage])
   );
 
   const used = user.monthlyUsedSec;
   const quota = user.monthlyListenQuotaSec;
   const remaining = Math.max(0, quota - used);
   const usageProgress = quota > 0 ? (used / quota) * 100 : 0;
-  const dailyGoalSec = dailyGoalMin * 60;
-  const dailyProgress = Math.min(100, Math.round((todayListenedSec / dailyGoalSec) * 100));
   const processingCount = podcasts.filter((podcast) =>
     podcast.parts.some((part) => part.status === "queued" || part.status === "processing" || part.status === "failed")
   ).length;
@@ -81,102 +72,90 @@ export function ProfileScreen() {
     [authUser?.email, authUser?.user_metadata?.display_name, user.name]
   );
 
+  const initials = useMemo(() => {
+    const name = displayName ?? "";
+    const parts = name.split(/\s+/);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }, [displayName]);
+
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      <Text style={styles.title}>Profil</Text>
-
-      <View style={styles.profileHeader}>
+      {/* ── Profile header ── */}
+      <StaggerView index={0} style={styles.profileHeader}>
         <View style={styles.avatarCircle}>
-          <Ionicons name="person-outline" size={38} color={colors.textPrimary} />
+          <Text style={styles.avatarInitials}>{initials}</Text>
         </View>
+        <View style={styles.profileInfo}>
+          <Text style={styles.userName}>{displayName}</Text>
+          <View style={styles.badgeRow}>
+            <View style={[styles.tierBadge, user.isPremium && styles.tierBadgePremium]}>
+              <Ionicons
+                name="shield-checkmark"
+                size={12}
+                color={user.isPremium ? colors.premiumGold : colors.textSecondary}
+              />
+              <Text style={[styles.badgeText, { color: user.isPremium ? colors.premiumGold : colors.textSecondary }]}>
+                {user.isPremium ? "Premium" : "Standart"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </StaggerView>
 
-        <Text style={styles.userName}>{displayName}</Text>
-
-        <View style={styles.badgeRow}>
-          <Ionicons
-            name="shield-checkmark"
-            size={16}
-            color={user.isPremium ? colors.premiumGold : colors.textSecondary}
-          />
-          <Text style={[styles.badgeText, { color: user.isPremium ? colors.premiumGold : colors.textSecondary }]}>
-            {user.isPremium ? "Premium Üye" : "Standart"}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.motivationOrange }]}>{formatDuration(used)}</Text>
-          <Text style={styles.statLabel}>Bu ay dinlenen</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.success }]}>{downloads.length}</Text>
-          <Text style={styles.statLabel}>İndirilen podcast</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{dailyGoalMin} dk</Text>
-          <Text style={styles.statLabel}>Günlük hedef</Text>
-        </View>
-      </View>
-
-      <View style={styles.usageCard}>
+      {/* ── Monthly usage ── */}
+      <StaggerView index={1} style={styles.usageCard}>
         <View style={styles.usageHeader}>
-          <Text style={styles.usageSectionTitle}>Aylık kullanım</Text>
+          <Text style={styles.usageLabel}>AYLIK KULLANIM</Text>
           <Text style={styles.usageValue}>
             {formatDuration(used)} / {formatDuration(quota)}
           </Text>
         </View>
         <ProgressBar progress={usageProgress} />
-        <Text style={styles.usageSubtitle}>Kalan dinleme hakkın: {formatDuration(remaining)}</Text>
-        {usageLoading ? <Text style={styles.info}>Kullanım bilgisi güncelleniyor...</Text> : null}
+        <Text style={styles.usageSubtitle}>Kalan: {formatDuration(remaining)}</Text>
+        {usageLoading ? <Text style={styles.info}>Güncelleniyor...</Text> : null}
         {usageError ? <Text style={styles.error}>{usageError}</Text> : null}
-      </View>
+      </StaggerView>
 
-      <Pressable style={({ pressed }) => [styles.toolsCard, pressed && styles.toolsCardPressed]} onPress={() => navigation.navigate("StudyTools")}>
-        <View style={styles.toolsHeader}>
-          <Text style={styles.toolsTitle}>Çalışma araçları</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-        </View>
-        <Text style={styles.toolsMeta}>
-          Günlük hedef: {formatDuration(todayListenedSec)} / {dailyGoalMin} dk
-        </Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${dailyProgress}%` as const }]} />
-        </View>
-        <Text style={styles.toolsSubline}>Kronometre: {formatTimer(stopwatchSec)}</Text>
-        <Text style={styles.planPreview} numberOfLines={2}>
-          {studyPlan}
-        </Text>
-      </Pressable>
-
-      <View style={styles.menuSection}>
+      {/* ── Menu ── */}
+      <StaggerView index={2} style={styles.menuCard}>
         <MenuItem
           icon="download-outline"
           label="İndirilenler"
           badge={downloads.length > 0 ? `${downloads.length}` : null}
           onPress={() => navigation.navigate("Downloads")}
         />
+        <View style={styles.menuDivider} />
         <MenuItem
           icon="sync-outline"
           label="İşlem Durumu"
           badge={processingCount > 0 ? `${processingCount}` : null}
           onPress={() => navigation.navigate("Notifications")}
         />
-        <MenuItem icon="settings-outline" label="Hesap Ayarları" onPress={() => navigation.navigate("AccountSettings")} />
-        <MenuItem icon="shield-checkmark-outline" label="Hukuk & Gizlilik" onPress={() => navigation.navigate("LegalCenter")} />
+        <View style={styles.menuDivider} />
         <MenuItem icon="timer-outline" label="Çalışma Araçları" onPress={() => navigation.navigate("StudyTools")} />
-        <MenuItem icon="card-outline" label="Abonelik Yönetimi" onPress={() => navigation.navigate("Premium")} />
+        <View style={styles.menuDivider} />
+        <MenuItem icon="card-outline" label="Abonelik" onPress={() => navigation.navigate("Premium")} />
+      </StaggerView>
+
+      <StaggerView index={3} style={styles.menuCard}>
+        <MenuItem icon="settings-outline" label="Hesap Ayarları" onPress={() => navigation.navigate("AccountSettings")} />
+        <View style={styles.menuDivider} />
+        <MenuItem icon="shield-checkmark-outline" label="Hukuk & Gizlilik" onPress={() => navigation.navigate("LegalCenter")} />
+        <View style={styles.menuDivider} />
         <MenuItem icon="help-circle-outline" label="Yardım & Destek" onPress={() => navigation.navigate("Support")} />
-      </View>
+      </StaggerView>
 
-      {authUser?.email ? (
-        <View style={styles.emailRow}>
-          <Ionicons name="mail-outline" size={16} color={colors.textSecondary} />
-          <Text style={styles.emailText}>{authUser.email}</Text>
+      {/* ── Footer ── */}
+      <StaggerView index={4}>
+        <View style={styles.menuCard}>
+          <MenuItem icon="log-out-outline" label="Çıkış Yap" onPress={signOut} danger />
         </View>
-      ) : null}
 
-      <MenuItem icon="log-out-outline" label="Çıkış Yap" onPress={signOut} danger />
+        {authUser?.email ? (
+          <Text style={styles.emailText}>{authUser.email}</Text>
+        ) : null}
+      </StaggerView>
     </ScreenContainer>
   );
 }
@@ -184,71 +163,63 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
-    gap: spacing.xl,
+    gap: spacing.lg,
   },
-  title: {
-    ...typography.title,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
+
+  /* ── Profile header ── */
   profileHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.lg,
   },
   avatarCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
   },
+  avatarInitials: {
+    ...typography.h2Small,
+    color: colors.textPrimary,
+  },
+  profileInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   userName: {
-    ...typography.h2,
+    ...typography.h2Small,
     color: colors.textPrimary,
   },
   badgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+  },
+  tierBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    backgroundColor: colors.cardBg,
+  },
+  tierBadgePremium: {
+    backgroundColor: colors.goldTint,
   },
   badgeText: {
-    ...typography.caption,
-    fontWeight: "600",
+    ...typography.small,
+    ...fw.semiBold,
   },
-  statsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    alignItems: "center",
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  statValue: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: "700",
-    textAlign: "center",
-    fontVariant: ["tabular-nums"] as const,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
+
+  /* ── Usage ── */
   usageCard: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.md,
-    padding: spacing.xl,
+    padding: spacing.lg,
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.divider,
@@ -259,15 +230,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
   },
-  usageSectionTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
+  usageLabel: {
+    ...typography.small,
+    color: colors.textSecondary,
+    ...fw.semiBold,
+    letterSpacing: 0.5,
   },
   usageValue: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "700",
+    ...fw.bold,
+    fontVariant: ["tabular-nums"] as const,
   },
   usageSubtitle: {
     ...typography.caption,
@@ -281,107 +254,70 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.danger,
   },
-  toolsCard: {
+
+  /* ── Menu ── */
+  menuCard: {
     backgroundColor: colors.cardBg,
     borderRadius: radius.md,
-    padding: spacing.xl,
-    gap: spacing.sm,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.divider,
   },
-  toolsCardPressed: {
-    opacity: 0.85,
-  },
-  toolsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  toolsTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  toolsMeta: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: colors.motivationOrange,
-  },
-  toolsSubline: {
-    ...typography.caption,
-    color: colors.premiumGold,
-    fontWeight: "700",
-  },
-  planPreview: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  menuSection: {
-    gap: spacing.sm,
+  menuDivider: {
+    height: 1,
+    backgroundColor: colors.divider,
+    marginLeft: 52,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.cardBg,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  menuLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     gap: spacing.md,
+    minHeight: 52,
+  },
+  menuIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.xs,
+    backgroundColor: colors.cardBgElevated,
+    alignItems: "center",
+    justifyContent: "center",
   },
   menuRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    marginLeft: "auto",
   },
   menuLabel: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textPrimary,
+    ...fw.medium,
   },
   menuBadge: {
-    minWidth: 24,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
     backgroundColor: colors.orangeTint,
     alignItems: "center",
     justifyContent: "center",
   },
   menuBadgeText: {
-    ...typography.caption,
+    ...typography.small,
     color: colors.motivationOrange,
-    fontWeight: "700",
-  },
-  menuItemPressed: {
-    opacity: 0.8,
+    ...fw.bold,
   },
   dangerLabel: {
     color: colors.danger,
   },
-  emailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-  },
+
+  /* ── Footer ── */
   emailText: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
+    textAlign: "center",
+    marginTop: spacing.sm,
   },
 });

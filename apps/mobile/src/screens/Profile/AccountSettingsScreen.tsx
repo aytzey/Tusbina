@@ -6,7 +6,7 @@ import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { updateMyProfile } from "@/services/api";
 import { useAuthStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
   },
   card: {
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   buttonLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   secondaryActions: {
     gap: spacing.sm,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   secondaryButtonLabel: {
     ...typography.body,
     color: colors.textSecondary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   dangerButton: {
     borderColor: "rgba(214,69,69,0.4)",

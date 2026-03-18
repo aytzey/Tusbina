@@ -1,13 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { FeedbackModal, PodcastCover, ProgressBar, ScreenContainer } from "@/components";
+import { PodcastCover, ProgressBar, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
-import { prioritizePodcastPart, reorderPodcastParts, submitFeedback } from "@/services/api";
+import { prioritizePodcastPart, reorderPodcastParts } from "@/services/api";
 import { useDownloadsStore, usePlayerStore, usePodcastsStore, useUserStore } from "@/state/stores";
-import { colors, radius, shadows, spacing, typography } from "@/theme";
+import { FadeInView, PopView, StaggerView, colors, fw, radius, shadows, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer, getPodcastPartStatusLabel, stripDownloadState } from "@/utils";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -31,7 +31,6 @@ export function PlayerScreen() {
   const cycleRate = usePlayerStore((state) => state.cycleRate);
   const shuffleEnabled = usePlayerStore((state) => state.shuffleEnabled);
   const repeatMode = usePlayerStore((state) => state.repeatMode);
-  const toggleShuffle = usePlayerStore((state) => state.toggleShuffle);
   const cycleRepeatMode = usePlayerStore((state) => state.cycleRepeatMode);
   const addBookmarkAtCurrent = usePlayerStore((state) => state.addBookmarkAtCurrent);
   const removeBookmark = usePlayerStore((state) => state.removeBookmark);
@@ -52,9 +51,7 @@ export function PlayerScreen() {
   const hasPrevious = queue.length > 1 && (shuffleEnabled || queueIndex > 0 || repeatMode === "all");
   const hasNext = queue.length > 1 && (shuffleEnabled || queueIndex < queue.length - 1 || repeatMode === "all");
   const bookmarks = track ? bookmarksByTrack[track.id] ?? [] : [];
-  const [modalVisible, setModalVisible] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
-  const [draggedPartId, setDraggedPartId] = useState<string | null>(null);
   const [pendingMovePartId, setPendingMovePartId] = useState<string | null>(null);
   const hasRemoteAudio = Boolean(track?.audioUrl);
   const isBuffering = hasRemoteAudio && isPlaybackBuffering;
@@ -69,8 +66,7 @@ export function PlayerScreen() {
     [getDownloadedPodcast, podcasts, track?.parentId, track?.sourceType]
   );
   const queueIds = useMemo(() => queue.map((item) => item.id), [queue]);
-  const canWebReorderQueue = Platform.OS === "web" && Boolean(currentPodcast);
-  const canNativeReorderQueue = Platform.OS !== "web" && Boolean(currentPodcast);
+  const canReorderQueue = Boolean(currentPodcast);
   const isCurrentPodcastDownloading = currentPodcast ? downloadingIds.includes(currentPodcast.id) : false;
   const currentDownloadProgress = currentPodcast && isCurrentPodcastDownloading ? getDownloadProgress(currentPodcast.id) : null;
   const currentPartBadge = queue.length > 1 ? `Bölüm ${queueIndex + 1}/${queue.length}` : undefined;
@@ -106,9 +102,7 @@ export function PlayerScreen() {
         replacePodcast(updatedPodcast);
         syncPodcastQueue(updatedPodcast);
       })
-      .catch(() => {
-        // Best-effort background prioritization. The queue still updates on polling.
-      });
+      .catch(() => {});
   }, [replacePodcast, syncPodcastQueue, track]);
 
   useEffect(() => {
@@ -146,6 +140,38 @@ export function PlayerScreen() {
       });
   }, [currentPodcast, queue, queueIndex, replacePodcast, syncPodcastQueue]);
 
+  /* ── Cover glow breathing when playing ── */
+  const glowOpacity = useRef(new Animated.Value(0.5)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
+  const glowAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    glowAnimRef.current?.stop();
+    if (isPlaying) {
+      glowAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(glowOpacity, { toValue: 0.9, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(glowScale, { toValue: 1.12, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(glowOpacity, { toValue: 0.3, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(glowScale, { toValue: 0.92, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          ]),
+        ]),
+      );
+      glowAnimRef.current.start();
+    } else {
+      Animated.parallel([
+        Animated.timing(glowOpacity, { toValue: 0.5, duration: 400, useNativeDriver: true }),
+        Animated.timing(glowScale, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isPlaying]);
+
+  /* ── Play button spring ── */
+  const playBtnScale = useRef(new Animated.Value(1)).current;
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: track?.sourceType === "ai" ? "Özel Podcast" : "Şimdi Dinleniyor",
@@ -180,16 +206,13 @@ export function PlayerScreen() {
     if (!podcastId) {
       return;
     }
-
     try {
       const updatedPodcast = await prioritizePodcastPart(podcastId, partId);
       replacePodcast(updatedPodcast);
       syncPodcastQueue(updatedPodcast);
-      setFeedbackToast("Bölüm öne alındı. Hazır olduğunda hemen dinleyebilirsin.");
-      setTimeout(() => setFeedbackToast(null), 1800);
+      showToast("Bölüm öne alındı.");
     } catch {
-      setFeedbackToast("Bölüm sırası güncellenemedi.");
-      setTimeout(() => setFeedbackToast(null), 1800);
+      showToast("Bölüm sırası güncellenemedi.");
     }
   };
 
@@ -222,7 +245,7 @@ export function PlayerScreen() {
   };
 
   const handleQueueItemLongPress = (index: number) => {
-    if (!canNativeReorderQueue) {
+    if (!canReorderQueue) {
       return;
     }
 
@@ -246,15 +269,13 @@ export function PlayerScreen() {
     if (!currentPodcast) {
       return;
     }
-
     try {
       const updatedPodcast = await reorderPodcastParts(currentPodcast.id, { part_ids: nextIds });
       replacePodcast(updatedPodcast);
       syncPodcastQueue(updatedPodcast);
       setPendingMovePartId(null);
     } catch {
-      setFeedbackToast("Bölüm sırası kaydedilemedi.");
-      setTimeout(() => setFeedbackToast(null), 1800);
+      showToast("Bölüm sırası kaydedilemedi.");
     }
   };
 
@@ -263,30 +284,18 @@ export function PlayerScreen() {
       pause();
       return;
     }
-
     if (!canPlay()) {
       openLimitModal();
       return;
     }
-
-    if (!hasRemoteAudio) {
-      if (track.sourceType === "ai" && track.parentId) {
-        void prioritizeAiPart(track.id, track.parentId);
-      }
-      play();
-      return;
+    if (!hasRemoteAudio && track.sourceType === "ai" && track.parentId) {
+      void prioritizeAiPart(track.id, track.parentId);
     }
-
     play();
   };
 
-  const onPrevious = () => playPrevious();
-
-  const onNext = () => playNext();
-
   const onSeek = (seconds: number) => {
-    const bounded = Math.min(Math.max(seconds, 0), actualDuration);
-    seekTo(bounded);
+    seekTo(Math.min(Math.max(seconds, 0), actualDuration));
   };
 
   const onToggleBookmark = () => {
@@ -294,77 +303,48 @@ export function PlayerScreen() {
     const existing = bookmarks.find((value) => Math.abs(value - second) <= 2);
     if (existing !== undefined) {
       removeBookmark(track.id, existing);
-      setFeedbackToast("Yer işareti kaldırıldı.");
-      setTimeout(() => setFeedbackToast(null), 1500);
+      showToast("Yer işareti kaldırıldı.", 1500);
       return;
     }
-
     const added = addBookmarkAtCurrent();
     if (added !== null) {
-      setFeedbackToast(`Yer işareti eklendi: ${formatTimer(added)}`);
-      setTimeout(() => setFeedbackToast(null), 1500);
+      showToast(`Yer işareti eklendi: ${formatTimer(added)}`, 1500);
     }
   };
-
-  const onShare = async () => {
-    try {
-      await Share.share({
-        message: `${track.title} - ${track.subtitle}\nKonum: ${formatTimer(Math.floor(positionSec))}`
-      });
-    } catch {
-      setFeedbackToast("Paylaşım açılamadı.");
-      setTimeout(() => setFeedbackToast(null), 1500);
-    }
-  };
-
-  const handleFeedbackSubmit = async (payload: { rating: number; tags: string[]; text: string }) => {
-    await submitFeedback({
-      rating: payload.rating,
-      tags: payload.tags,
-      text: payload.text,
-      content_id: track.id
-    });
-    setFeedbackToast("Teşekkürler, geri bildirimin alındı.");
-    setTimeout(() => setFeedbackToast(null), 2000);
-  };
-
-  const isCurrentBookmarked = bookmarks.some((b) => Math.abs(b - Math.floor(positionSec)) <= 2);
 
   const handleToggleDownload = async () => {
     if (!currentPodcast) {
       return;
     }
-
     if (currentPodcast.isDownloaded && track.parentId === currentPodcast.id && track.localAudioUrl) {
-      setFeedbackToast("Aktif çevrimdışı kaydı kaldırmak için önce başka bir içerik aç.");
-      setTimeout(() => setFeedbackToast(null), 1800);
+      showToast("Aktif çevrimdışı kaydı kaldırmak için önce başka bir içerik aç.");
       return;
     }
-
     try {
       if (currentPodcast.isDownloaded) {
         await removePodcastDownload(currentPodcast.id);
         const updated = stripDownloadState(currentPodcast);
         replacePodcast(updated);
         syncPodcastQueue(updated);
-        setFeedbackToast("Çevrimdışı kopya kaldırıldı.");
+        showToast("Çevrimdışı kopya kaldırıldı.");
       } else {
         const downloadedPodcast = await downloadPodcast(currentPodcast);
         replacePodcast(downloadedPodcast);
         syncPodcastQueue(downloadedPodcast);
-        setFeedbackToast("Podcast çevrimdışı dinleme için indirildi.");
+        showToast("Podcast indirildi.");
       }
     } catch (error) {
-      setFeedbackToast(error instanceof Error ? error.message : "İndirme durumu güncellenemedi.");
+      showToast(error instanceof Error ? error.message : "İndirme durumu güncellenemedi.");
     }
-    setTimeout(() => setFeedbackToast(null), 1800);
   };
+
+  const isCurrentBookmarked = bookmarks.some((b) => Math.abs(b - Math.floor(positionSec)) <= 2);
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
       {/* --- Cover Art --- */}
-      <View style={styles.coverWrapper}>
-        <View style={styles.coverGlow} />
+      <StaggerView index={0} style={styles.coverWrapper}>
+        <Animated.View style={[styles.coverGlow, { opacity: glowOpacity, transform: [{ scale: glowScale }] }]} />
         <View style={styles.cover}>
           <PodcastCover
             uri={track.coverImageUrl}
@@ -375,36 +355,29 @@ export function PlayerScreen() {
             badgeText={currentPartBadge}
           />
         </View>
-        {track.sourceType === "ai" && (
-          <View style={styles.aiBadge}>
-            <Ionicons name="sparkles" size={12} color={colors.premiumGold} />
-            <Text style={styles.aiBadgeText}>Üretildi</Text>
-          </View>
-        )}
-      </View>
+      </StaggerView>
 
       {/* --- Track Info --- */}
-      <Text style={styles.title}>{track.title}</Text>
-      <Text style={styles.subtitle}>{track.subtitle}</Text>
-      {track.sourceType === "ai" && track.voice ? (
-        <Text style={styles.voiceInfo}>Seslendiren: {track.voice}</Text>
-      ) : null}
-      {currentTrackStatus ? <Text style={styles.trackStatus}>{currentTrackStatus}</Text> : null}
-      {!track.audioUrl ? (
-        <Text style={styles.mutedInfo}>
-          {isPlaying
-            ? "Bu bölüm hazırlanıyor. Hazır olur olmaz otomatik başlayacak."
-            : "Bu bölüm hazır değil. İstersen oynat diyerek hazır olur olmaz otomatik başlatabilirsin."}
-        </Text>
-      ) : isAudioLoading ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={colors.motivationOrange} />
-          <Text style={styles.mutedInfo}>Ses yükleniyor...</Text>
-        </View>
-      ) : null}
+      <StaggerView index={1} style={styles.trackInfoGroup}>
+        <Text style={styles.title} numberOfLines={2}>{track.title}</Text>
+        <Text style={styles.subtitle} numberOfLines={1}>{track.subtitle}</Text>
+        {currentTrackStatus ? <Text style={styles.trackStatus}>{currentTrackStatus}</Text> : null}
+        {!track.audioUrl ? (
+          <Text style={styles.mutedInfo}>
+            {isPlaying
+              ? "Bölüm hazırlanıyor. Hazır olunca otomatik başlayacak."
+              : "Bölüm henüz hazır değil. Oynat dersen hazır olunca başlar."}
+          </Text>
+        ) : isAudioLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.motivationOrange} />
+            <Text style={styles.mutedInfo}>Ses yükleniyor...</Text>
+          </View>
+        ) : null}
+      </StaggerView>
 
       {/* --- Seekbar --- */}
-      <View style={styles.seekSection}>
+      <StaggerView index={2} style={styles.seekSection}>
         <ProgressBar
           progress={progress}
           buffering={isBuffering}
@@ -412,102 +385,89 @@ export function PlayerScreen() {
         />
         <View style={styles.timerRow}>
           <Text style={styles.timer}>{formatTimer(Math.floor(positionSec))}</Text>
+          <View style={styles.timerCenter}>
+            <Pressable style={styles.speedPill} onPress={cycleRate} hitSlop={8}>
+              <PopView animKey={`rate-${rate}`}>
+                <Text style={styles.speedLabel}>{rate}x</Text>
+              </PopView>
+            </Pressable>
+            <Pressable style={styles.repeatButton} onPress={cycleRepeatMode} hitSlop={8}>
+              <Ionicons
+                name={repeatMode === "one" ? "repeat-outline" : "repeat"}
+                size={18}
+                color={repeatMode !== "off" ? colors.motivationOrange : colors.textTertiary}
+              />
+            </Pressable>
+          </View>
           {isBuffering ? (
-            <Text style={styles.bufferingLabel}>Arabelleğe alınıyor...</Text>
+            <Text style={styles.bufferingLabel}>Arabellek...</Text>
           ) : (
             <Text style={styles.timer}>{formatDuration(actualDuration)}</Text>
           )}
         </View>
-      </View>
+      </StaggerView>
 
       {/* --- Main Controls --- */}
-      <View style={styles.modeRow}>
-        <Pressable style={[styles.modeChip, styles.modeChipActive]} onPress={cycleRate}>
-          <Ionicons name="speedometer-outline" size={16} color={colors.motivationOrange} />
-          <Text style={[styles.modeChipLabel, styles.modeChipLabelActive]}>Hız {rate}x</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.modeChip, repeatMode !== "off" && styles.modeChipActive]}
-          onPress={cycleRepeatMode}
-        >
-          <Ionicons
-            name={repeatMode === "one" ? "repeat-outline" : "repeat"}
-            size={16}
-            color={repeatMode !== "off" ? colors.motivationOrange : colors.textSecondary}
-          />
-          <Text style={[styles.modeChipLabel, repeatMode !== "off" && styles.modeChipLabelActive]}>
-            Tekrar {getRepeatModeLabel(repeatMode)}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.modeChip, shuffleEnabled && styles.modeChipActive]}
-          onPress={toggleShuffle}
-        >
-          <Ionicons
-            name="shuffle"
-            size={16}
-            color={shuffleEnabled ? colors.motivationOrange : colors.textSecondary}
-          />
-          <Text style={[styles.modeChipLabel, shuffleEnabled && styles.modeChipLabelActive]}>
-            Karışık {shuffleEnabled ? "Açık" : "Kapalı"}
-          </Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.mainControls}>
+      <StaggerView index={3} style={styles.mainControls}>
         <Pressable
           style={[styles.navButton, !hasPrevious && styles.controlDisabled]}
-          onPress={onPrevious}
+          onPress={() => playPrevious()}
           disabled={!hasPrevious}
           hitSlop={8}
         >
           <Ionicons name="play-skip-back" size={28} color={colors.textPrimary} />
         </Pressable>
 
-        <Pressable
-          style={[styles.playButton, !hasRemoteAudio && styles.playButtonQueued]}
-          onPress={onTogglePlay}
-        >
-          <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={colors.textPrimary} />
-          {isBuffering && isPlaying ? (
-            <ActivityIndicator size={14} color={colors.motivationOrange} style={styles.playButtonSpinner} />
-          ) : null}
-        </Pressable>
+        <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
+          <Pressable
+            style={[styles.playButton, !hasRemoteAudio && styles.playButtonQueued]}
+            onPress={onTogglePlay}
+            onPressIn={() => {
+              Animated.spring(playBtnScale, { toValue: 0.9, useNativeDriver: true, speed: 50, bounciness: 2 }).start();
+            }}
+            onPressOut={() => {
+              Animated.spring(playBtnScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+            }}
+          >
+            <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={colors.textPrimary} />
+            {isBuffering && isPlaying ? (
+              <ActivityIndicator size={14} color={colors.motivationOrange} style={styles.playButtonSpinner} />
+            ) : null}
+          </Pressable>
+        </Animated.View>
 
         <Pressable
           style={[styles.navButton, !hasNext && styles.controlDisabled]}
-          onPress={onNext}
+          onPress={() => playNext()}
           disabled={!hasNext}
           hitSlop={8}
         >
           <Ionicons name="play-skip-forward" size={28} color={colors.textPrimary} />
         </Pressable>
-      </View>
 
-      {/* --- Secondary Controls --- */}
-      <View style={styles.secondaryControls}>
+      </StaggerView>
+
+      {/* --- Actions --- */}
+      <StaggerView index={4} style={styles.actions}>
         <Pressable
-          style={[styles.secondaryBtn, isCurrentBookmarked && styles.secondaryBtnActive]}
+          style={[styles.actionBtn, isCurrentBookmarked && styles.actionBtnActive]}
           onPress={onToggleBookmark}
         >
-          <Ionicons
-            name={isCurrentBookmarked ? "bookmark" : "bookmark-outline"}
-            size={18}
-            color={isCurrentBookmarked ? colors.motivationOrange : colors.textSecondary}
-          />
-          <Text style={[styles.secondaryBtnLabel, isCurrentBookmarked && styles.secondaryBtnLabelActive]}>
+          <PopView animKey={`bm-${isCurrentBookmarked}`}>
+            <Ionicons
+              name={isCurrentBookmarked ? "bookmark" : "bookmark-outline"}
+              size={18}
+              color={isCurrentBookmarked ? colors.motivationOrange : colors.textSecondary}
+            />
+          </PopView>
+          <Text style={[styles.actionBtnLabel, isCurrentBookmarked && styles.actionBtnLabelActive]}>
             Kayıt
           </Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryBtn} onPress={() => void onShare()}>
-          <Ionicons name="share-outline" size={18} color={colors.textSecondary} />
-          <Text style={styles.secondaryBtnLabel}>Paylaş</Text>
-        </Pressable>
-
         {track.sourceType === "ai" && currentPodcast ? (
           <Pressable
-            style={[styles.secondaryBtn, currentPodcast.isDownloaded && styles.secondaryBtnActive]}
+            style={[styles.actionBtn, currentPodcast.isDownloaded && styles.actionBtnActive]}
             onPress={() => void handleToggleDownload()}
             disabled={isCurrentPodcastDownloading}
           >
@@ -516,64 +476,52 @@ export function PlayerScreen() {
               size={18}
               color={currentPodcast.isDownloaded ? colors.motivationOrange : colors.textSecondary}
             />
-            <Text style={styles.secondaryBtnLabel}>
+            <Text style={styles.actionBtnLabel}>
               {isCurrentPodcastDownloading
                 ? currentDownloadProgress
                   ? `${currentDownloadProgress.downloadedParts}/${currentDownloadProgress.totalParts}`
-                  : "İndiriliyor"
+                  : "..."
                 : currentPodcast.isDownloaded ? "İndirildi" : "İndir"}
             </Text>
           </Pressable>
         ) : null}
 
-        {track.sourceType === "ai" ? (
-          <Pressable style={styles.secondaryBtn} onPress={() => setModalVisible(true)}>
-            <Ionicons name="star-outline" size={18} color={colors.premiumGold} />
-            <Text style={styles.secondaryBtnLabel}>Değerlendir</Text>
-          </Pressable>
-        ) : null}
-
         {track.sourceType === "ai" && track.parentId ? (
           <Pressable
-            style={styles.secondaryBtn}
+            style={styles.actionBtn}
             onPress={() => navigation.navigate("Quiz", { podcastId: track.parentId! })}
           >
             <Ionicons name="help-circle-outline" size={18} color={colors.motivationOrange} />
-            <Text style={styles.secondaryBtnLabel}>Quiz</Text>
+            <Text style={styles.actionBtnLabel}>Quiz</Text>
           </Pressable>
         ) : null}
-      </View>
+      </StaggerView>
 
       {/* --- Bookmarks --- */}
       {bookmarks.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookmarksRow}>
-          {bookmarks.map((bookmarkSec) => (
-            <Pressable key={`${track.id}-${bookmarkSec}`} style={styles.bookmarkChip} onPress={() => onSeek(bookmarkSec)}>
-              <Ionicons name="bookmark" size={12} color={colors.motivationOrange} />
-              <Text style={styles.bookmarkLabel}>{formatTimer(bookmarkSec)}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <StaggerView index={5}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookmarksRow}>
+            {bookmarks.map((bookmarkSec) => (
+              <Pressable key={`${track.id}-${bookmarkSec}`} style={styles.bookmarkChip} onPress={() => onSeek(bookmarkSec)}>
+                <Ionicons name="bookmark" size={12} color={colors.motivationOrange} />
+                <Text style={styles.bookmarkLabel}>{formatTimer(bookmarkSec)}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </StaggerView>
       ) : null}
 
       {/* --- Toast --- */}
       {feedbackToast ? (
-        <View style={styles.toastContainer}>
+        <FadeInView style={styles.toastContainer}>
           <Text style={styles.toast}>{feedbackToast}</Text>
-        </View>
+        </FadeInView>
       ) : null}
 
-      {/* --- Queue / Bolumler --- */}
+      {/* --- Queue --- */}
       {queue.length > 1 ? (
-        <View style={styles.queueSection}>
+        <StaggerView index={5} style={styles.queueSection}>
           <Text style={styles.queueTitle}>Bölümler</Text>
-          <Text style={styles.queueHint}>
-            {canWebReorderQueue
-              ? "Sıralamayı sürükle-bırak ile değiştirebilirsin."
-              : canNativeReorderQueue
-                ? "Bir bölüme uzun bas, sonra hedef bölüme dokunarak sırayı değiştir."
-                : "İstediğin bölüme dokunarak oynat."}
-          </Text>
           {queue.map((item, index) => {
             const isActive = index === queueIndex;
             const isCompleted = index < queueIndex;
@@ -589,93 +537,6 @@ export function PlayerScreen() {
                 : isCompleted
                   ? "Dinlendi"
                   : "Hazır";
-            const queueItemContent = (
-              <>
-                <View style={styles.queueIndex}>
-                  {isCompleted ? (
-                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                  ) : (
-                    <Text style={[styles.queueIndexText, isActive && styles.queueIndexTextActive]}>
-                      {index + 1}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.queueItemBody}>
-                  <Text style={styles.queuePartLabel}>
-                    Bölüm {index + 1}/{queue.length}
-                  </Text>
-                  <Text
-                    style={[styles.queueItemTitle, isActive && styles.queueItemTitleActive]}
-                    numberOfLines={1}
-                  >
-                    {item.title}
-                  </Text>
-                  <View style={styles.queueMetaRow}>
-                    <Text style={styles.queueItemDuration}>{formatDuration(item.durationSec)}</Text>
-                    <Text style={[styles.queueStatusLabel, isActive && styles.queueStatusLabelActive]}>{statusLabel}</Text>
-                  </View>
-                </View>
-                <View style={styles.queueRightCol}>
-                  {currentPodcast ? (
-                    Platform.OS === "web" ? (
-                      <Ionicons name="reorder-three-outline" size={18} color={colors.textSecondary} />
-                    ) : isPendingMove ? (
-                      <Text style={styles.queueMoveLabel}>Seçildi</Text>
-                    ) : pendingMovePartId ? (
-                      <Text style={styles.queueMoveLabel}>Buraya bırak</Text>
-                    ) : (
-                      <Ionicons name="reorder-three-outline" size={18} color={colors.textSecondary} />
-                    )
-                  ) : null}
-                  {isActive ? <Ionicons name="volume-high" size={16} color={colors.motivationOrange} /> : null}
-                </View>
-              </>
-            );
-
-            if (canWebReorderQueue && item.sourceType === "ai") {
-              const webQueueStyle: CSSProperties = {
-                ...(StyleSheet.flatten(styles.queueItem) as Record<string, unknown>),
-                ...(isActive ? (StyleSheet.flatten(styles.queueItemActive) as Record<string, unknown>) : {}),
-                ...(isPendingMove ? (StyleSheet.flatten(styles.queueItemMoving) as Record<string, unknown>) : {}),
-                ...(isDropTarget ? (StyleSheet.flatten(styles.queueItemDropTarget) as Record<string, unknown>) : {}),
-                cursor: draggedPartId === item.id ? "grabbing" : "grab",
-                userSelect: "none",
-              };
-
-              return (
-                <div
-                  key={item.id}
-                  role="button"
-                  tabIndex={0}
-                  style={webQueueStyle}
-                  draggable
-                  onClick={() => handleSelectQueueItem(index)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleSelectQueueItem(index);
-                    }
-                  }}
-                  onDragStart={() => setDraggedPartId(item.id)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (!draggedPartId || draggedPartId === item.id) {
-                      return;
-                    }
-                    const draggedIndex = queue.findIndex((queueItem) => queueItem.id === draggedPartId);
-                    if (draggedIndex < 0) {
-                      return;
-                    }
-                    void handleReorderQueue(moveItem(queueIds, draggedIndex, index));
-                    setDraggedPartId(null);
-                  }}
-                  onDragEnd={() => setDraggedPartId(null)}
-                >
-                  {queueItemContent}
-                </div>
-              );
-            }
 
             return (
               <Pressable
@@ -690,14 +551,33 @@ export function PlayerScreen() {
                 onLongPress={() => handleQueueItemLongPress(index)}
                 delayLongPress={180}
               >
-                {queueItemContent}
+                <View style={styles.queueIndex}>
+                  {isCompleted ? (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                  ) : (
+                    <Text style={[styles.queueIndexText, isActive && styles.queueIndexTextActive]}>
+                      {index + 1}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.queueItemBody}>
+                  <Text
+                    style={[styles.queueItemTitle, isActive && styles.queueItemTitleActive]}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                  <View style={styles.queueMetaRow}>
+                    <Text style={styles.queueItemDuration}>{formatDuration(item.durationSec)}</Text>
+                    <Text style={[styles.queueStatusLabel, isActive && styles.queueStatusLabelActive]}>{statusLabel}</Text>
+                  </View>
+                </View>
+                {isActive ? <Ionicons name="volume-high" size={16} color={colors.motivationOrange} /> : null}
               </Pressable>
             );
           })}
-        </View>
+        </StaggerView>
       ) : null}
-
-      <FeedbackModal visible={modalVisible} onClose={() => setModalVisible(false)} onSubmit={handleFeedbackSubmit} />
     </ScreenContainer>
   );
 }
@@ -709,195 +589,149 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   return clone;
 }
 
-function getRepeatModeLabel(mode: "off" | "all" | "one"): string {
-  if (mode === "all") {
-    return "Tümü";
-  }
-  if (mode === "one") {
-    return "Bu Bölüm";
-  }
-  return "Kapalı";
-}
-
 const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
-    gap: spacing.sm
+    gap: spacing.sm,
+    alignItems: "center",
   },
   empty: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: "center",
-    marginTop: spacing.xxl
+    marginTop: spacing.xxl,
+    width: "100%",
   },
 
-  /* ---- Cover ---- */
+  /* ── Cover ── */
   coverWrapper: {
     alignItems: "center",
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    width: "100%",
   },
   coverGlow: {
     position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: colors.orangeTint,
-    top: 30,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(212,105,60,0.10)",
+    top: 24,
   },
   cover: {
     width: 260,
     height: 260,
     borderRadius: radius.xl,
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.cardBgElevated,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  coverImage: {
-    width: "100%",
-    height: "100%",
-  },
-  iconGlow: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(191,95,62,0.15)",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  aiBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.goldTint
-  },
-  aiBadgeText: {
-    ...typography.caption,
-    color: colors.premiumGold
   },
 
-  /* ---- Track Info ---- */
+  /* ── Track Info ── */
+  trackInfoGroup: {
+    gap: spacing.xs,
+    width: "100%",
+    alignItems: "center",
+  },
   title: {
     ...typography.h2,
     color: colors.textPrimary,
     textAlign: "center",
-    paddingHorizontal: spacing.lg
+    paddingHorizontal: spacing.xl,
   },
   subtitle: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: "center",
-    paddingHorizontal: spacing.lg
-  },
-  voiceInfo: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: "center"
+    paddingHorizontal: spacing.xl,
   },
   trackStatus: {
     ...typography.caption,
     color: colors.motivationOrange,
     textAlign: "center",
-    fontWeight: "700"
+    ...fw.bold,
   },
   mutedInfo: {
     ...typography.caption,
     color: colors.textSecondary,
-    textAlign: "center"
+    textAlign: "center",
   },
   loadingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
 
-  /* ---- Seekbar ---- */
+  /* ── Seekbar ── */
   seekSection: {
+    width: "100%",
     paddingHorizontal: spacing.xl,
-    marginTop: spacing.md,
-    gap: spacing.xs
+    marginTop: spacing.lg,
+    gap: spacing.xs,
   },
   timerRow: {
     flexDirection: "row",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  timerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   timer: {
     ...typography.caption,
     color: colors.textSecondary,
     fontVariant: ["tabular-nums"] as const,
   },
-  bufferingLabel: {
-    ...typography.caption,
-    color: colors.motivationOrange
-  },
-
-  /* ---- Main Controls ---- */
-  modeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  modeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
+  speedPill: {
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.cardBg,
-    paddingHorizontal: spacing.md,
+    backgroundColor: colors.orangeTint,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs,
   },
-  modeChipActive: {
-    borderColor: "rgba(191,95,62,0.38)",
-    backgroundColor: colors.orangeTint,
-  },
-  modeChipLabel: {
+  speedLabel: {
     ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: "700",
+    color: colors.motivationOrange,
+    ...fw.extraBold,
     fontVariant: ["tabular-nums"] as const,
   },
-  modeChipLabelActive: {
+  bufferingLabel: {
+    ...typography.caption,
     color: colors.motivationOrange,
   },
+
+  /* ── Main Controls ── */
   mainControls: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xxl,
-    paddingVertical: spacing.md,
+    gap: spacing.xl,
+    paddingVertical: spacing.xl,
   },
   navButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   playButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",
     ...shadows.glow(colors.motivationOrange),
   },
   playButtonQueued: {
-    opacity: 0.72
+    opacity: 0.72,
   },
   playButtonSpinner: {
     position: "absolute",
@@ -905,50 +739,56 @@ const styles = StyleSheet.create({
     right: 4,
   },
   controlDisabled: {
-    opacity: 0.35
+    opacity: 0.35,
+  },
+  repeatButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.cardBg,
   },
 
-  /* ---- Secondary Controls ---- */
-  secondaryControls: {
+  /* ── Actions ── */
+  actions: {
     flexDirection: "row",
     justifyContent: "center",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing.md,
+    width: "100%",
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs
+    paddingVertical: spacing.sm,
   },
-  secondaryBtn: {
+  actionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    minWidth: 110,
+    gap: spacing.sm,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.divider,
     backgroundColor: colors.cardBg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  secondaryBtnActive: {
-    borderColor: "rgba(191,95,62,0.38)",
+  actionBtnActive: {
     backgroundColor: colors.orangeTint,
   },
-  secondaryBtnLabel: {
+  actionBtnLabel: {
     ...typography.caption,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
-  secondaryBtnLabelActive: {
+  actionBtnLabelActive: {
     color: colors.motivationOrange,
   },
 
-  /* ---- Bookmarks ---- */
+  /* ── Bookmarks ── */
   bookmarksRow: {
     flexDirection: "row",
     gap: spacing.sm,
+    width: "100%",
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs
+    paddingVertical: spacing.xs,
   },
   bookmarkChip: {
     flexDirection: "row",
@@ -958,17 +798,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.motivationOrange
+    borderColor: colors.motivationOrange,
   },
   bookmarkLabel: {
     ...typography.caption,
-    color: colors.motivationOrange
+    color: colors.motivationOrange,
   },
 
-  /* ---- Toast ---- */
+  /* ── Toast ── */
   toastContainer: {
     alignItems: "center",
-    paddingVertical: spacing.xs
+    width: "100%",
+    paddingVertical: spacing.xs,
   },
   toast: {
     ...typography.caption,
@@ -978,105 +819,89 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
-    overflow: "hidden"
+    overflow: "hidden",
   },
 
-  /* ---- Queue ---- */
+  /* ── Queue ── */
   queueSection: {
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xs
+    marginTop: spacing.xl,
+    width: "100%",
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   queueTitle: {
     ...typography.h3,
     color: colors.textPrimary,
-    fontWeight: "700",
-    marginBottom: spacing.xs
-  },
-  queueHint: {
-    ...typography.caption,
-    color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   queueItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     backgroundColor: colors.cardBg,
-    borderLeftWidth: 3,
-    borderLeftColor: "transparent"
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   queueItemActive: {
-    borderLeftColor: colors.motivationOrange,
-    backgroundColor: colors.cardBgElevated
+    backgroundColor: colors.orangeTint,
+    borderColor: "rgba(232,130,74,0.2)",
   },
   queueItemMoving: {
-    borderLeftColor: colors.premiumGold,
-    borderWidth: 1,
-    borderColor: "rgba(189,148,101,0.4)",
+    borderColor: "rgba(201,165,106,0.5)",
   },
   queueItemDropTarget: {
     borderColor: "rgba(191,95,62,0.24)",
   },
   queueIndex: {
-    width: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceNavyLight,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
   },
   queueIndexText: {
-    ...typography.caption,
-    color: colors.textSecondary
+    ...typography.small,
+    color: colors.textTertiary,
+    ...fw.semiBold,
+    fontVariant: ["tabular-nums"] as const,
   },
   queueIndexTextActive: {
     color: colors.motivationOrange,
-    fontWeight: "700"
+    ...fw.bold,
   },
   queueItemBody: {
     flex: 1,
-    gap: 2
-  },
-  queuePartLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    minWidth: 0,
+    gap: 2,
   },
   queueItemTitle: {
-    ...typography.caption,
-    color: colors.textPrimary
+    ...typography.bodySmall,
+    color: colors.textPrimary,
   },
   queueItemTitleActive: {
     color: colors.motivationOrange,
-    fontWeight: "700"
+    ...fw.semiBold,
   },
   queueItemDuration: {
-    fontSize: 11,
-    lineHeight: 14,
-    color: colors.textSecondary,
+    ...typography.small,
+    color: colors.textTertiary,
     fontVariant: ["tabular-nums"] as const,
   },
   queueMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   queueStatusLabel: {
-    ...typography.caption,
-    color: colors.textSecondary
+    ...typography.small,
+    color: colors.textTertiary,
   },
   queueStatusLabelActive: {
     color: colors.motivationOrange,
-    fontWeight: "700"
+    ...fw.semiBold,
   },
-  queueRightCol: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs
-  },
-  queueMoveLabel: {
-    ...typography.caption,
-    color: colors.motivationOrange,
-    fontWeight: "700",
-  }
 });

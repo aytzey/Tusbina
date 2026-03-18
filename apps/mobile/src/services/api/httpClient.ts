@@ -74,6 +74,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       }
 
       lastNetworkMessage = error instanceof Error ? error.message : "Network request failed";
+      console.warn(`[apiRequest] ${baseUrl}${path} failed:`, lastNetworkMessage);
       continue;
     }
   }

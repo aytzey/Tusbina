@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { PrimaryButton, ScreenContainer, WizardProgress } from "@/components";
+import { PrimaryButton, ScreenContainer } from "@/components";
 import { UploadFileItem } from "@/domain/models";
 import { RootStackParamList } from "@/navigation/types";
 import { usePodcastsStore, useUploadWizardStore, useUserStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { StaggerView, colors, fw, radius, spacing, typography } from "@/theme";
 
 const DEMO_MAX_UPLOADS = 2;
 
@@ -33,9 +33,11 @@ export function UploadStep1Screen() {
   const navigation = useNavigation<Navigation>();
   const files = useUploadWizardStore((state) => state.files);
   const coverImage = useUploadWizardStore((state) => state.coverImage);
+  const podcastName = useUploadWizardStore((state) => state.podcastName);
   const addFiles = useUploadWizardStore((state) => state.addFiles);
   const removeFile = useUploadWizardStore((state) => state.removeFile);
   const setCoverImage = useUploadWizardStore((state) => state.setCoverImage);
+  const setPodcastName = useUploadWizardStore((state) => state.setPodcastName);
   const isPremium = useUserStore((state) => state.user.isPremium);
   const totalPodcasts = usePodcastsStore((state) => state.podcasts.length);
   const [warning, setWarning] = useState<string | null>(null);
@@ -133,28 +135,34 @@ export function UploadStep1Screen() {
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      <Text style={styles.title}>Kaynak Yükle</Text>
-      <WizardProgress label="Belge Seç" step={1} totalSteps={3} />
+      <StaggerView index={0}>
+        <Text style={styles.title}>Kaynak Yükle</Text>
+        <Text style={styles.stepHint}>Adım 1/2</Text>
+      </StaggerView>
 
-      <Pressable style={styles.uploadArea} onPress={() => void pickSourceFiles()}>
-        <Ionicons name="document-text" size={40} color={colors.motivationOrange} />
-        <Text style={styles.uploadTitle}>Belge dosyalarını yükle</Text>
-        <Text style={styles.uploadDescription}>
-          {SUPPORTED_FORMAT_LABEL} yükleyebilirsin. Sistem belgeyi otomatik bölümlendirip içerikten bölüm isimleri üretecek. Her dosya için üst sınır {maxFileSizeMB} MB.
-        </Text>
-      </Pressable>
+      <StaggerView index={1}>
+        <Pressable style={styles.uploadArea} onPress={() => void pickSourceFiles()}>
+          <Ionicons name="document-text" size={36} color={colors.motivationOrange} />
+          <Text style={styles.uploadTitle}>Belge dosyalarını yükle</Text>
+          <Text style={styles.uploadDescription}>
+            {SUPPORTED_FORMAT_LABEL} yükleyebilirsin. Her dosya için üst sınır {maxFileSizeMB} MB.
+          </Text>
+        </Pressable>
+      </StaggerView>
 
-      <Pressable style={styles.coverArea} onPress={() => void pickCoverImage()}>
+      <StaggerView index={2}>
+        <Pressable style={styles.coverArea} onPress={() => void pickCoverImage()}>
         <View style={styles.coverBadge}>
           <Ionicons name="image-outline" size={18} color={colors.premiumGold} />
         </View>
         <View style={styles.coverBody}>
           <Text style={styles.coverTitle}>Kapak görseli ekle (opsiyonel)</Text>
           <Text style={styles.coverDescription}>
-            PNG, JPG veya WEBP yükleyebilirsin. Yüklersen mevcut görsel kullanılır, yüklemezsen sistem otomatik kapak üretir.
+            PNG, JPG veya WEBP. Yüklemezsen sistem otomatik kapak üretir.
           </Text>
         </View>
       </Pressable>
+      </StaggerView>
 
       {coverImage ? (
         <View style={styles.coverSelectedRow}>
@@ -204,6 +212,18 @@ export function UploadStep1Screen() {
               </View>
             ))}
           </View>
+
+          {/* Podcast name — auto-generated, editable */}
+          <View style={styles.nameSection}>
+            <Text style={styles.inputLabel}>Podcast adı</Text>
+            <TextInput
+              placeholder="Podcast adı"
+              placeholderTextColor={colors.textSecondary}
+              style={styles.input}
+              value={podcastName}
+              onChangeText={setPodcastName}
+            />
+          </View>
         </View>
       )}
 
@@ -234,29 +254,34 @@ export function UploadStep1Screen() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxl,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
+  },
+  stepHint: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    ...fw.semiBold,
+    marginTop: spacing.xs,
   },
   uploadArea: {
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: colors.motivationOrange,
-    borderRadius: radius.md,
+    borderColor: "rgba(232,130,74,0.3)",
+    borderRadius: radius.lg,
     paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: "rgba(191,95,62,0.04)",
+    gap: spacing.md,
+    backgroundColor: colors.orangeTint,
   },
   uploadTitle: {
-    ...typography.body,
+    ...typography.h3,
     color: colors.textPrimary,
-    fontWeight: "600",
     marginTop: spacing.xs,
     textAlign: "center",
   },
@@ -264,13 +289,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: "center",
+    lineHeight: 20,
   },
   coverArea: {
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.dividerStrong,
     backgroundColor: colors.cardBg,
-    padding: spacing.md,
+    padding: spacing.lg,
     flexDirection: "row",
     gap: spacing.md,
     alignItems: "center",
@@ -290,7 +314,7 @@ const styles = StyleSheet.create({
   coverTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   coverDescription: {
     ...typography.caption,
@@ -312,7 +336,7 @@ const styles = StyleSheet.create({
   coverSelectedLabel: {
     ...typography.caption,
     color: colors.premiumGold,
-    fontWeight: "700",
+    ...fw.bold,
   },
   coverSelectedName: {
     ...typography.body,
@@ -333,12 +357,12 @@ const styles = StyleSheet.create({
   fileListTitle: {
     ...typography.h3,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   addMore: {
     ...typography.caption,
     color: colors.motivationOrange,
-    fontWeight: "700",
+    ...fw.bold,
   },
   list: {
     gap: spacing.sm,
@@ -346,7 +370,7 @@ const styles = StyleSheet.create({
   fileRow: {
     borderRadius: radius.sm,
     backgroundColor: colors.cardBg,
-    padding: spacing.md,
+    padding: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -373,6 +397,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: spacing.sm,
+  },
+  nameSection: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  inputLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  input: {
+    height: 50,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.dividerStrong,
+    color: colors.textPrimary,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.cardBg,
+    ...typography.input,
   },
   demoLimitCard: {
     borderRadius: radius.md,

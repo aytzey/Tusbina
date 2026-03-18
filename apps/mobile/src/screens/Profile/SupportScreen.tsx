@@ -1,7 +1,7 @@
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 const SUPPORT_EMAIL = "info@machinity.ai";
 const SUPPORT_PHONE = "+90 312 439 99 35";
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
   },
   subtitle: {
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   cardDescription: {
     ...typography.caption,

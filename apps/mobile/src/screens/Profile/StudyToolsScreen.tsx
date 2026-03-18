@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { ScreenContainer } from "@/components";
+import { Ionicons } from "@expo/vector-icons";
+import { AnimatedProgressRing, RollingNumber, ScreenContainer } from "@/components";
 import { useLearningToolsStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 import { formatDuration, formatTimer } from "@/utils";
 
 const GOAL_OPTIONS = [15, 30, 45, 60];
@@ -26,18 +27,36 @@ export function StudyToolsScreen() {
 
   const goalSec = dailyGoalMin * 60;
   const progressPct = Math.min(100, Math.round((todayListenedSec / goalSec) * 100));
+  const goalComplete = progressPct >= 100;
 
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      <Text style={styles.title}>Çalışma Araçları</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Günlük dinleme hedefi</Text>
-        <Text style={styles.cardMeta}>
-          Bugün {formatDuration(todayListenedSec)} dinledin. Hedefin {dailyGoalMin} dakika.
-        </Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPct}%` as const }]} />
+      {/* ── Daily Goal ── */}
+      <View style={[styles.card, styles.goalCard]}>
+        <View style={styles.goalTop}>
+          <AnimatedProgressRing
+            progress={progressPct}
+            size={96}
+            strokeWidth={6}
+          >
+            <RollingNumber
+              value={progressPct}
+              prefix="%"
+              style={styles.ringPercent}
+            />
+          </AnimatedProgressRing>
+          <View style={styles.goalInfo}>
+            <Text style={styles.goalLabel}>GÜNLÜK HEDEF</Text>
+            <Text style={styles.goalTimeValue}>
+              {formatDuration(todayListenedSec)}
+              <Text style={styles.goalTimeDim}> / {dailyGoalMin} dk</Text>
+            </Text>
+            <Text style={styles.goalStatus}>
+              {goalComplete
+                ? "Bugünkü hedef tamamlandı!"
+                : `${formatDuration(Math.max(0, goalSec - todayListenedSec))} kaldı`}
+            </Text>
+          </View>
         </View>
         <View style={styles.goalRow}>
           {GOAL_OPTIONS.map((minutes) => {
@@ -55,8 +74,51 @@ export function StudyToolsScreen() {
         </View>
       </View>
 
+      {/* ── Stopwatch ── */}
+      <View style={[styles.card, styles.stopwatchCard]}>
+        <View style={styles.stopwatchHeader}>
+          <Ionicons name="timer-outline" size={18} color={colors.textSecondary} />
+          <Text style={styles.cardLabel}>KRONOMETRE</Text>
+        </View>
+        <Text style={[styles.stopwatchValue, stopwatchRunning && styles.stopwatchValueActive]}>
+          {formatTimer(stopwatchSec)}
+        </Text>
+        <View style={styles.stopwatchActions}>
+          {stopwatchRunning ? (
+            <Pressable
+              style={[styles.stopwatchBtn, styles.stopwatchBtnPause]}
+              onPress={pauseStopwatch}
+            >
+              <Ionicons name="pause" size={18} color={colors.textPrimary} />
+              <Text style={styles.stopwatchBtnLabel}>Durdur</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.stopwatchBtn, styles.stopwatchBtnPlay]}
+              onPress={startStopwatch}
+            >
+              <Ionicons name="play" size={18} color={colors.textPrimary} />
+              <Text style={styles.stopwatchBtnLabel}>{stopwatchSec > 0 ? "Devam" : "Başlat"}</Text>
+            </Pressable>
+          )}
+          {stopwatchSec > 0 ? (
+            <Pressable
+              style={[styles.stopwatchBtn, styles.stopwatchBtnReset]}
+              onPress={resetStopwatch}
+            >
+              <Ionicons name="refresh" size={18} color={colors.textSecondary} />
+              <Text style={styles.stopwatchBtnLabelMuted}>Sıfırla</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {/* ── Study Plan ── */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Ders planı</Text>
+        <View style={styles.cardHeader}>
+          <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+          <Text style={styles.cardLabel}>DERS PLANI</Text>
+        </View>
         <Text style={styles.cardMeta}>Bugün hangi başlıkları dinleyeceğini not et.</Text>
         <TextInput
           multiline
@@ -64,33 +126,8 @@ export function StudyToolsScreen() {
           onChangeText={setStudyPlan}
           style={styles.planInput}
           placeholder="Örn. Kardiyoloji tekrar, farmakoloji vaka özeti..."
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={colors.textTertiary}
         />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Kronometre</Text>
-        <Text style={styles.stopwatchValue}>{formatTimer(stopwatchSec)}</Text>
-        <Text style={styles.cardMeta}>Odak süreni takip etmek için başlat, durdur veya sıfırla.</Text>
-        <View style={styles.stopwatchActions}>
-          <Pressable
-            style={[styles.actionButton, stopwatchRunning && styles.actionButtonMuted]}
-            disabled={stopwatchRunning}
-            onPress={startStopwatch}
-          >
-            <Text style={styles.actionLabel}>Başlat</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.actionButton, !stopwatchRunning && styles.actionButtonMuted]}
-            disabled={!stopwatchRunning}
-            onPress={pauseStopwatch}
-          >
-            <Text style={styles.actionLabel}>Durdur</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={resetStopwatch}>
-            <Text style={styles.secondaryLabel}>Sıfırla</Text>
-          </Pressable>
-        </View>
       </View>
     </ScreenContainer>
   );
@@ -101,106 +138,169 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
-  title: {
-    ...typography.title,
-    color: colors.textPrimary,
-  },
   card: {
     borderRadius: radius.md,
     backgroundColor: colors.cardBg,
     padding: spacing.lg,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
-  cardTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
+  cardLabel: {
+    ...typography.small,
+    color: colors.textSecondary,
+    ...fw.semiBold,
+    letterSpacing: 0.5,
   },
   cardMeta: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  progressTrack: {
-    height: 10,
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    overflow: "hidden",
+
+  /* ── Goal ── */
+  goalCard: {
+    gap: spacing.lg,
   },
-  progressFill: {
-    height: "100%",
-    backgroundColor: colors.motivationOrange,
+  goalTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xl,
+  },
+  goalInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  goalLabel: {
+    ...typography.small,
+    color: colors.textSecondary,
+    ...fw.semiBold,
+    letterSpacing: 0.5,
+  },
+  goalTimeValue: {
+    ...typography.h3,
+    color: colors.textPrimary,
+    fontVariant: ["tabular-nums"] as const,
+    fontSize: 20,
+  },
+  goalTimeDim: {
+    color: colors.textSecondary,
+    ...fw.regular,
+    fontSize: 14,
+  },
+  goalStatus: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+  },
+  ringPercent: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    ...fw.extraBold,
+    fontSize: 18,
+    fontVariant: ["tabular-nums"] as const,
   },
   goalRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.sm,
   },
   goalChip: {
-    paddingHorizontal: spacing.md,
+    flex: 1,
     paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.divider,
+    alignItems: "center",
   },
   goalChipSelected: {
     borderColor: colors.motivationOrange,
-    backgroundColor: "rgba(191,95,62,0.18)",
+    backgroundColor: colors.orangeTint,
   },
   goalChipLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   goalChipLabelSelected: {
-    color: colors.textPrimary,
+    color: colors.motivationOrange,
   },
-  planInput: {
-    minHeight: 140,
+
+  /* ── Stopwatch ── */
+  stopwatchCard: {
+    alignItems: "center",
+  },
+  stopwatchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    alignSelf: "flex-start",
+  },
+  stopwatchValue: {
+    fontSize: 48,
+    lineHeight: 56,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    fontVariant: ["tabular-nums"] as const,
+    letterSpacing: -1,
+    fontFamily: "Jakarta-ExtraBold",
+  },
+  stopwatchValueActive: {
+    color: colors.motivationOrange,
+  },
+  stopwatchActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    width: "100%",
+  },
+  stopwatchBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
     borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    minHeight: 48,
+  },
+  stopwatchBtnPlay: {
+    backgroundColor: colors.motivationOrange,
+  },
+  stopwatchBtnPause: {
+    backgroundColor: colors.cardBgElevated,
+    borderWidth: 1,
+    borderColor: colors.dividerStrong,
+  },
+  stopwatchBtnReset: {
+    backgroundColor: colors.cardBgElevated,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  stopwatchBtnLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    ...fw.bold,
+    fontSize: 15,
+  },
+  stopwatchBtnLabelMuted: {
+    ...typography.body,
+    color: colors.textSecondary,
+    ...fw.semiBold,
+    fontSize: 15,
+  },
+
+  /* ── Plan ── */
+  planInput: {
+    minHeight: 120,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.divider,
     color: colors.textPrimary,
     padding: spacing.md,
     textAlignVertical: "top",
     ...typography.input,
-  },
-  stopwatchValue: {
-    fontSize: 40,
-    lineHeight: 46,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    fontVariant: ["tabular-nums"] as const,
-  },
-  stopwatchActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: radius.md,
-    backgroundColor: colors.motivationOrange,
-    paddingVertical: spacing.lg,
-    alignItems: "center",
-  },
-  actionButtonMuted: {
-    opacity: 0.35,
-  },
-  actionLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    flex: 1,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    paddingVertical: spacing.lg,
-    alignItems: "center",
-  },
-  secondaryLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: "700",
+    backgroundColor: colors.cardBgElevated,
   },
 });

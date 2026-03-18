@@ -39,17 +39,18 @@ export function MainTabNavigator() {
         tabBarStyle: {
           backgroundColor: colors.surfaceNavy,
           borderTopColor: colors.divider,
-          borderTopWidth: 0.5,
+          borderTopWidth: 1,
           paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 10),
-          height: 56 + Math.max(insets.bottom, 10),
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 56 + Math.max(insets.bottom, 8),
         },
         tabBarActiveTintColor: colors.motivationOrange,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: {
           fontSize: typography.tabLabel.fontSize,
-          fontWeight: typography.tabLabel.fontWeight,
+          fontWeight: typography.tabLabel.fontWeight as any,
           letterSpacing: typography.tabLabel.letterSpacing,
+          marginTop: 2,
         },
         tabBarIcon: ({ color, focused }) => (
           <Ionicons

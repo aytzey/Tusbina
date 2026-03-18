@@ -2,7 +2,7 @@ import { Alert, Image, Platform, Pressable, StyleSheet, Text, View } from "react
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components";
 import { useUserStore } from "@/state/stores";
-import { colors, radius, shadows, spacing, typography } from "@/theme";
+import { colors, fw, radius, shadows, spacing, typography } from "@/theme";
 
 const LOGO = require("../../../assets/logo.png");
 
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 34,
     lineHeight: 40,
-    fontWeight: "800",
+    ...fw.extraBold,
     letterSpacing: -0.5,
     color: colors.textPrimary,
     textAlign: "center"
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   compareTitle: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "700"
+    ...fw.bold
   },
   compareTitleGold: {
     color: colors.premiumGold
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   extraTitle: {
     ...typography.body,
     color: colors.premiumGold,
-    fontWeight: "700"
+    ...fw.bold
   },
   extraDescription: {
     ...typography.caption,

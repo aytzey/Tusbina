@@ -1,6 +1,6 @@
-import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text } from "react-native";
 import { useRef } from "react";
-import { colors, radius, spacing, shadows, touch, typography } from "@/theme";
+import { colors, radius, spacing, shadows, typography } from "@/theme";
 
 type ButtonVariant = "primary" | "gold" | "outline";
 
@@ -23,10 +23,10 @@ export function PrimaryButton({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.97,
+      toValue: 0.96,
       useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
+      tension: 200,
+      friction: 15,
     }).start();
   };
 
@@ -34,8 +34,8 @@ export function PrimaryButton({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 30,
-      bounciness: 6,
+      tension: 120,
+      friction: 8,
     }).start();
   };
 
@@ -53,7 +53,7 @@ export function PrimaryButton({
     variant === "gold"
       ? shadows.glow(colors.premiumGold)
       : variant === "primary"
-        ? shadows.subtle
+        ? shadows.glow(colors.motivationOrange)
         : undefined;
 
   return (
@@ -89,11 +89,12 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    height: 54,
-    borderRadius: radius.pill,
+    height: 56,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
     marginTop: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   primary: {
     backgroundColor: colors.motivationOrange,
@@ -109,15 +110,16 @@ const styles = StyleSheet.create({
   label: {
     ...typography.button,
     color: colors.textPrimary,
+    textTransform: "none",
   },
   labelOutline: {
     ...typography.button,
     color: colors.textSecondary,
   },
   disabled: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.88,
   },
 });

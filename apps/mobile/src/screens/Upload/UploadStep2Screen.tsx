@@ -4,12 +4,12 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { PrimaryButton, ScreenContainer, WizardProgress } from "@/components";
+import { PrimaryButton, ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { useCoursesStore, useUploadWizardStore } from "@/state/stores";
 import { PodcastFormat } from "@/domain/models";
 import { resolveReachableApiUrl } from "@/services/api/baseUrl";
-import { colors, radius, spacing, typography } from "@/theme";
+import { StaggerView, colors, fw, radius, spacing, typography } from "@/theme";
 import { safeAudioPlayerCall } from "@/utils/audioPlayer";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -84,7 +84,6 @@ export function UploadStep2Screen() {
   const previewStatus = useAudioPlayerStatus(previewPlayer);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -125,17 +124,29 @@ export function UploadStep2Screen() {
     }
   };
 
+  const handleCreate = () => {
+    safeAudioPlayerCall(() => {
+      previewPlayer.pause();
+    });
+    setPreviewingVoice(null);
+    navigation.navigate("Uploading");
+  };
+
   return (
     <ScreenContainer scroll contentStyle={styles.container}>
-      <Text style={styles.title}>Ses ve Format Seçimi</Text>
-      <WizardProgress label="Ses ve Format" step={2} totalSteps={3} />
+      <StaggerView index={0}>
+        <Text style={styles.title}>Ses ve Format</Text>
+        <Text style={styles.stepHint}>Adım 2/2</Text>
+      </StaggerView>
 
-      <Text style={styles.sectionTitle}>Seslendirici seçin</Text>
-      <Text style={styles.sectionDescription}>
-        Her sesin kısa örneğini dinleyerek sana en uygun anlatımı seçebilirsin.
-      </Text>
+      <StaggerView index={1}>
+        <Text style={styles.sectionTitle}>Seslendirici seçin</Text>
+        <Text style={styles.sectionDescription}>
+          Her sesin kısa örneğini dinleyerek sana en uygun anlatımı seçebilirsin.
+        </Text>
+      </StaggerView>
 
-      <View style={styles.voiceGroup}>
+      <StaggerView index={2} style={styles.voiceGroup}>
         {voiceOptions.map((option) => {
           const isSelected = voice === option.key;
           const isPreviewing = previewingVoice === option.key && previewStatus.playing;
@@ -143,7 +154,7 @@ export function UploadStep2Screen() {
             <Pressable
               key={option.key}
               style={[styles.voiceOption, isSelected && styles.voiceOptionSelected]}
-              onPress={() => { setVoice(option.key); setValidationError(null); }}
+              onPress={() => setVoice(option.key)}
             >
               <View style={styles.voiceLeft}>
                 <View style={[styles.voiceIconWrap, isSelected && styles.voiceIconWrapSelected]}>
@@ -172,19 +183,21 @@ export function UploadStep2Screen() {
             </Pressable>
           );
         })}
-      </View>
+      </StaggerView>
 
       {previewError ? <Text style={styles.warning}>{previewError}</Text> : null}
 
-      <Text style={styles.sectionTitle}>İçerik formatı</Text>
-      <View style={styles.formatRow}>
+      <StaggerView index={3}>
+        <Text style={styles.sectionTitle}>İçerik formatı</Text>
+      </StaggerView>
+      <StaggerView index={4} style={styles.formatRow}>
         {formatOptions.map((item) => {
           const isSelected = format === item.key;
           return (
             <Pressable
               key={item.key}
               style={[styles.formatCard, isSelected && styles.formatCardSelected]}
-              onPress={() => { setFormat(item.key); setValidationError(null); }}
+              onPress={() => setFormat(item.key)}
             >
               <Ionicons
                 name={item.icon}
@@ -195,7 +208,7 @@ export function UploadStep2Screen() {
             </Pressable>
           );
         })}
-      </View>
+      </StaggerView>
 
       {/* --- Course Association --- */}
       {courses.length > 0 ? (
@@ -226,19 +239,10 @@ export function UploadStep2Screen() {
         </>
       ) : null}
 
-      {validationError ? <Text style={styles.warning}>{validationError}</Text> : null}
-
       <PrimaryButton
-        label={!format ? "İçerik formatı seçiniz" : "Devam Et → İçerik Planla"}
+        label={!format ? "İçerik formatı seçiniz" : "Podcast Oluştur"}
         disabled={!voice || !format}
-        onPress={() => {
-          setValidationError(null);
-          safeAudioPlayerCall(() => {
-            previewPlayer.pause();
-          });
-          setPreviewingVoice(null);
-          navigation.navigate("UploadStep3");
-        }}
+        onPress={handleCreate}
       />
     </ScreenContainer>
   );
@@ -247,13 +251,19 @@ export function UploadStep2Screen() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxl,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
+  },
+  stepHint: {
+    ...typography.caption,
+    color: colors.motivationOrange,
+    ...fw.semiBold,
+    marginTop: spacing.xs,
   },
   sectionTitle: {
     ...typography.h3,
@@ -265,7 +275,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   voiceGroup: {
-    gap: 6,
+    gap: spacing.sm,
   },
   voiceOption: {
     flexDirection: "row",
@@ -273,13 +283,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.dividerStrong,
+    borderColor: colors.divider,
     backgroundColor: colors.cardBg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    minHeight: 64,
   },
   voiceOptionSelected: {
-    borderColor: colors.motivationOrange,
+    borderColor: "rgba(232,130,74,0.4)",
     backgroundColor: colors.orangeTint,
   },
   voiceLeft: {
@@ -306,7 +317,7 @@ const styles = StyleSheet.create({
   voiceLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   voiceSubtitle: {
     ...typography.caption,
@@ -327,11 +338,13 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.dividerStrong,
+    borderColor: colors.divider,
     backgroundColor: colors.cardBg,
     paddingVertical: spacing.lg,
     alignItems: "center",
     gap: spacing.sm,
+    minHeight: 80,
+    justifyContent: "center",
   },
   formatCardSelected: {
     borderColor: colors.motivationOrange,
@@ -340,7 +353,7 @@ const styles = StyleSheet.create({
   formatLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
   formatLabelSelected: {
     color: colors.textPrimary,
@@ -367,6 +380,6 @@ const styles = StyleSheet.create({
   },
   courseChipLabelSelected: {
     color: colors.motivationOrange,
-    fontWeight: "600",
+    ...fw.semiBold,
   },
 });

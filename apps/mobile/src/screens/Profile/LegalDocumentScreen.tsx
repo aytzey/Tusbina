@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
   },
   meta: {

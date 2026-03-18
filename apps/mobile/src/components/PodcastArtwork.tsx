@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
-import { colors, typography } from "@/theme";
+import { colors, fw, typography } from "@/theme";
 
 const LOGO = require("../../assets/logo.png");
 
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
     letterSpacing: 0.8,
   },
   body: {
@@ -164,13 +164,13 @@ const styles = StyleSheet.create({
   },
   initials: {
     color: colors.textPrimary,
-    fontWeight: "800",
+    ...fw.extraBold,
     letterSpacing: 1.5,
   },
   title: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
     lineHeight: 18,
   },
   subtitle: {

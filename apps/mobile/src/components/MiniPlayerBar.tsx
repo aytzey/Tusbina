@@ -1,8 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { usePlayerStore, useUserStore } from "@/state/stores";
-import { colors, radius, spacing, touch, typography } from "@/theme";
+import { colors, fw, radius, spacing, touch, typography } from "@/theme";
+
+const EASE_OUT_EXPO = Easing.bezier(0.16, 1, 0.3, 1);
 
 export function MiniPlayerBar() {
   const track = usePlayerStore((s) => s.activeTrack);
@@ -16,12 +19,43 @@ export function MiniPlayerBar() {
   const openLimitModal = useUserStore((s) => s.openLimitModal);
   const navigation = useNavigation<any>();
 
-  if (!track) return null;
+  /* ── Animated progress ── */
+  const animProgress = useRef(new Animated.Value(0)).current;
 
-  const duration = playbackDurationSec > 0 ? playbackDurationSec : track.durationSec;
+  /* ── Play button spring ── */
+  const playScale = useRef(new Animated.Value(1)).current;
+
+  const duration = track ? (playbackDurationSec > 0 ? playbackDurationSec : track.durationSec) : 0;
   const progressPct = duration > 0 ? Math.min(100, (positionSec / duration) * 100) : 0;
 
+  /* Smooth progress animation — must be before any early return */
+  useEffect(() => {
+    Animated.timing(animProgress, {
+      toValue: progressPct,
+      duration: 300,
+      easing: EASE_OUT_EXPO,
+      useNativeDriver: false,
+    }).start();
+  }, [progressPct]);
+
+  const progressWidth = animProgress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+
+  if (!track) return null;
+
   const handleTogglePlay = () => {
+    /* Spring press feedback */
+    playScale.setValue(0.85);
+    Animated.spring(playScale, {
+      toValue: 1,
+      tension: 250,
+      friction: 12,
+      useNativeDriver: true,
+    }).start();
+
     if (isPlaying) {
       pause();
     } else if (!canPlay()) {
@@ -35,7 +69,7 @@ export function MiniPlayerBar() {
     <View style={styles.wrapper}>
       {/* Progress indicator line at top */}
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progressPct}%` as any }]} />
+        <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
       </View>
 
       <Pressable
@@ -58,19 +92,21 @@ export function MiniPlayerBar() {
         </View>
 
         {/* Play / Pause */}
-        <Pressable
-          style={({ pressed }) => [styles.playBtn, pressed && styles.pressed]}
-          onPress={handleTogglePlay}
-          hitSlop={touch.hitSlop}
-          accessibilityRole="button"
-          accessibilityLabel={isPlaying ? "Duraklat" : "Oynat"}
-        >
-          <Ionicons
-            name={isPlaying ? "pause" : "play"}
-            size={20}
-            color={colors.textPrimary}
-          />
-        </Pressable>
+        <Animated.View style={{ transform: [{ scale: playScale }] }}>
+          <Pressable
+            style={styles.playBtn}
+            onPress={handleTogglePlay}
+            hitSlop={touch.hitSlop}
+            accessibilityRole="button"
+            accessibilityLabel={isPlaying ? "Duraklat" : "Oynat"}
+          >
+            <Ionicons
+              name={isPlaying ? "pause" : "play"}
+              size={20}
+              color={colors.textPrimary}
+            />
+          </Pressable>
+        </Animated.View>
 
         {/* Close */}
         <Pressable
@@ -91,11 +127,11 @@ const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: colors.surfaceNavyLight,
     borderTopWidth: 1,
-    borderTopColor: colors.dividerStrong,
+    borderTopColor: colors.divider,
   },
   progressTrack: {
     height: 2,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   progressFill: {
     height: "100%",
@@ -104,37 +140,35 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   cover: {
     width: 40,
     height: 40,
-    borderRadius: radius.sm,
+    borderRadius: radius.xs,
     backgroundColor: colors.cardBgElevated,
     alignItems: "center",
     justifyContent: "center",
   },
   info: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
   title: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textPrimary,
-    fontWeight: "600",
-    fontSize: 14,
+    ...fw.semiBold,
   },
   subtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontSize: 12,
+    ...typography.small,
+    color: colors.textTertiary,
   },
   playBtn: {
-    width: touch.minSize,
-    height: touch.minSize,
-    borderRadius: touch.minSize / 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.motivationOrange,
     alignItems: "center",
     justifyContent: "center",

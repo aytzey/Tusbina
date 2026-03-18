@@ -14,7 +14,7 @@ import {
   uploadPdfFiles,
 } from "@/services/api";
 import { usePlayerStore, usePodcastsStore, useUploadWizardStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 import {
   buildPodcastQueue,
   getPodcastPartStatusLabel,
@@ -205,6 +205,7 @@ export function UploadingScreen() {
         if (cancelled) {
           return;
         }
+        console.error("[UploadingScreen] Upload failed:", e);
         if (isNetworkApiError(e)) {
           navigation.replace("NoInternet");
           return;
@@ -319,12 +320,12 @@ export function UploadingScreen() {
       {podcast && partSummary ? (
         <>
           <View style={styles.summaryRow}>
-            <View style={styles.summaryChip}>
-              <Text style={styles.summaryChipLabel}>Hazır</Text>
+            <View style={[styles.summaryChip, styles.summaryChipReady]}>
+              <Text style={[styles.summaryChipLabel, { color: colors.success }]}>Hazır</Text>
               <Text style={styles.summaryChipValue}>{partSummary.readyCount}</Text>
             </View>
-            <View style={styles.summaryChip}>
-              <Text style={styles.summaryChipLabel}>Oluşturuluyor</Text>
+            <View style={[styles.summaryChip, styles.summaryChipProcessing]}>
+              <Text style={[styles.summaryChipLabel, { color: colors.motivationOrange }]}>Oluşturuluyor</Text>
               <Text style={styles.summaryChipValue}>{partSummary.processingCount}</Text>
             </View>
             <View style={styles.summaryChip}>
@@ -484,12 +485,14 @@ const styles = StyleSheet.create({
     gap: spacing.md
   },
   logo: {
-    width: 240,
-    height: 240,
-    alignSelf: "center"
+    width: 120,
+    height: 120,
+    alignSelf: "center",
+    opacity: 0.9,
+    marginBottom: spacing.sm,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
     textAlign: "center"
   },
@@ -535,7 +538,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     backgroundColor: colors.cardBg,
-    gap: spacing.xs
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  summaryChipReady: {
+    borderColor: "rgba(76,184,122,0.2)",
+    backgroundColor: colors.greenTint,
+  },
+  summaryChipProcessing: {
+    borderColor: "rgba(232,130,74,0.15)",
+    backgroundColor: colors.orangeTint,
   },
   summaryChipLabel: {
     ...typography.caption,
@@ -550,8 +563,6 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
     paddingVertical: spacing.md,
     alignItems: "center",
     justifyContent: "center"
@@ -559,7 +570,7 @@ const styles = StyleSheet.create({
   secondaryButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700"
+    ...fw.bold,
   },
   partList: {
     gap: spacing.sm
@@ -567,23 +578,25 @@ const styles = StyleSheet.create({
   partCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.cardBg,
-    padding: spacing.md
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   partIndex: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.motivationOrange,
+    backgroundColor: colors.surfaceNavyLight,
     alignItems: "center",
     justifyContent: "center"
   },
   partIndexText: {
     ...typography.caption,
     color: colors.textPrimary,
-    fontWeight: "700"
+    ...fw.bold,
   },
   partBody: {
     flex: 1,
@@ -596,7 +609,7 @@ const styles = StyleSheet.create({
   partTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700"
+    ...fw.bold,
   },
   partStatus: {
     ...typography.caption,
@@ -618,7 +631,7 @@ const styles = StyleSheet.create({
   partActionLabel: {
     ...typography.caption,
     color: colors.textPrimary,
-    fontWeight: "700"
+    ...fw.bold,
   },
   jobMeta: {
     ...typography.caption,

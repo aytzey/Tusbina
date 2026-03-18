@@ -5,7 +5,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ScreenContainer } from "@/components";
 import { RootStackParamList } from "@/navigation/types";
 import { usePodcastsStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   introTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   introText: {
     ...typography.caption,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
     flex: 1,
   },
   statusPill: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   statusPillText: {
     ...typography.caption,
-    fontWeight: "700",
+    ...fw.bold,
   },
   cardMeta: {
     ...typography.caption,

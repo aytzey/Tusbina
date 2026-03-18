@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View 
 import { ScreenContainer } from "@/components";
 import { deleteMyAccount } from "@/services/api";
 import { useAuthStore } from "@/state/stores";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, fw, radius, spacing, typography } from "@/theme";
 
 const CONFIRM_PHRASE = "HESABIMI SIL";
 
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    ...typography.title,
+    ...typography.h2,
     color: colors.textPrimary,
   },
   subtitle: {
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   helper: {
     ...typography.caption,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   deleteButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    fontWeight: "700",
+    ...fw.bold,
   },
   buttonDisabled: {
     opacity: 0.45,

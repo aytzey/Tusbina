@@ -11,7 +11,6 @@ import { RegisterScreen } from "@/screens/Auth/RegisterScreen";
 import { CourseDetailScreen } from "@/screens/Courses/CourseDetailScreen";
 import { PlayerScreen } from "@/screens/Player/PlayerScreen";
 import { UploadStep2Screen } from "@/screens/Upload/UploadStep2Screen";
-import { UploadStep3Screen } from "@/screens/Upload/UploadStep3Screen";
 import { UploadingScreen } from "@/screens/Upload/UploadingScreen";
 import { PremiumScreen } from "@/screens/Premium/PremiumScreen";
 import { QuizScreen } from "@/screens/Quiz/QuizScreen";
@@ -24,8 +23,7 @@ import { LegalCenterScreen } from "@/screens/Profile/LegalCenterScreen";
 import { LegalDocumentScreen } from "@/screens/Profile/LegalDocumentScreen";
 import { NotificationsScreen } from "@/screens/Profile/NotificationsScreen";
 import { SupportScreen } from "@/screens/Profile/SupportScreen";
-import { GeneralErrorScreen } from "@/screens/States/GeneralErrorScreen";
-import { NoInternetScreen } from "@/screens/States/NoInternetScreen";
+import { GeneralErrorScreen, NoInternetScreen } from "@/screens/States/ErrorStateScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -57,10 +55,16 @@ export function RootNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: colors.primaryNavy },
+        headerStyle: { backgroundColor: colors.surfaceNavy },
         headerTintColor: colors.textPrimary,
+        headerTitleStyle: {
+          fontFamily: "Jakarta-Bold",
+          fontWeight: "700",
+          fontSize: 17,
+          letterSpacing: -0.1,
+        },
         headerShadowVisible: false,
-        contentStyle: { backgroundColor: colors.primaryNavy }
+        contentStyle: { backgroundColor: colors.primaryNavy },
       }}
     >
       {isAuthenticated && requiresLegalAcceptance ? (
@@ -78,7 +82,6 @@ export function RootNavigator() {
           <Stack.Screen name="CourseDetail" component={CourseDetailScreen} options={{ title: "Ders Detay" }} />
           <Stack.Screen name="Player" component={PlayerScreen} options={{ title: "Şimdi Dinleniyor" }} />
           <Stack.Screen name="UploadStep2" component={UploadStep2Screen} options={{ title: "Ses ve Format" }} />
-          <Stack.Screen name="UploadStep3" component={UploadStep3Screen} options={{ title: "Önizleme" }} />
           <Stack.Screen name="Uploading" component={UploadingScreen} options={{ title: "Hazırlanıyor" }} />
           <Stack.Screen name="Premium" component={PremiumScreen} options={{ title: "Premium" }} />
           <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: "Soru-Cevap" }} />
